@@ -29,6 +29,11 @@ Tombol **Sekali klik** di Beranda membuat proyek lalu menjalankan langkah 1–4 
    yang gagal diulang satu putaran lagi (`MEDIA_ROUNDS`);
 4. proyek dipindah ke langkah 4 (Editor), status `editing`.
 
+Di dalam proyek, tombol **Lanjutkan otomatis** di header (`AutopilotButton`) menjalankan urutan yang sama dari
+posisi proyek saat itu, misalnya setelah naskah kamu sunting. Tombol ini hanya muncul kalau masih ada yang perlu
+dibuat (`remainingWork`), dan sebelum mulai memeriksa layanan yang akan dipanggil (`missingServices` di
+`lib/keys.ts`, juga dipakai tombol Sekali klik di Beranda).
+
 Video AI tidak dibuat dan ekspor tetap manual. Setiap langkah dilewati kalau hasilnya sudah ada, jadi **Coba lagi**
 atau **Lanjutkan otomatis** cukup menjalankan ulang seluruh urutan. Selama berjalan, halaman proyek menampilkan
 `AutopilotPanel` sebagai ganti isi langkah dan tab langkah dikunci. Proses tetap jalan kalau pengguna kembali ke

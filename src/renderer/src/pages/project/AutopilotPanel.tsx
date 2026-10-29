@@ -1,7 +1,11 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
-import { Button, Progress, Spinner, cx } from '../../components/ui'
-import { dismissAutopilot, startAutopilot, stopAutopilot, type AutopilotRun, type AutopilotStage } from '../../lib/autopilot'
+import { isNineRouterImage } from '@shared/imageModels'
+import { Button, Progress, Spinner, confirmDialog, cx } from '../../components/ui'
+import { dismissAutopilot, remainingWork, startAutopilot, stopAutopilot, type AutopilotRun, type AutopilotStage } from '../../lib/autopilot'
+import { joinList } from '../../lib/format'
+import { missingServices } from '../../lib/keys'
+import { useApp } from '../../store/app'
 import { useProject } from '../../store/project'
 
 type RowState = 'pending' | 'active' | 'done' | 'failed'
@@ -168,5 +172,54 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Header button that hands an existing project to one-click generate from wherever it stands. */
+export function AutopilotButton() {
+  const { project, clips } = useProject()
+  const { toast, go } = useApp()
+  const [busy, setBusy] = useState(false)
+  if (!project) return null
+  const work = remainingWork(clips)
+  if (!work.parts.length) return null
+
+  const start = async (): Promise<void> => {
+    if (!clips.length && !project.synopsis.trim()) return toast('error', 'Tulis ide ceritanya dulu di langkah Ide cerita.')
+    setBusy(true)
+    try {
+      await useProject.getState().flush()
+      const [settings, keys] = await Promise.all([window.api.settings.get(), window.api.settings.keys()])
+      const imageModel = project.imageModel ?? settings.imageModel
+      const missing = missingServices(settings, keys, {
+        story: work.story,
+        imageModel: work.images ? imageModel : null,
+        tts: work.voice ? project.ttsProvider : null
+      })
+      if (missing.length) {
+        toast('error', `Atur dulu ${joinList(missing)} di Pengaturan.`, {
+          label: 'Buka Pengaturan',
+          run: () => go({ name: 'settings', back: { name: 'project', id: project.id } })
+        })
+        return
+      }
+      const ok = await confirmDialog({
+        title: 'Lanjutkan otomatis?',
+        body:
+          `Yang akan dibuat: ${joinList(work.parts)}. Bagian yang sudah jadi tidak diulang, lalu proyek terbuka di editor. ` +
+          (work.images && !isNineRouterImage(imageModel) ? 'Gambar Higgsfield memakai kredit. ' : '') +
+          'Video AI tidak dibuat.',
+        confirm: 'Lanjutkan otomatis'
+      })
+      if (ok) startAutopilot(project.id)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Button icon={<Wand2 className="size-[17px]" />} loading={busy} onClick={() => void start()}>
+      Lanjutkan otomatis
+    </Button>
   )
 }

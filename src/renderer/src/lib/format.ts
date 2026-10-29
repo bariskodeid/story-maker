@@ -46,3 +46,8 @@ export function creditLabel(n: number): string {
 export function usdLabel(n: number): string {
   return `US$${n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 3 : 2 })}`
 }
+
+/** "a, b dan c" */
+export function joinList(items: string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} dan ${items[items.length - 1]}`
+}

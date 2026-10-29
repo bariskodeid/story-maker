@@ -42,6 +42,8 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
   dan caption dibuat otomatis berurutan, lalu proyek terbuka di editor untuk kamu cek dan ekspor.
 - Video AI tidak ikut dibuat (klip memakai gerak kamera). Proses bisa dihentikan dan dilanjutkan; langkah yang sudah
   selesai tidak diulang.
+- Proyek yang sudah berjalan bisa diteruskan dengan **Lanjutkan otomatis** di header proyek, misalnya setelah kamu
+  menyunting naskah.
 
 **1. Ide cerita**
 - Tulis ide atau sinopsis, lalu atur:

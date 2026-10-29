@@ -10,8 +10,8 @@ import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
 import { Badge, Button, Chip, IconButton, Menu, confirmDialog, cx } from '../components/ui'
 import { startAutopilot, useAutopilot } from '../lib/autopilot'
-import { errorText, mmss, relativeTime } from '../lib/format'
-import { TTS_NAMES, TTS_PROVIDERS, ttsReadiness, usableTts } from '../lib/keys'
+import { errorText, joinList, mmss, relativeTime } from '../lib/format'
+import { TTS_NAMES, TTS_PROVIDERS, missingServices, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
 
 const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'warn' | 'ok' }> = {
@@ -34,11 +34,6 @@ const SUGGESTIONS = [
   'Misteri Segitiga Bermuda: fakta dan mitosnya',
   'Kenapa kucing suka masuk ke dalam kotak?'
 ]
-
-/** "a, b dan c" */
-function joinList(items: string[]): string {
-  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} dan ${items[items.length - 1]}`
-}
 
 const ASPECTS: SelectOption<AspectRatio>[] = [
   { value: '16:9', label: '16:9 · YouTube', icon: <span className="block h-[10px] w-[17px] rounded-[2px] border-[1.5px] border-ink" /> },
@@ -130,13 +125,12 @@ export function Home() {
   }
 
   // One-click generate needs every service up front; the manual flow can still start and fix keys later.
+  const autoMissing = appSettings && keys.length ? missingServices(appSettings, keys, { story: true, imageModel: appSettings.imageModel, tts }) : []
   const autoBlocked = !synopsis.trim()
     ? 'Tulis ide ceritanya dulu.'
-    : setupIssues.length
-      ? `Atur dulu ${joinList(setupIssues.map((i) => i.what))} di Pengaturan.`
-      : keys.length && !ttsReadiness(keys)[tts].ok
-        ? `Suara narator ${TTS_NAMES[tts]} belum siap. Pilih penyedia suara lain.`
-        : null
+    : autoMissing.length
+      ? `Atur dulu ${joinList(autoMissing)} di Pengaturan, atau pilih suara narator lain.`
+      : null
 
   const startAuto = async (): Promise<void> => {
     const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')

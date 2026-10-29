@@ -7,7 +7,7 @@ import { useAutopilot } from '../../lib/autopilot'
 import { errorText } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { useProject } from '../../store/project'
-import { AutopilotPanel } from './AutopilotPanel'
+import { AutopilotButton, AutopilotPanel } from './AutopilotPanel'
 import { EditorStep } from './EditorStep'
 import { ExportDialog } from './ExportDialog'
 import { IdeaStep } from './IdeaStep'
@@ -66,11 +66,16 @@ export function ProjectPage({ id }: { id: string }) {
         doneSteps={done}
         locked={!!autopilot}
         right={
-          project.step === 4 && !autopilot ? (
-            <Button variant="primary" icon={<Download className="size-[18px]" />} onClick={() => setExportOpen(true)}>
-              Ekspor video
-            </Button>
-          ) : undefined
+          autopilot ? undefined : (
+            <>
+              <AutopilotButton />
+              {project.step === 4 && (
+                <Button variant="primary" icon={<Download className="size-[18px]" />} onClick={() => setExportOpen(true)}>
+                  Ekspor video
+                </Button>
+              )}
+            </>
+          )
         }
       />
       <div className="min-h-0 flex-1">

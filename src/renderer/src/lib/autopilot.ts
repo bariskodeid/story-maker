@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { needsVisual } from '@shared/script'
-import type { Job, ProjectBundle } from '@shared/types'
+import type { Clip, Job, ProjectBundle } from '@shared/types'
 import { useApp } from '../store/app'
 import { useProject } from '../store/project'
 import { errorText } from './format'
@@ -32,6 +32,19 @@ interface AutopilotState {
 }
 
 export const useAutopilot = create<AutopilotState>(() => ({ runs: {} }))
+
+/** What a run would still make for these clips, in the order it makes them, mirroring the skips in `pipeline`. */
+export function remainingWork(clips: Clip[]): { parts: string[]; story: boolean; images: boolean; voice: boolean } {
+  if (!clips.length) return { parts: ['naskah', 'rencana visual', 'gambar', 'narasi'], story: true, images: true, voice: true }
+  const stale = clips.filter(needsVisual).length
+  const noImage = clips.filter((c) => !c.imageAssetId).length
+  const noVoice = clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
+  const parts: string[] = []
+  if (stale) parts.push(`rencana visual ${stale} adegan`)
+  if (noImage) parts.push(`${noImage} gambar klip`)
+  if (noVoice) parts.push(`narasi ${noVoice} klip`)
+  return { parts, story: stale > 0, images: noImage > 0, voice: noVoice > 0 }
+}
 
 /** Failed images and narration get one more round before the run gives up. */
 const MEDIA_ROUNDS = 2

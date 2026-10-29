@@ -23,6 +23,8 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 - **Sekali klik** di Beranda: dari satu ide, naskah, rencana visual, lembar karakter, gambar klip, narasi, dan
   caption dibuat otomatis, lalu proyek terbuka di editor. Progresnya tampil di halaman proyek, bisa dihentikan, dan
   bisa dilanjutkan tanpa mengulang langkah yang sudah selesai. Video AI tidak ikut dibuat.
+- **Lanjutkan otomatis** di header proyek: meneruskan proyek yang sudah ada dari langkah terakhirnya dengan cara
+  yang sama. Tombolnya hanya muncul kalau masih ada yang perlu dibuat.
 - **9Router** (gateway AI lokal atau yang di-host sendiri, kompatibel OpenAI) sebagai penyedia baru. Satu koneksi
   (alamat + kunci opsional) dipakai untuk:
   - penyusun cerita (naskah, rencana visual, prompt musik);
