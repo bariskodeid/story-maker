@@ -1,8 +1,10 @@
 export type ProjectStatus = 'draft' | 'script' | 'storyboard' | 'editing' | 'exported'
 export type AspectRatio = '16:9' | '9:16'
 export type TtsProvider = 'gemini' | 'elevenlabs'
-export type LlmProvider = 'gemini' | 'openrouter' | 'groq' | 'custom'
-export type ApiProvider = 'higgsfield' | 'gemini' | 'elevenlabs' | 'openrouter' | 'groq' | 'custom'
+export type LlmProvider = 'gemini' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
+export type ApiProvider = 'higgsfield' | 'gemini' | 'elevenlabs' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
+/** LLM providers reached at a user-chosen base URL, with an optional key. */
+export type EndpointProvider = 'ninerouter' | 'custom'
 /** Where a live model list comes from: an LLM provider, or a TTS catalog. */
 export type ModelSource = LlmProvider | 'gemini-tts' | 'elevenlabs'
 export type MotionType = 'camera' | 'video'
@@ -285,6 +287,8 @@ export interface AppSettings {
   llmModels: Record<LlmProvider, string>
   /** Base URL of an OpenAI-compatible endpoint, e.g. http://localhost:11434/v1 */
   customBaseUrl: string
+  /** Base URL of the user's 9Router gateway (local by default, or a self-hosted one). */
+  nineRouterBaseUrl: string
   geminiTtsModel: string
   elevenModel: string
   /** Higgsfield models for new projects: the last ones picked in the Idea step. */

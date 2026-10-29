@@ -1,9 +1,10 @@
 import { safeStorage } from 'electron'
 import type { ApiProvider, KeyStatus } from '@shared/types'
 import { getDb } from './db'
+import { endpointUrl, isEndpointProvider } from '@shared/models'
 import { getSettings } from './settings'
 
-const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'elevenlabs', 'openrouter', 'groq', 'custom']
+const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'elevenlabs', 'openrouter', 'groq', 'ninerouter', 'custom']
 
 export const PROVIDER_NAMES: Record<ApiProvider, string> = {
   higgsfield: 'Higgsfield',
@@ -11,6 +12,7 @@ export const PROVIDER_NAMES: Record<ApiProvider, string> = {
   elevenlabs: 'ElevenLabs',
   openrouter: 'OpenRouter',
   groq: 'Groq',
+  ninerouter: '9Router',
   custom: 'endpoint custom'
 }
 
@@ -89,13 +91,13 @@ export function clearSecret(provider: ApiProvider): void {
   getDb().prepare('DELETE FROM secrets WHERE provider = ?').run(provider)
 }
 
-/** Test results for the custom endpoint are kept even when it has no key (local servers). */
+/** Test results for endpoint providers are kept even when they have no key (local servers). */
 export function recordCheck(provider: ApiProvider, ok: boolean, message: string): void {
   const now = Date.now()
   const res = getDb()
     .prepare('UPDATE secrets SET last_ok = ?, last_message = ?, checked_at = ? WHERE provider = ?')
     .run(ok ? 1 : 0, message, now, provider)
-  if (res.changes === 0 && provider === 'custom') {
+  if (res.changes === 0 && isEndpointProvider(provider)) {
     getDb()
       .prepare('INSERT INTO secrets (provider, value, last_ok, last_message, checked_at) VALUES (?, ?, ?, ?, ?)')
       .run(provider, Buffer.alloc(0), ok ? 1 : 0, message, now)
@@ -104,7 +106,7 @@ export function recordCheck(provider: ApiProvider, ok: boolean, message: string)
 
 export function keyStatuses(): KeyStatus[] {
   const rows = getDb().prepare('SELECT * FROM secrets').all() as SecretRow[]
-  const customUrl = getSettings().customBaseUrl.trim()
+  const settings = getSettings()
   return PROVIDERS.map((provider) => {
     const r = rows.find((x) => x.provider === provider)
     const hasKey = !!r && r.value.length > 0
@@ -112,7 +114,7 @@ export function keyStatuses(): KeyStatus[] {
     const unreadable = hasKey && value == null
     return {
       provider,
-      configured: provider === 'custom' ? !!customUrl : hasKey,
+      configured: isEndpointProvider(provider) ? !!endpointUrl(settings, provider).trim() : hasKey,
       lastOk: unreadable ? false : r?.last_ok == null ? null : r.last_ok === 1,
       lastMessage: unreadable ? 'Kunci tersimpan tapi tidak bisa dibuka lagi. Masukkan ulang kuncinya.' : (r?.last_message ?? null),
       checkedAt: r?.checked_at ?? null,

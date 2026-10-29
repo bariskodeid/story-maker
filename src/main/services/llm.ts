@@ -1,4 +1,5 @@
-import type { KeyTestResult, LlmProvider, ModelList, ModelOption, ModelSource } from '@shared/types'
+import { endpointUrl, isEndpointProvider } from '@shared/models'
+import type { EndpointProvider, KeyTestResult, LlmProvider, ModelList, ModelOption, ModelSource } from '@shared/types'
 import { getSecret, PROVIDER_NAMES } from '../secrets'
 import { getSettings, readCache, writeCache } from '../settings'
 import * as eleven from './elevenlabs'
@@ -35,13 +36,14 @@ function compat(provider: CompatProvider, keyOverride?: string | null, baseOverr
     return { provider, base: 'https://openrouter.ai/api/v1', key, headers: { 'X-OpenRouter-Title': 'Bang Story', 'X-Title': 'Bang Story' } }
   }
   if (provider === 'groq') return { provider, base: 'https://api.groq.com/openai/v1', key, headers: {} }
-  const base = (baseOverride ?? getSettings().customBaseUrl).trim().replace(/\/+$/, '')
-  if (!base) throw new LlmError('Alamat endpoint custom belum diisi. Buka Pengaturan untuk menambahkannya.')
+  const base = (baseOverride ?? endpointUrl(getSettings(), provider)).trim().replace(/\/+$/, '')
+  if (!base) throw new LlmError(`Alamat endpoint ${PROVIDER_NAMES[provider]} belum diisi. Buka Pengaturan untuk menambahkannya.`)
   return { provider, base, key, headers: {} }
 }
 
 function requireKey(c: Compat): void {
-  if (c.provider !== 'custom' && !c.key)
+  // Local gateways and servers may run without a key; they answer 401 themselves when one is required.
+  if (!isEndpointProvider(c.provider) && !c.key)
     throw new LlmError(`Kunci API ${PROVIDER_NAMES[c.provider]} belum diatur. Buka Pengaturan untuk menambahkannya.`)
 }
 
@@ -76,6 +78,8 @@ async function call<T>(c: Compat, path: string, init: RequestInit = {}): Promise
   } catch (e) {
     if ((e as Error).name === 'TimeoutError') throw new LlmError(`${PROVIDER_NAMES[c.provider]} terlalu lama merespons.`, 408)
     if ((e as Error).name === 'AbortError') throw e
+    if (c.provider === 'ninerouter')
+      throw new LlmError(`Tidak bisa terhubung ke 9Router di ${c.base}. Pastikan 9Router sedang berjalan (npx 9router): ${(e as Error).message}`)
     throw new LlmError(`Tidak bisa terhubung ke ${c.provider === 'custom' ? c.base : PROVIDER_NAMES[c.provider]}: ${(e as Error).message}`)
   }
   if (!res.ok) {
@@ -144,8 +148,8 @@ async function groqModels(): Promise<ModelOption[]> {
     .sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))
 }
 
-async function customModels(): Promise<ModelOption[]> {
-  const c = compat('custom')
+async function endpointModels(provider: EndpointProvider, keyOverride?: string | null, baseOverride?: string): Promise<ModelOption[]> {
+  const c = compat(provider, keyOverride, baseOverride)
   const r = await call<{ data?: { id: string; owned_by?: string }[]; models?: { name?: string; model?: string; id?: string }[] }>(c, '/models')
   const list = r.data ?? r.models?.map((m) => ({ id: m.id ?? m.model ?? m.name ?? '', owned_by: undefined })) ?? []
   return list
@@ -165,13 +169,14 @@ async function fetchModels(source: ModelSource): Promise<ModelOption[]> {
       return openRouterModels()
     case 'groq':
       return groqModels()
+    case 'ninerouter':
     case 'custom':
-      return customModels()
+      return endpointModels(source)
   }
 }
 
 function cacheKey(source: ModelSource): string {
-  return source === 'custom' ? `models:custom:${getSettings().customBaseUrl.trim()}` : `models:${source}`
+  return isEndpointProvider(source) ? `models:${source}:${endpointUrl(getSettings(), source).trim()}` : `models:${source}`
 }
 
 export async function listModels(source: ModelSource, refresh = false): Promise<ModelList> {
@@ -202,7 +207,7 @@ export async function testLlm(provider: LlmProvider, key?: string | null, baseUr
       return { ok: true, message: parts.join(' · ') }
     }
     // Groq and OpenAI-compatible servers have no key-info endpoint; listing models proves the key works.
-    const models = provider === 'groq' ? await groqModels() : await customModels()
+    const models = provider === 'groq' ? await groqModels() : await endpointModels(provider, key, baseUrl)
     return { ok: true, message: `Terhubung · ${models.length} model tersedia` }
   } catch (e) {
     return { ok: false, message: (e as Error).message }

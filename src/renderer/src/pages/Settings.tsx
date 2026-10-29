@@ -17,7 +17,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { HF_IMAGE_MODELS, HF_VIDEO_MODELS } from '@shared/higgsfield'
-import { LANGUAGES, LLM_PROVIDERS } from '@shared/models'
+import { LANGUAGES, LLM_PROVIDERS, NINEROUTER_DEFAULT_URL, endpointUrl, isEndpointProvider } from '@shared/models'
 import type { ApiProvider, AppSettings, KeyStatus, KeyTestResult, LlmProvider, TtsProvider } from '@shared/types'
 import { Logo } from '../components/Logo'
 import { ModelPicker } from '../components/ModelPicker'
@@ -125,7 +125,7 @@ function ProviderSelect<T extends string>({ value, options, onChange }: { value:
   )
 }
 
-/** API key field(s) with save, test and delete. The custom endpoint also takes a base URL. */
+/** API key field(s) with save, test and delete. Endpoint providers (9Router, custom) also take a base URL. */
 function KeyForm({
   provider,
   name,
@@ -155,11 +155,12 @@ function KeyForm({
 }) {
   const { toast } = useApp()
   const configured = !!status?.configured
-  const isCustom = provider === 'custom'
+  const isCustom = isEndpointProvider(provider)
+  const defaultUrl = provider === 'ninerouter' ? NINEROUTER_DEFAULT_URL : ''
   const preview = status?.preview ?? null
   const [editing, setEditing] = useState(!preview)
   const [key, setKey] = useState('')
-  const [url, setUrl] = useState(customUrl ?? '')
+  const [url, setUrl] = useState(customUrl || defaultUrl)
   const [revealed, setRevealed] = useState<string | null>(null)
   const [showTyped, setShowTyped] = useState(false)
   const [busy, setBusy] = useState<'save' | 'test' | null>(null)
@@ -186,7 +187,7 @@ function KeyForm({
   const save = async (): Promise<void> => {
     setBusy('save')
     try {
-      const r = isCustom ? await window.api.settings.setCustom(url, key) : await window.api.settings.setKey(provider, key)
+      const r = isEndpointProvider(provider) ? await window.api.settings.setCustom(url, key, provider) : await window.api.settings.setKey(provider, key)
       toast(r.ok ? 'success' : 'error', `${name}: ${r.message}`)
       setKey('')
       setEditing(false)
@@ -228,7 +229,7 @@ function KeyForm({
     })
     if (!ok) return
     await window.api.settings.clearKey(provider)
-    setUrl('')
+    setUrl(defaultUrl)
     onChanged()
   }
 
@@ -241,7 +242,7 @@ function KeyForm({
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={onEnter}
-              placeholder="http://localhost:11434/v1"
+              placeholder={defaultUrl || 'http://localhost:11434/v1'}
               spellCheck={false}
               className={cx(inputCls, 'h-11 font-mono text-sm')}
             />
@@ -266,7 +267,13 @@ function KeyForm({
                 onChange={(e) => setKey(e.target.value)}
                 onKeyDown={onEnter}
                 placeholder={
-                  isCustom ? (preview ? `Tersimpan (${preview}) · isi untuk mengganti` : 'Kosongkan untuk server lokal') : placeholder
+                  isCustom
+                    ? preview
+                      ? `Tersimpan (${preview}) · isi untuk mengganti`
+                      : provider === 'ninerouter'
+                        ? 'Kunci 9Router, kalau diwajibkan'
+                        : 'Kosongkan untuk server lokal'
+                    : placeholder
                 }
                 className={cx(inputCls, 'h-11 pr-11')}
               />
@@ -368,7 +375,8 @@ function LlmSection({ settings, statusOf, onChanged, onSettings }: { settings: A
   const status = statusOf(provider)
   const configured = !!status?.configured
   const [openPicker, setOpenPicker] = useState(false)
-  const models = useModels(provider, configured && status?.lastOk !== false, provider === 'custom' ? settings.customBaseUrl : '')
+  const baseUrl = isEndpointProvider(provider) ? endpointUrl(settings, provider) : ''
+  const models = useModels(provider, configured && status?.lastOk !== false, baseUrl)
   const model = settings.llmModels[provider]
   const selected = models.models.find((m) => m.id === model)
 
@@ -400,11 +408,17 @@ function LlmSection({ settings, statusOf, onChanged, onSettings }: { settings: A
           provider={provider}
           name={spec.name}
           status={status}
-          help={provider === 'custom' ? 'Contoh: http://localhost:11434/v1 untuk Ollama, http://localhost:1234/v1 untuk LM Studio, https://api.x.ai/v1 untuk Grok.' : 'Setelah kunci disimpan, daftar model diambil langsung dari penyedianya.'}
+          help={
+            provider === 'custom'
+              ? 'Contoh: http://localhost:11434/v1 untuk Ollama, http://localhost:1234/v1 untuk LM Studio, https://api.x.ai/v1 untuk Grok.'
+              : provider === 'ninerouter'
+                ? 'Jalankan 9Router (npx 9router), hubungkan penyedia di dashboard-nya, lalu simpan di sini. Ganti alamatnya kalau 9Router dipasang di server lain.'
+                : 'Setelah kunci disimpan, daftar model diambil langsung dari penyedianya.'
+          }
           hint={provider === 'gemini' && settings.defaultTtsProvider === 'gemini' ? 'Kunci ini dipakai bersama untuk suara narator Gemini TTS.' : undefined}
           link={spec.link}
           linkLabel={spec.linkLabel}
-          customUrl={settings.customBaseUrl}
+          customUrl={baseUrl}
           onChanged={onChanged}
           onSaved={async (r) => {
             if (!r.ok) return
@@ -428,7 +442,7 @@ function LlmSection({ settings, statusOf, onChanged, onSettings }: { settings: A
                 toast('success', `Cerita akan disusun oleh ${spec.name} · ${id}`)
               }}
               onRefresh={() => void models.refresh()}
-              allowCustom={provider === 'custom'}
+              allowCustom={isEndpointProvider(provider)}
               defaultOpen={openPicker}
               placeholder="Pilih model dari daftar"
             />

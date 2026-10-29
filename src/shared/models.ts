@@ -1,4 +1,4 @@
-import type { LlmProvider } from './types'
+import type { AppSettings, EndpointProvider, LlmProvider } from './types'
 
 export const LLM_PROVIDERS: { id: LlmProvider; name: string; note: string; link: string | null; linkLabel: string }[] = [
   {
@@ -23,6 +23,13 @@ export const LLM_PROVIDERS: { id: LlmProvider; name: string; note: string; link:
     linkLabel: 'Buat kunci di console Groq'
   },
   {
+    id: 'ninerouter',
+    name: '9Router',
+    note: 'Gateway AI lokal: satu endpoint untuk banyak penyedia dan langganan, dengan fallback otomatis.',
+    link: 'https://github.com/decolua/9router',
+    linkLabel: 'Pasang 9Router'
+  },
+  {
     id: 'custom',
     name: 'Endpoint custom',
     note: 'Server apa pun yang kompatibel dengan OpenAI API, misalnya Ollama, LM Studio, vLLM, DeepSeek, atau xAI Grok.',
@@ -30,6 +37,17 @@ export const LLM_PROVIDERS: { id: LlmProvider; name: string; note: string; link:
     linkLabel: ''
   }
 ]
+
+/** 9Router serves its OpenAI-compatible API here after `npx 9router`. */
+export const NINEROUTER_DEFAULT_URL = 'http://localhost:20128/v1'
+
+export function isEndpointProvider(p: string): p is EndpointProvider {
+  return p === 'custom' || p === 'ninerouter'
+}
+
+export function endpointUrl(settings: AppSettings, provider: EndpointProvider): string {
+  return provider === 'ninerouter' ? settings.nineRouterBaseUrl : settings.customBaseUrl
+}
 
 export function llmName(id: LlmProvider): string {
   return LLM_PROVIDERS.find((p) => p.id === id)?.name ?? id

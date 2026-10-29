@@ -130,7 +130,7 @@ Properti opsional baru di `EditorSettings` tidak butuh migrasi; berikan nilai ba
 ## Pengaturan aplikasi (`AppSettings`, tabel `settings`)
 
 `defaultTtsProvider`, `defaultLanguage`, `exportFolder`, `llmProvider`, `llmModels` (model per penyedia LLM),
-`customBaseUrl`, `geminiTtsModel`, `elevenModel`, `imageModel`, `videoModel` (bawaan untuk proyek baru),
+`customBaseUrl`, `nineRouterBaseUrl`, `geminiTtsModel`, `elevenModel`, `imageModel`, `videoModel` (bawaan untuk proyek baru),
 `whisperAuto` (sinkron caption otomatis setelah narasi Gemini).
 
 Kunci baru harus ada di `DEFAULT_SETTINGS` (`src/main/settings.ts`); kunci yang tidak dikenal diabaikan saat

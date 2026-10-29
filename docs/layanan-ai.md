@@ -21,7 +21,7 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 | `higgsfield` | gambar, lembar karakter, video |
 | `gemini` | LLM (naskah/visual) dan Gemini TTS |
 | `elevenlabs` | TTS |
-| `openrouter`, `groq`, `custom` | LLM lewat API kompatibel OpenAI |
+| `openrouter`, `groq`, `ninerouter`, `custom` | LLM lewat API kompatibel OpenAI |
 
 ## LLM (`services/llm.ts`, `services/gemini.ts`)
 
@@ -31,6 +31,11 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
   - Lainnya: `/chat/completions`, dicoba berurutan `json_schema` (strict) → `json_object` → teks biasa, lalu JSON
     diambil dari teks (`extractJson`) untuk model yang tidak mendukung structured output.
 - `listModels(source)`: daftar model live dari penyedia, dicache di tabel `cache` dan disegarkan saat basi.
+- **9Router** (`ninerouter`): gateway AI lokal (`npx 9router`) yang meneruskan ke banyak penyedia. Sama seperti
+  `custom`, ia punya base URL sendiri (`settings.nineRouterBaseUrl`, form mengisi `http://localhost:20128/v1`
+  sebagai bawaan) dan kunci opsional (hanya kalau "require API key" aktif di dashboard 9Router). Keduanya disebut
+  *endpoint provider* (`isEndpointProvider` di `shared/models.ts`) dan disimpan lewat IPC `settings:setCustom`.
+  ID model mengikuti 9Router, misalnya `cc/claude-sonnet-4-5` atau nama combo.
 - **Menambah penyedia LLM baru** yang kompatibel OpenAI: tambahkan ke `LlmProvider` dan `ApiProvider`
   (`types.ts`), `LLM_PROVIDERS` (`shared/models.ts`), konfigurasi base URL di `llm.ts`, dan `DEFAULT_SETTINGS.llmModels`.
 

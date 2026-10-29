@@ -6,6 +6,7 @@ import type {
   ApiProvider,
   AppSettings,
   AspectRatio,
+  EndpointProvider,
   ExportOptions,
   KeyTestResult,
   ModelSource,
@@ -195,14 +196,14 @@ export function registerIpc(): void {
     recordCheck(provider, result.ok, result.message)
     return result
   })
-  handle('settings:setCustom', async (baseUrl: string, key: string) => {
+  handle('settings:setCustom', async (baseUrl: string, key: string, provider: EndpointProvider = 'custom') => {
     const url = baseUrl.trim().replace(/\/+$/, '')
     if (!/^https?:\/\/[^\s]+$/i.test(url)) throw new Error('Alamat endpoint harus diawali http:// atau https://')
-    setSettings({ customBaseUrl: url })
-    if (key.trim()) setSecret('custom', key.trim())
-    dropCache('models:custom')
-    const result = await llm.testLlm('custom', key.trim() || undefined, url)
-    recordCheck('custom', result.ok, result.message)
+    setSettings(provider === 'ninerouter' ? { nineRouterBaseUrl: url } : { customBaseUrl: url })
+    if (key.trim()) setSecret(provider, key.trim())
+    dropCache(`models:${provider}`)
+    const result = await llm.testLlm(provider, key.trim() || undefined, url)
+    recordCheck(provider, result.ok, result.message)
     return result
   })
   handle('settings:clearKey', (provider: ApiProvider) => {
@@ -210,6 +211,7 @@ export function registerIpc(): void {
     dropCache(`models:${provider}`)
     if (provider === 'higgsfield') forgetEstimates()
     if (provider === 'custom') setSettings({ customBaseUrl: '' })
+    if (provider === 'ninerouter') setSettings({ nineRouterBaseUrl: '' })
   })
   handle('models:list', (source: ModelSource, refresh?: boolean) => llm.listModels(source, !!refresh))
   handle('settings:testKey', async (provider: ApiProvider) => {

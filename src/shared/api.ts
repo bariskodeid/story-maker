@@ -6,6 +6,7 @@ import type {
   CharacterPatchEvent,
   ClipPatchEvent,
   CreditEstimate,
+  EndpointProvider,
   WhisperStatus,
   WordTiming,
   ExportOptions,
@@ -78,7 +79,8 @@ export interface StudioApi {
     keys(): Promise<KeyStatus[]>
     setKey(provider: ApiProvider, key: string): Promise<KeyTestResult>
     /** Saves an OpenAI-compatible endpoint; the key is optional for local servers. */
-    setCustom(baseUrl: string, key: string): Promise<KeyTestResult>
+    /** Saves the base URL (and optional key) of an endpoint provider, then tests it. */
+    setCustom(baseUrl: string, key: string, provider?: EndpointProvider): Promise<KeyTestResult>
     clearKey(provider: ApiProvider): Promise<void>
     /** The full stored key, only for the "show key" button. */
     revealKey(provider: ApiProvider): Promise<string | null>
