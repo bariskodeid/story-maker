@@ -261,6 +261,7 @@ function updateJobPayload(jobId: string, payload: HfPayload): void {
 
 /** 9Router does not say which model limits apply, so prompts get the same budget as undocumented Higgsfield ones. */
 const NINEROUTER_PROMPT_LIMIT = 4000
+const NINEROUTER_IMAGE_ATTEMPTS = 3
 
 interface NineRouterRequest {
   payload: HfPayload
@@ -278,10 +279,20 @@ function startNineRouter(job: Job, build: (ctx: TaskCtx) => Promise<NineRouterRe
     ctx.progress(0.1, 'Mengirim ke 9Router')
     // The gateway gives no progress, so the bar is a time estimate that slows down the longer it waits.
     const started = Date.now()
-    const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), `${what} lewat 9Router`), 1000)
-    let image: nr.NineRouterImage
+    let label = `${what} lewat 9Router`
+    const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), label), 1000)
+    let image: nr.NineRouterImage | null = null
     try {
-      image = await nr.generateImage(payload.model, payload.prompt, aspect, refs, ctx.signal)
+      // Gemini image models over 9Router return no picture for about half of long scene prompts at random
+      // (same prompt, same references), so an empty answer is retried before the job fails.
+      for (let attempt = 1; !image; attempt++) {
+        try {
+          image = await nr.generateImage(payload.model, payload.prompt, aspect, refs, ctx.signal)
+        } catch (e) {
+          if (!(e instanceof nr.NoImageError) || attempt >= NINEROUTER_IMAGE_ATTEMPTS || ctx.signal.aborted) throw e
+          label = `Model tidak mengirim gambar, mencoba lagi (${attempt + 1}/${NINEROUTER_IMAGE_ATTEMPTS})`
+        }
+      }
     } finally {
       clearInterval(tick)
     }

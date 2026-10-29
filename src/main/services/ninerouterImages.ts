@@ -21,6 +21,9 @@ const GENERATE_TIMEOUT_MS = 6 * 60 * 1000
 const LIST_TIMEOUT_MS = 20_000
 const CONTENT_POLICY = /content[ _-]?policy|safety|moderation|nsfw|prohibited|violat|inappropriate|not allowed to generate/i
 
+/** The model answered without a picture; for Gemini-style models this is often a fluke worth retrying. */
+export class NoImageError extends ApiError {}
+
 function connection(): { base: string; key: string | null } {
   const base = endpointUrl(getSettings(), 'ninerouter').trim().replace(/\/+$/, '')
   if (!base) throw new ApiError('9Router belum terhubung. Buka Pengaturan › Gambar dan video, lalu simpan alamat 9Router.', 0)
@@ -118,7 +121,8 @@ export async function generateImage(model: string, prompt: string, aspect: Aspec
   }
   const type = bytes && imageType(bytes)
   // Gemini-style models answer with text only (and an empty image) when they refuse or misread the prompt.
-  if (!bytes || !type) throw new ApiError('9Router selesai tanpa gambar. Modelnya mungkin menolak prompt ini atau bukan model gambar. Coba lagi atau pilih model lain.', 0)
+  if (!bytes || !type)
+    throw new NoImageError('9Router selesai tanpa gambar. Modelnya mungkin menolak prompt ini atau bukan model gambar. Coba lagi, ubah prompt adegannya, atau pilih model lain.', 0)
   return { bytes, ext: type.ext, url }
 }
 

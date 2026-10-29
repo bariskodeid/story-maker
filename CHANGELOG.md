@@ -8,6 +8,19 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ## [Belum dirilis]
 
+### Ditambahkan
+- **9Router** (gateway AI lokal atau yang di-host sendiri, kompatibel OpenAI) sebagai penyedia baru. Satu koneksi
+  (alamat + kunci opsional) dipakai untuk:
+  - penyusun cerita (naskah, rencana visual, prompt musik);
+  - suara narator lewat `/v1/audio/speech`, misalnya Edge TTS bahasa Indonesia, dengan daftar suara bawaan dan ID
+    suara yang bisa diketik sendiri;
+  - gambar klip dan lembar karakter lewat `/v1/images/generations`, dengan lembar karakter sebagai gambar
+    referensi. Video tetap dari Higgsfield.
+
+### Diperbaiki
+- Permintaan ke penyedia LLM mengirim User-Agent `Bang Story/<versi>`, supaya tidak diblokir Cloudflare di server
+  yang di-host sendiri.
+
 ## [1.0.0] - 2026-10-02
 
 Rilis pertama Bang Story (sebelumnya bernama Studio Cerita).
