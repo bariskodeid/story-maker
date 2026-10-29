@@ -18,7 +18,8 @@ import {
   Trash2,
   Volume2
 } from 'lucide-react'
-import { effectiveResolution, fitDuration, getImageModel, getVideoModel } from '@shared/higgsfield'
+import { effectiveResolution, fitDuration, getVideoModel } from '@shared/higgsfield'
+import { normalizeImageModel } from '@shared/imageModels'
 import { CAMERA_PRESETS, MOTION_STRENGTHS, cameraAt, cameraCss } from '@shared/motion'
 import { needsVisual } from '@shared/script'
 import { geminiVoiceName, geminiVoiceTone } from '@shared/models'
@@ -466,7 +467,8 @@ export function StoryboardStep() {
   useEffect(() => {
     if (project)
       void window.api.generate
-        .estimate('image', getImageModel(project.imageModel).id, project.aspectRatio)
+        // 9Router models have no Higgsfield price; the estimate comes back null and no credits are shown.
+        .estimate('image', normalizeImageModel(project.imageModel), project.aspectRatio)
         .then((e) => setCredits(e?.credits ?? null))
   }, [project?.id, project?.imageModel, project?.aspectRatio])
 

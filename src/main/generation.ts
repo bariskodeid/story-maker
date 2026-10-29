@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 import { estimateWordTimings } from '@shared/captions'
 import { stripVoiceTags } from '@shared/speech'
 import { getImageModel, getVideoModel, imageBody, maxRefs, promptLimit, videoBody, type HfModel } from '@shared/higgsfield'
+import { imageRefLimit, isNineRouterImage, nineRouterModel } from '@shared/imageModels'
 import { getStyle } from '@shared/styles'
 import type { AspectRatio, Asset, Character, Clip, CreditEstimate, Job, Project, WordTiming } from '@shared/types'
 import { getDb } from './db'
@@ -34,6 +35,7 @@ import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
 import * as hf from './services/higgsfield'
 import { downloadTo, sleep } from './services/http'
+import * as nr from './services/ninerouterImages'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -141,22 +143,29 @@ async function waitForSheets(characterIds: string[], signal: AbortSignal): Promi
   }
 }
 
-async function referenceUrls(model: HfModel, chars: Character[], signal: AbortSignal): Promise<{ urls: string[]; names: string[] }> {
-  const limit = maxRefs(model)
-  if (limit === 0) return { urls: [], names: [] }
+/** The finished character sheets of a scene's cast, in cast order, at most `limit`. */
+async function sheetsFor(chars: Character[], limit: number, signal: AbortSignal): Promise<{ sheets: Asset[]; names: string[] }> {
+  if (limit === 0) return { sheets: [], names: [] }
   await waitForSheets(
     chars.map((c) => c.id),
     signal
   )
-  const urls: string[] = []
+  const sheets: Asset[] = []
   const names: string[] = []
   for (const c of chars) {
     const fresh = getCharacter(c.id)
     const sheet = getAsset(fresh.sheetAssetId)
-    if (!sheet || urls.length >= limit) continue
-    urls.push(await publicUrlFor(sheet, signal))
+    if (!sheet || sheets.length >= limit) continue
+    sheets.push(sheet)
     names.push(fresh.name)
   }
+  return { sheets, names }
+}
+
+async function referenceUrls(model: HfModel, chars: Character[], signal: AbortSignal): Promise<{ urls: string[]; names: string[] }> {
+  const { sheets, names } = await sheetsFor(chars, maxRefs(model), signal)
+  const urls: string[] = []
+  for (const sheet of sheets) urls.push(await publicUrlFor(sheet, signal))
   return { urls, names }
 }
 
@@ -180,7 +189,18 @@ async function finishHiggsfield(ctx: TaskCtx, job: Job, requestId: string, paylo
   if (!url) throw new Error('Higgsfield selesai tanpa file hasil')
   ctx.progress(0.93, 'Mengunduh hasil')
   const { bytes, contentType } = await downloadTo(url, ctx.signal)
-  const rel = saveFile(job.projectId, isVideo ? 'videos' : 'images', extFromType(contentType, url, isVideo ? '.mp4' : '.png'), bytes)
+  return saveResult(job, payload, 'higgsfield', { bytes, ext: extFromType(contentType, url, isVideo ? '.mp4' : '.png'), remoteId: requestId, remoteUrl: url })
+}
+
+/** Stores a finished image or video as an asset and puts it on its clip or character. */
+async function saveResult(
+  job: Job,
+  payload: HfPayload,
+  provider: string,
+  file: { bytes: Buffer; ext: string; remoteId: string | null; remoteUrl: string | null }
+): Promise<string> {
+  const isVideo = payload.target === 'clip-video'
+  const rel = saveFile(job.projectId, isVideo ? 'videos' : 'images', file.ext, file.bytes)
   const abs = assetAbsPath(job.projectId, rel)
   const size = await probeSize(abs)
   const durationMs = isVideo ? await probeDurationMs(abs).catch(() => null) : null
@@ -189,11 +209,11 @@ async function finishHiggsfield(ctx: TaskCtx, job: Job, requestId: string, paylo
     clipId: job.clipId,
     characterId: job.characterId,
     kind: isVideo ? 'video' : 'image',
-    provider: 'higgsfield',
+    provider,
     model: payload.model,
     prompt: payload.prompt,
-    remoteId: requestId,
-    remoteUrl: url,
+    remoteId: file.remoteId,
+    remoteUrl: file.remoteUrl,
     localPath: rel,
     durationMs,
     width: size?.width ?? null,
@@ -235,12 +255,69 @@ function updateJobPayload(jobId: string, payload: HfPayload): void {
   getDb().prepare('UPDATE jobs SET payload_json = ? WHERE id = ?').run(JSON.stringify(payload), jobId)
 }
 
+// ---------- 9Router images (one request that returns the finished picture) ----------
+
+/** 9Router does not say which model limits apply, so prompts get the same budget as undocumented Higgsfield ones. */
+const NINEROUTER_PROMPT_LIMIT = 4000
+
+interface NineRouterRequest {
+  payload: HfPayload
+  aspect: AspectRatio
+  refs: string[]
+}
+
+function startNineRouter(job: Job, build: (ctx: TaskCtx) => Promise<NineRouterRequest>): Job {
+  emit.job(job)
+  return runJob(job, 'ninerouter', async (ctx) => {
+    ctx.progress(0.04, 'Menyiapkan prompt')
+    const { payload, aspect, refs } = await build(ctx)
+    updateJobPayload(job.id, payload)
+    const what = payload.target === 'sheet' ? 'Membuat lembar karakter' : 'Membuat gambar'
+    ctx.progress(0.1, 'Mengirim ke 9Router')
+    // The gateway gives no progress, so the bar is a time estimate that slows down the longer it waits.
+    const started = Date.now()
+    const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), `${what} lewat 9Router`), 1000)
+    let image: nr.NineRouterImage
+    try {
+      image = await nr.generateImage(payload.model, payload.prompt, aspect, refs, ctx.signal)
+    } finally {
+      clearInterval(tick)
+    }
+    ctx.progress(0.95, 'Menyimpan gambar')
+    return saveResult(job, payload, 'ninerouter', { bytes: image.bytes, ext: image.ext, remoteId: null, remoteUrl: image.url })
+  })
+}
+
+function nineRouterClipImage(clipId: string, projectId: string, imageModel: string): Job {
+  const job = insertJob({ projectId, clipId, kind: 'image', provider: 'ninerouter' })
+  return startNineRouter(job, async (ctx) => {
+    const fresh = getClip(clipId)
+    const project = getProject(fresh.projectId)
+    const chars = charactersOf(project.id).filter((c) => fresh.characterIds.includes(c.id))
+    if (chars.length) ctx.progress(0.06, 'Menyiapkan lembar karakter')
+    const { sheets, names } = await sheetsFor(chars, imageRefLimit(imageModel), ctx.signal)
+    const refs = await Promise.all(sheets.map((s) => nr.inlineReference(assetAbsPath(s.projectId, s.localPath))))
+    const prompt = clipPrompt(project, fresh, chars, names, NINEROUTER_PROMPT_LIMIT)
+    return { payload: { target: 'clip-image', model: nineRouterModel(imageModel), prompt }, aspect: project.aspectRatio, refs }
+  })
+}
+
+function nineRouterSheet(characterId: string, projectId: string, imageModel: string): Job {
+  const job = insertJob({ projectId, characterId, kind: 'sheet', provider: 'ninerouter' })
+  return startNineRouter(job, async () => {
+    const prompt = sheetPrompt(getProject(projectId), getCharacter(characterId))
+    return { payload: { target: 'sheet', model: nineRouterModel(imageModel), prompt }, aspect: '16:9', refs: [] }
+  })
+}
+
 // ---------- public entry points ----------
 
 export function generateClipImage(clipId: string): Job {
   const existing = activeJobFor({ clipId }, 'image')
   if (existing) return existing
   const clip = getClip(clipId)
+  const imageModel = getProject(clip.projectId).imageModel
+  if (isNineRouterImage(imageModel)) return nineRouterClipImage(clipId, clip.projectId, imageModel)
   const job = insertJob({ projectId: clip.projectId, clipId, kind: 'image', provider: 'higgsfield' })
   return startHiggsfield(job, async (ctx) => {
     const fresh = getClip(clipId)
@@ -261,6 +338,8 @@ export function generateCharacterSheet(characterId: string): Job {
   const existing = activeJobFor({ characterId }, 'sheet')
   if (existing) return existing
   const c = getCharacter(characterId)
+  const imageModel = getProject(c.projectId).imageModel
+  if (isNineRouterImage(imageModel)) return nineRouterSheet(characterId, c.projectId, imageModel)
   const job = insertJob({ projectId: c.projectId, characterId, kind: 'sheet', provider: 'higgsfield' })
   return startHiggsfield(job, async () => {
     const project = getProject(c.projectId)
@@ -357,8 +436,7 @@ export function generateClipTts(clipId: string): Job {
 export function generateMissingImages(projectId: string): Job[] {
   const jobs: Job[] = []
   const project = getProject(projectId)
-  const model = getImageModel(project.imageModel)
-  if (maxRefs(model) > 0) {
+  if (imageRefLimit(project.imageModel) > 0) {
     const needed = new Set(clipsOf(projectId).flatMap((c) => c.characterIds))
     for (const c of charactersOf(projectId)) {
       if (needed.has(c.id) && !c.sheetAssetId) jobs.push(generateCharacterSheet(c.id))
@@ -425,6 +503,8 @@ export async function estimateCredits(
   seconds = 5,
   resolution?: string | null
 ): Promise<CreditEstimate | null> {
+  // 9Router bills through whatever accounts the user connected there; Higgsfield cannot price it.
+  if (kind === 'image' && isNineRouterImage(modelId)) return null
   const model = kind === 'image' ? getImageModel(modelId) : getVideoModel(modelId)
   const body =
     kind === 'image'

@@ -523,7 +523,11 @@ function TtsSection({ settings, statusOf, onChanged, onSettings }: { settings: A
 function HiggsfieldSection({ status, onChanged }: { status?: KeyStatus; onChanged: () => void }) {
   return (
     <>
-      <SectionTitle icon={<ImageIcon className="size-5" />} title="Gambar dan video" sub="Higgsfield membuat gambar klip, lembar karakter, dan video AI." />
+      <SectionTitle
+        icon={<ImageIcon className="size-5" />}
+        title="Gambar dan video"
+        sub="Higgsfield membuat gambar klip, lembar karakter, dan video AI. Gambar juga bisa dibuat lewat 9Router."
+      />
       <Card>
         <div className="flex items-center gap-3">
           <ProviderLogo id="higgsfield" />
@@ -559,6 +563,47 @@ function HiggsfieldSection({ status, onChanged }: { status?: KeyStatus; onChange
         </p>
       </Card>
     </>
+  )
+}
+
+/** The 9Router connection for images, which also works when stories are written by another provider. */
+function NineRouterImageCard({ settings, status, onChanged }: { settings: AppSettings; status?: KeyStatus; onChanged: () => void }) {
+  // The story section above already shows this same connection form when 9Router writes the stories.
+  const sharedWithLlm = settings.llmProvider === 'ninerouter'
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <ProviderLogo id="ninerouter" />
+        <div className="flex flex-1 flex-col">
+          <span className="text-base font-bold">
+            9Router <span className="text-[13px] font-medium text-muted">· opsional, untuk gambar</span>
+          </span>
+          <span className="text-[13px] text-ink-2">Model gambar dari akun yang kamu hubungkan di 9Router, misalnya GPT Image atau Gemini. Video tetap dari Higgsfield.</span>
+        </div>
+        <StatusBadge status={status} />
+      </div>
+      {sharedWithLlm ? (
+        <p className="text-[13px] text-ink-2">Koneksi 9Router di bagian Penyusun cerita di atas dipakai juga untuk gambar.</p>
+      ) : (
+        <KeyForm
+          provider="ninerouter"
+          name="9Router"
+          status={status}
+          help="Jalankan 9Router (npx 9router), hubungkan penyedia gambar di dashboard-nya, lalu simpan di sini."
+          link="https://github.com/decolua/9router"
+          linkLabel="Pasang 9Router"
+          customUrl={settings.nineRouterBaseUrl}
+          onChanged={onChanged}
+        />
+      )}
+      <p className="flex items-start gap-2.5 border-t border-dashed border-line pt-4 text-[13px] leading-relaxed text-ink-2">
+        <ImageIcon className="mt-0.5 size-4 shrink-0" />
+        <span>
+          Pilih <strong className="text-ink">9Router</strong> di kartu Gambar klip pada langkah <strong className="text-ink">Ide cerita</strong>. Lembar karakter
+          ikut dikirim sebagai referensi, tapi tidak semua model memakainya.
+        </span>
+      </p>
+    </Card>
   )
 }
 
@@ -632,6 +677,7 @@ export function Settings() {
                 <LlmSection settings={settings} statusOf={statusOf} onChanged={reload} onSettings={setSettings} />
                 <TtsSection settings={settings} statusOf={statusOf} onChanged={reload} onSettings={setSettings} />
                 <HiggsfieldSection status={statusOf('higgsfield')} onChanged={reload} />
+                <NineRouterImageCard settings={settings} status={statusOf('ninerouter')} onChanged={reload} />
                 <WhisperSection settings={settings} onSettings={setSettings} />
               </>
             )}

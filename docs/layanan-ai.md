@@ -22,6 +22,7 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 | `gemini` | LLM (naskah/visual) dan Gemini TTS |
 | `elevenlabs` | TTS |
 | `openrouter`, `groq`, `ninerouter`, `custom` | LLM lewat API kompatibel OpenAI |
+| `ninerouter` | juga gambar klip dan lembar karakter (opsional, pengganti Higgsfield untuk gambar) |
 
 ## LLM (`services/llm.ts`, `services/gemini.ts`)
 
@@ -87,6 +88,45 @@ di API Higgsfield (hanya di aplikasi webnya). Satu entri:
   (`https://docs.higgsfield.ai/docs/llms.txt`), lalu pastikan `imageBody`/`videoBody` tidak melempar error
   "butuh <field>" (`checkRequired`). Ikon keluarga model diatur di `components/ModelLogo.tsx`.
 - Model bawaan: `DEFAULT_IMAGE_MODEL` dan `DEFAULT_VIDEO_MODEL` di `shared/higgsfield.ts`.
+
+## Gambar lewat 9Router (`services/ninerouterImages.ts`, `shared/imageModels.ts`)
+
+Gambar klip dan lembar karakter bisa dibuat lewat 9Router, memakai akun yang pengguna hubungkan di sana (misalnya
+Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video tetap selalu dari Higgsfield.
+
+- **Pilihan model**: kartu *Gambar klip* di langkah Ide punya tombol `Higgsfield | 9Router`. Model 9Router disimpan di
+  kolom `imageModel` yang sama dengan awalan `9router:` (misalnya `9router:cx/gpt-image-2.5`), jadi tidak butuh migrasi.
+  `isNineRouterImage`, `nineRouterModel`, `normalizeImageModel`, `imageRefLimit` ada di `shared/imageModels.ts`.
+  `getSettings()` mempertahankan ID `9router:` (ID Higgsfield yang hilang dari katalog tetap jatuh ke bawaan).
+- **Koneksi**: memakai koneksi 9Router yang sama dengan LLM (`settings.nineRouterBaseUrl` + kunci `ninerouter`,
+  opsional). Kartu *9Router* di Pengaturan › Gambar dan video menyimpannya juga kalau LLM memakai penyedia lain.
+  Semua permintaan mengirim `User-Agent: Bang Story/<versi>`, karena 9Router yang dipasang di server sering berada
+  di belakang Cloudflare yang menantang agent bawaan Node (`node`).
+- **Daftar model**: `GET /v1/models/image` → `{ data: [{ id, owned_by }] }` (model gambar dari penyedia yang
+  terhubung, plus combo gambar). `GET /v1/models` hanya berisi model chat. Daftar dicache 24 jam dengan kunci
+  `models:ninerouter-image:<url>` (ikut terhapus saat koneksi 9Router disimpan ulang). Pengguna juga bisa mengetik ID
+  model sendiri. IPC: `generate.nineRouterModels(refresh)`.
+- **Membuat gambar**: `POST /v1/images/generations` dengan
+  `{ model, prompt, n: 1, size, aspect_ratio, images? }`. `size` = `1536x1024` / `1024x1536` (satu-satunya ukuran
+  non-persegi yang diterima GPT Image; 9Router mengubahnya ke rasio 3:2 untuk penyedia lain) dan `aspect_ratio` =
+  `16:9` / `9:16` (dibaca lebih dulu oleh Antigravity/Gemini, hasilnya 1376×768). Sisa potongan rasio diserap
+  cover-fit di pratinjau dan ekspor. `response_format` sengaja tidak dikirim (GPT Image menolaknya).
+- **Jawaban**: `{ created, data: [{ b64_json }] }` atau `data: [{ url }]`. Format file dibaca dari byte-nya (Gemini
+  mengirim JPEG, GPT Image PNG). Permintaan ini sinkron (10–60 detik, batas waktu 6 menit) dan tidak punya ID
+  untuk dilanjutkan, jadi job 9Router yang terputus saat aplikasi ditutup ditandai gagal.
+- **Lembar karakter sebagai referensi**: 9Router menerima `images` (data URI atau base64) dan meneruskannya ke
+  penyedia yang bisa memakai gambar referensi (Codex/GPT Image, Gemini, Antigravity, NanoBanana, Hugging Face);
+  adapter gaya OpenAI biasa (OpenAI, OpenRouter, xAI, ...) membuangnya. Aplikasi tidak bisa tahu penyedianya, jadi
+  maksimal 4 lembar (`NINEROUTER_MAX_REFS`) selalu dikirim, diperkecil jadi JPEG lebar ≤1536 px (penyedia Gemini
+  menolak permintaan di atas ±20 MB), dan UI memberi tahu bahwa wajah pemeran bisa kurang konsisten.
+- **Antrean**: `ninerouter` (2 paralel), terpisah dari antrean Higgsfield.
+- **Biaya**: tidak ada estimasi; `estimateCredits` mengembalikan `null` untuk model `9router:` dan UI menyembunyikan
+  kredit gambar.
+- **Error** (`friendly`): 9Router tidak berjalan, halaman tantangan Cloudflare (403 HTML), 401 kunci, model tidak
+  dikenal (`Invalid model format`), akun belum terhubung (`No credentials for provider`), filter konten, rate limit
+  (429/503), jawaban tanpa gambar. Awalan `[status]:` dari pesan upstream dibuang.
+- Sumber 9Router: route `src/app/api/v1/images/generations/route.js`, handler `src/sse/handlers/imageGeneration.js`,
+  adapter per penyedia di `open-sse/handlers/imageProviders/`, daftar per jenis di `src/app/api/v1/models/[...model]/route.js`.
 
 ## Whisper lokal (`src/main/whisper.ts`)
 

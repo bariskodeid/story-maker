@@ -7,10 +7,12 @@ Ide cerita ──LLM──► Naskah (adegan + narasi) ──LLM──► Rencan
                                                      │
             ┌────────────────────────────────────────┼─────────────────────────┐
             ▼                                         ▼                         ▼
-   Lembar karakter (Higgsfield)          Gambar klip (Higgsfield)       Narasi satu rekaman (TTS)
+   Lembar karakter                       Gambar klip                    Narasi satu rekaman (TTS)
+   (Higgsfield atau 9Router)             (Higgsfield atau 9Router)               │
             └────────── referensi ──────────────────►│                         │
                                                      ▼                         ▼
-                                          Video AI (opsional)        Potong per adegan + Whisper
+                                          Video AI (opsional,        Potong per adegan + Whisper
+                                          selalu Higgsfield)
                                                      └──────────► Editor ◄─────┘
                                                                      │
                                                                   FFmpeg → MP4
@@ -62,10 +64,16 @@ menyusun ulang semuanya. Pemeran lama tidak ditimpa; pemeran baru ditambahkan be
 ## 3. Gambar, lembar karakter, video (`src/main/generation.ts`)
 
 - **Lembar karakter** (`sheetPrompt`): gaya + deskripsi pemeran, tampak depan/tiga perempat/samping, latar polos.
-  Dibuat lebih dulu kalau model gambar menerima referensi (`maxRefs(model) > 0`).
+  Dibuat lebih dulu kalau model gambar menerima referensi (`imageRefLimit(project.imageModel) > 0`; selalu untuk
+  model 9Router).
 - **Gambar klip** (`clipPrompt`): adegan dulu, lalu pemeran (tubuh dari lembar karakter, baju mengikuti baris
   `Wardrobe`), lalu gaya visual, lalu baris `Avoid` sebagai "Must not appear", lalu format frame. Lembar karakter
-  dikirim sebagai gambar referensi.
+  dikirim sebagai gambar referensi: ke Higgsfield sebagai URL hasil unggah, ke 9Router sebagai data URI JPEG.
+- **Penyedia gambar**: `project.imageModel` berawalan `9router:` membuat gambar klip dan lembar karakter lewat
+  9Router (`startNineRouter`, satu permintaan sinkron, antrean `ninerouter`); selain itu lewat Higgsfield
+  (`startHiggsfield`, kirim lalu polling). Keduanya menyimpan hasil lewat `saveResult`, jadi storyboard, editor,
+  ekspor, dan unggahan ke Higgsfield untuk Video AI tidak membedakan asal gambarnya (`asset.provider` =
+  `higgsfield` atau `ninerouter`).
 - **Video AI** (`generateClipVideo`): gambar klip + `videoPrompt` (atau prompt cadangan). Setiap prompt video
   diakhiri `NO_MUSIC` ("Silent clip: no background music...") dan audio dimatikan lewat parameter kalau
   modelnya punya (`sound: off`, `generate_audio: false`). Durasi video = durasi terpendek model yang menutup
