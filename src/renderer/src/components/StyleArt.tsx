@@ -3,8 +3,8 @@ import { getStyle, type StyleCategory } from '@shared/styles'
 import { cx } from './ui'
 
 /**
- * Sample images for each visual style, generated with GPT Image 2.5. Each shows a different front-facing
- * character in that style, centered, so the pictures also work cropped to a square.
+ * Sample images for each visual style, generated with GPT Image 2.5 (the later styles with Gemini 3.1 Flash Image).
+ * Each shows a different front-facing character in that style, centered, so the pictures also work cropped to a square.
  */
 const THUMBS = import.meta.glob('../assets/styles/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 
