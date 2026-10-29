@@ -39,7 +39,8 @@ const api: StudioApi = {
     narration: call('generate:narration'),
     syncCaptions: call('generate:syncCaptions'),
     cancel: call('generate:cancel'),
-    estimate: call('generate:estimate')
+    estimate: call('generate:estimate'),
+    nineRouterModels: call('generate:nineRouterModels')
   },
   clips: {
     split: call('clips:split'),

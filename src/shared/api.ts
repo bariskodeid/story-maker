@@ -58,6 +58,8 @@ export interface StudioApi {
     cancel(jobId: string): Promise<void>
     /** Credits for one image, or one video of about `seconds`, with this model. Null without a working key. */
     estimate(kind: 'image' | 'video', modelId: string, aspect: AspectRatio, seconds?: number, resolution?: string | null): Promise<CreditEstimate | null>
+    /** Image models of the providers connected in 9Router, cached like other model lists. */
+    nineRouterModels(refresh?: boolean): Promise<ModelList>
   }
   clips: {
     /** Splits a clip at `atMs` into two clips (picture, voice and narration divided at the nearest pause). */

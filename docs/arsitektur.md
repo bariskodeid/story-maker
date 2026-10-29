@@ -61,6 +61,7 @@ renderer lewat `event:job` (progres, pesan, error).
 | Antrean | Batas paralel | Dipakai untuk |
 |---|---|---|
 | `higgsfield` | 3 | gambar, lembar karakter, video |
+| `ninerouter` | 2 | gambar dan lembar karakter lewat 9Router (memakai akun langganan pengguna, batasnya lebih ketat) |
 | `tts` | 2 | narasi, TTS per klip |
 | `whisper` | 1 | sinkron caption (Whisper memakai banyak core CPU) |
 | `export` | 1 | ekspor MP4 |

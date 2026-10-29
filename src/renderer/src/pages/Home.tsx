@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, FolderOpen, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { isNineRouterImage } from '@shared/imageModels'
 import { DURATIONS, LANGUAGES, llmName } from '@shared/models'
 import { getStyle } from '@shared/styles'
 import type { ApiProvider, AppSettings, AspectRatio, KeyStatus, ProjectStatus, ProjectSummary, TtsProvider } from '@shared/types'
@@ -96,7 +97,9 @@ export function Home() {
       return !!k?.configured && k.lastOk !== false
     }
     const issues: { what: string; blocks: string }[] = []
-    if (!ok('higgsfield')) issues.push({ what: 'kunci Higgsfield', blocks: 'gambar' })
+    // With images drawn through 9Router, Higgsfield is only needed for the optional AI videos.
+    const imagesViaNineRouter = isNineRouterImage(appSettings.imageModel) && ok('ninerouter')
+    if (!ok('higgsfield') && !imagesViaNineRouter) issues.push({ what: 'kunci Higgsfield', blocks: 'gambar' })
     const llm = appSettings.llmProvider
     if (!ok(llm)) issues.push({ what: `kunci ${llmName(llm)}`, blocks: 'cerita' })
     else if (!appSettings.llmModels[llm]) issues.push({ what: `model ${llmName(llm)}`, blocks: 'cerita' })

@@ -45,7 +45,7 @@ menjalankannya.
 | `durationSec`, `language`, `aspectRatio` | target durasi, bahasa naskah/suara, `16:9` atau `9:16` |
 | `styleId` | gaya visual (`src/shared/styles.ts`, 20 gaya) |
 | `ttsProvider`, `ttsVoice` | `gemini` atau `elevenlabs` + ID suara |
-| `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi) |
+| `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi); `imageModel` berawalan `9router:` berarti model gambar 9Router |
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
 | `coverAssetId` | gambar sampul kartu proyek |
 | `editor` | `EditorSettings` (JSON), lihat di bawah |
