@@ -33,6 +33,9 @@
   `listen('event:...')`.
 - **Main** mendaftarkan handler di `src/main/ipc.ts`. Handler melempar `Error` dengan pesan berbahasa Indonesia
   yang langsung ditampilkan sebagai toast di renderer.
+- Selain tiga proses itu, unduhan Chrome Headless Shell berjalan sebentar di **utility process**
+  (`src/main/renderBrowserWorker.ts`, dibuat dengan `utilityProcess.fork`), supaya bisa dibatalkan dengan mematikan
+  prosesnya ([remotion.md](remotion.md#unduhan-yang-bisa-dibatalkan-utility-process)).
 
 Jendela dibuat dengan `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
 
@@ -51,7 +54,7 @@ Jendela dibuat dengan `sandbox: true`, `contextIsolation: true`, `nodeIntegratio
 | `models:list` | | daftar model live dari penyedia (dicache) |
 | `export:*` | start, defaultFolder, pickFolder, reveal | ekspor MP4 (FFmpeg untuk cerita, Remotion untuk video penjelasan) |
 | `whisper:*` | status, download, cancel, remove, openFolder | model Whisper lokal |
-| `renderEngine:*` | status, install, remove, test | Chrome Headless Shell untuk Remotion, uji render |
+| `renderEngine:*` | status, install, cancel, remove, test | Chrome Headless Shell untuk Remotion (unduhan di utility process yang bisa dibatalkan), uji render |
 | `app:*` | openExternal (hanya https), copyText, version | utilitas |
 
 Event dari main ke renderer (`src/main/events.ts`): `event:job`, `event:clip` (patch kolom klip),

@@ -108,6 +108,7 @@ const api: StudioApi = {
   renderEngine: {
     status: call('renderEngine:status'),
     install: call('renderEngine:install'),
+    cancel: call('renderEngine:cancel'),
     remove: call('renderEngine:remove'),
     test: call('renderEngine:test')
   },

@@ -83,7 +83,7 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 - Ekspor MP4 720p/1080p/4K, volume −14 LUFS, dan file `.srt` opsional. **Sekali klik** juga berlaku untuk video
   penjelasan.
 - Mesin render (Chrome Headless Shell, unduhan ±100 MB) diunduh sekali saat ekspor pertama, atau dari Pengaturan ›
-  Umum. Di sana juga ada kolom opsional **Kunci lisensi Remotion** untuk perusahaan yang memerlukan Remotion Company
+  Umum; unduhannya bisa dibatalkan di sana atau dengan membatalkan ekspornya. Di sana juga ada kolom opsional **Kunci lisensi Remotion** untuk perusahaan yang memerlukan Remotion Company
   License.
 
 **1. Ide cerita**

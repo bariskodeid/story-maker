@@ -6,6 +6,8 @@ export interface RenderEngineStatus {
   /** Size on disk once installed, in bytes. */
   sizeBytes: number | null
   error: string | null
+  /** The last download was cancelled (from Settings or with the export that started it); not an error. */
+  cancelled: boolean
 }
 
 export interface RenderTestResult {

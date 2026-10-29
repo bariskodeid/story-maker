@@ -9,6 +9,9 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- Unduhan **mesin render** (Chrome Headless Shell) bisa dibatalkan: tombol **Batalkan** di samping progresnya di
+  Pengaturan › Umum, dan membatalkan ekspor pertama yang sedang mengunduhnya ikut menghentikan unduhan itu. File
+  yang sempat terunduh langsung dihapus, termasuk saat aplikasi ditutup di tengah unduhan.
 - **Gaya visual baru untuk cerita** (total 28): Fabel kartun hewan (semua pemeran digambar sebagai hewan
   antropomorfik), Anime lukisan tangan, Chibi lucu, Manga hitam putih, Wayang & batik, Lukisan Kamasan Bali, Ukiyo-e
   Jepang, Komik pop art, Kartun retro 90-an, Ilustrasi horor, Stop-motion kertas 3D, dan Lukisan cat minyak, lengkap
@@ -66,6 +69,8 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   klik menulis naskah atau rencana visualnya, kecuali yang pernah kamu hapus. Pemeran yang dihapus atau diganti
   namanya di halaman seri juga tidak lagi dikembalikan dari episode.
 - Sekali klik seri menganggap episode video penjelasan selesai walaupun adegannya tidak memakai gambar AI.
+- Setelah unduhan mesin render gagal (misalnya jaringan putus), ekspor video penjelasan berikutnya tidak lagi ikut
+  gagal sampai aplikasi dibuka ulang.
 
 ### Diubah
 - Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi

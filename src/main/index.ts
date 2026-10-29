@@ -6,6 +6,7 @@ import { attachDevHarness, prepareHarness } from './devharness'
 import { resumeJobs } from './generation'
 import { registerIpc } from './ipc'
 import { handleStudioProtocol, registerSchemes } from './protocol'
+import { stopRenderBrowserDownloadOnQuit } from './remotion'
 import { warmUpEncryption } from './secrets'
 
 /**
@@ -102,5 +103,8 @@ if (!single) {
     if (process.platform !== 'darwin') app.quit()
   })
 
-  app.on('will-quit', () => closeDb())
+  app.on('will-quit', () => {
+    stopRenderBrowserDownloadOnQuit()
+    closeDb()
+  })
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Clapperboard, Download, MonitorPlay, PlayCircle, Trash2 } from 'lucide-react'
+import { Clapperboard, Download, Info, MonitorPlay, PlayCircle, Trash2, X } from 'lucide-react'
 import type { RenderEngineStatus, RenderTestResult } from '@shared/render'
 import { Badge, Button, Progress, confirmDialog } from '../components/ui'
 import { errorText } from '../lib/format'
@@ -9,12 +9,14 @@ const sec = (ms: number): string => `${(ms / 1000).toLocaleString('id-ID', { max
 
 /**
  * Settings › Umum: Chrome Headless Shell, which renders explainer videos. It downloads by itself on the first
- * export too; this section lets the user fetch it ahead of time and check the engine with a short test render.
+ * export too; this section lets the user fetch it ahead of time (or stop a download, also one an export started)
+ * and check the engine with a short test render.
  * `license` is the optional Remotion Company License key field (Settings passes its KeyForm).
  */
 export function RenderEngineSection({ license }: { license?: ReactNode }) {
   const [status, setStatus] = useState<RenderEngineStatus | null>(null)
   const [testing, setTesting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [test, setTest] = useState<{ ok: RenderTestResult } | { error: string } | null>(null)
 
   useEffect(() => {
@@ -33,6 +35,15 @@ export function RenderEngineSection({ license }: { license?: ReactNode }) {
       danger: true
     })
     if (ok) await window.api.renderEngine.remove()
+  }
+
+  const cancel = async (): Promise<void> => {
+    setCancelling(true)
+    try {
+      await window.api.renderEngine.cancel()
+    } finally {
+      setCancelling(false)
+    }
   }
 
   const runTest = async (): Promise<void> => {
@@ -68,10 +79,21 @@ export function RenderEngineSection({ license }: { license?: ReactNode }) {
       </p>
 
       {busy && (
-        <div className="flex flex-col gap-1.5">
-          <Progress value={status.total ? status.received / status.total : 0} />
-          <span className="font-mono text-xs text-ink-2">{status.total ? `${mb(status.received)} dari ${mb(status.total)}` : 'Menghubungi server…'}</span>
+        <div className="flex items-center gap-3" data-render-engine-progress>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Progress value={status.total ? status.received / status.total : 0} />
+            <span className="font-mono text-xs text-ink-2">{status.total ? `${mb(status.received)} dari ${mb(status.total)}` : 'Menghubungi server…'}</span>
+          </div>
+          <Button size="sm" icon={<X className="size-4" />} loading={cancelling} onClick={() => void cancel()}>
+            Batalkan
+          </Button>
         </div>
+      )}
+      {status.cancelled && !busy && (
+        <p className="flex items-center gap-2 rounded-lg bg-sand px-3 py-2 text-[13px] text-ink-2" data-render-engine-cancelled>
+          <Info className="size-4 shrink-0" />
+          Unduhan dibatalkan dan file yang sempat terunduh sudah dihapus. Kamu bisa mengunduhnya lagi kapan saja.
+        </p>
       )}
       {status.error && !busy && <p className="rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad-ink">{status.error}</p>}
       {test && 'ok' in test && (
@@ -82,22 +104,25 @@ export function RenderEngineSection({ license }: { license?: ReactNode }) {
       )}
       {test && 'error' in test && <p className="rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad-ink">Render uji gagal: {test.error}</p>}
 
-      <div className="flex flex-wrap gap-2">
-        {status.state === 'ready' ? (
-          <>
-            <Button icon={<PlayCircle className="size-4" />} loading={testing} onClick={() => void runTest()}>
-              Uji render
+      {/* While downloading, Batalkan next to the progress bar is the only action. */}
+      {!busy && (
+        <div className="flex flex-wrap gap-2">
+          {status.state === 'ready' ? (
+            <>
+              <Button icon={<PlayCircle className="size-4" />} loading={testing} onClick={() => void runTest()}>
+                Uji render
+              </Button>
+              <Button variant="danger" icon={<Trash2 className="size-4" />} disabled={testing} onClick={() => void remove()}>
+                Hapus mesin render
+              </Button>
+            </>
+          ) : (
+            <Button variant="accent" icon={<Download className="size-4" />} onClick={() => void window.api.renderEngine.install()}>
+              {status.cancelled ? 'Unduh lagi' : 'Unduh mesin render'}
             </Button>
-            <Button variant="danger" icon={<Trash2 className="size-4" />} disabled={testing} onClick={() => void remove()}>
-              Hapus mesin render
-            </Button>
-          </>
-        ) : (
-          <Button variant="accent" icon={<Download className="size-4" />} disabled={busy} loading={busy} onClick={() => void window.api.renderEngine.install()}>
-            {busy ? 'Mengunduh…' : 'Unduh mesin render'}
-          </Button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
       {license && <div className="border-t border-line pt-4">{license}</div>}
     </section>
   )

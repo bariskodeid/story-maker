@@ -162,6 +162,8 @@ export interface StudioApi {
     status(): Promise<RenderEngineStatus>
     /** Starts the download in the background; progress comes through `on.renderEngine`. */
     install(): Promise<void>
+    /** Stops a running download (also one an export started); resolves once its partial files are removed. */
+    cancel(): Promise<void>
     remove(): Promise<void>
     /** Renders a two-second test video with the whole engine. */
     test(): Promise<RenderTestResult>

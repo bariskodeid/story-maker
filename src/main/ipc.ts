@@ -37,7 +37,7 @@ import { cancelJob } from './jobs'
 import { generateNarration, syncCaptions } from './narration'
 import { cancelDownload, downloadModel, openModelFolder, removeModel, whisperStatus } from './whisper'
 import { assetAbsPath } from './paths'
-import { ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
+import { cancelRenderBrowserDownload, ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
 import { detachVoice, splitClip } from './editing'
 import { emit } from './events'
 import {
@@ -154,8 +154,9 @@ export function registerIpc(): void {
   handle('renderEngine:status', () => renderEngineStatus())
   // Like the Whisper model, the download runs in the background and reports through events.
   handle('renderEngine:install', () => {
-    void ensureRenderBrowser().catch(() => {})
+    void ensureRenderBrowser({ manual: true }).catch(() => {})
   })
+  handle('renderEngine:cancel', () => cancelRenderBrowserDownload())
   handle('renderEngine:remove', () => removeRenderBrowser())
   handle('renderEngine:test', () => renderTest())
   handle('generate:cancel', (jobId: string) => cancelJob(jobId))

@@ -20,6 +20,7 @@ src/remotion/                komposisi Remotion (dibundel terpisah)
   explainer/layout.ts        ukuran frame, area aman, pita caption, zona teks, ukuran huruf
   fonts.ts                   memuat font dari fontBase dengan delayRender
 src/main/remotion.ts         mesin render: Chrome Headless Shell, server aset sementara, renderVideo, uji render
+src/main/renderBrowserWorker.ts   ensureBrowser di utility process (unduhan browser yang bisa dibatalkan)
 src/main/explainer.ts        LLM (adegan + narasi), gambar unggahan, job ekspor + loudnorm
 src/renderer/src/components/ExplainerPreview.tsx   Player, Thumbnail, pemilih template
 src/renderer/src/pages/project/explainer/          langkah Ide & template, Adegan, Editor
@@ -89,7 +90,8 @@ Chrome tidak ikut dipaketkan.
 
 Remotion menggambar frame dengan Chrome Headless Shell versi yang diuji untuk Remotion (157.0.8080.0 di 4.0.539).
 Browser ini **diunduh sekali** dengan `ensureBrowser()`: otomatis saat ekspor video penjelasan pertama, atau dari
-**Pengaturan › Umum › Mesin render video penjelasan** (dengan progres, tombol **Uji render**, dan **Hapus**).
+**Pengaturan › Umum › Mesin render video penjelasan** (dengan progres dan tombol **Batalkan**, **Uji render**, dan
+**Hapus**).
 
 - Ukuran: unduhan ±100 MB, terpasang ±250 MB.
 - Lokasi: `<folder data>\render-browser\node_modules\.remotion\chrome-headless-shell\<platform>\...`
@@ -97,14 +99,56 @@ Browser ini **diunduh sekali** dengan `ensureBrowser()`: otomatis saat ekspor vi
 - Kenapa begitu: Remotion menentukan folder unduhan dari `process.cwd()` (naik ke `package.json` terdekat, lalu
   `node_modules/.remotion`). Working directory aplikasi terpasang bisa `C:\Program Files\...` yang tidak bisa
   ditulis. Karena itu `ensureRenderBrowser()` (`src/main/remotion.ts`) membuat `render-browser/package.json`
-  kecil, menjalankan `ensureBrowser` dari folder itu (`process.chdir` sementara), lalu setiap render memakai
-  `browserExecutable` dengan path hasilnya, sehingga render tidak lagi bergantung pada working directory.
-- `ensureBrowser` memeriksa versi setiap kali dipanggil; setelah Remotion dinaikkan versinya, browser baru diunduh
-  otomatis.
-- Unduhan tidak bisa dibatalkan (API Remotion tidak menyediakan sinyal batal).
+  kecil, menjalankan `ensureBrowser` di proses terpisah yang working directory-nya folder itu (lihat di bawah), lalu
+  setiap render memakai `browserExecutable` dengan path hasilnya, sehingga render tidak bergantung pada working
+  directory.
+- `ensureBrowser` memeriksa versi setiap kali dijalankan; setelah Remotion dinaikkan versinya, browser baru diunduh
+  otomatis. Pemeriksaan itu cukup sekali per sesi aplikasi: path yang sudah dipastikan disimpan (`verified`), jadi
+  ekspor berikutnya tidak membuka proses baru.
 - Alternatif bila unduhan saat pertama pakai tidak bisa diandalkan (jaringan kantor yang memblokir unduhan): ikut
   paketkan browser (`REMOTION_ELECTRON_PACKAGE_BROWSER`, lihat dokumentasi Remotion untuk Electron). Installer
   bertambah ±250 MB, dan `browserExecutable` diarahkan ke salinan di `app.asar.unpacked`.
+
+### Unduhan yang bisa dibatalkan (utility process)
+
+`ensureBrowser` milik Remotion 4.0.539 tidak bisa dibatalkan: unduhannya diberi `new AbortController().signal` yang
+tidak pernah dibatalkan, dan opsinya tidak menerima sinyal. Jadi `ensureBrowser` dijalankan di **Electron utility
+process** (`src/main/renderBrowserWorker.ts`), dan membatalkan berarti mematikan proses itu.
+
+- **Kenapa utility process.** `utilityProcess.fork` adalah cara resmi Electron menjalankan kode Node di proses
+  sendiri: skripnya dimuat dari dalam `app.asar`, opsi `cwd` langsung memberi working directory `render-browser`
+  (proses utama tidak perlu `process.chdir` lagi), tidak bergantung pada fuse `runAsNode` seperti
+  `child_process.fork` dengan `ELECTRON_RUN_AS_NODE`, dan Electron ikut mengakhirinya saat aplikasi ditutup. Worker
+  thread tidak cukup: `process.chdir` tidak tersedia di worker, dan `process.cwd()`-nya milik proses utama.
+- **Alasan lain.** Remotion merangkai setiap panggilan `ensureBrowser` dengan `.then` pada panggilan sebelumnya. Satu
+  panggilan yang gagal di proses utama (misalnya jaringan putus) membuat semua panggilan berikutnya ikut gagal,
+  termasuk yang ada di dalam setiap `renderMedia`, sampai aplikasi dibuka ulang. Di proses sendiri, kegagalan itu
+  hilang bersama prosesnya.
+- **Build.** Skrip worker diimpor dengan akhiran `?modulePath` milik electron-vite
+  (`import browserWorker from './renderBrowserWorker?modulePath'`). electron-vite membundelnya sebagai file
+  sendiri di `out/main/renderBrowserWorker-<hash>.js` (dengan `@remotion/renderer` tetap eksternal) dan mengganti
+  impornya dengan path absolut file itu, baik di mode pengembangan maupun di `app.asar` aplikasi terpasang.
+  Tipe impor `?modulePath` datang dari `src/main/env.d.ts` (`electron-vite/node`).
+- **Pesan.** Worker mengirim `download` (unduhan dimulai), `progress` (paling sering 10 kali per detik), lalu `done`
+  dengan path browser atau `error`. Proses utama mematikan worker setelah pesan terakhir, dan hasilnya baru dipakai
+  setelah prosesnya benar-benar keluar (event `exit`), jadi tidak ada lagi yang menulis ke folder.
+- **Penanda unduhan belum selesai.** Sebelum Remotion mengambil satu byte pun, worker menulis
+  `render-browser/download-incomplete`. File itu dihapus setelah browser terpasang. Selama penanda ada, browser
+  dianggap belum terpasang (`readInstalled`), dan unduhan berikutnya mengosongkan folder dulu. Jadi unduhan yang
+  terputus karena dibatalkan, gagal, aplikasi ditutup, atau crash selalu dikenali dan dibersihkan.
+- **Batalkan** (Pengaturan › Umum › Mesin render, tombol di samping progres; IPC `renderEngine:cancel`): worker
+  dimatikan, setelah keluar `render-browser/node_modules`, `installed.json`, dan penandanya dihapus, lalu statusnya
+  `cancelled: true` (bukan error) dan panel menulis "Unduhan dibatalkan…". Ekspor yang sedang menunggu unduhan itu
+  gagal dengan pesan "Unduhan mesin render dibatalkan."
+- **Ekspor yang memulai unduhan.** Ekspor video penjelasan pertama mengunduh browser sendiri. Membatalkan job
+  ekspor itu (`generate:cancel`) ikut membatalkan unduhannya, **kecuali** unduhan itu dimulai atau juga ditunggu
+  dari Pengaturan (`manual`) atau oleh render lain; dalam hal itu hanya ekspornya yang berhenti menunggu.
+- **Aplikasi ditutup saat mengunduh.** `will-quit` memanggil `stopRenderBrowserDownloadOnQuit()`: worker dimatikan
+  dan folder dibersihkan tanpa menunggu. Kalau ada file yang masih terkunci (Windows, antivirus), penandanya
+  tertinggal dan unduhan berikutnya membersihkannya.
+- `kill()` milik utility process tidak berbuat apa-apa sebelum prosesnya berjalan, jadi pembatalan yang sangat
+  cepat dieksekusi di event `spawn`.
+- Satu proses unduhan pada satu waktu: run baru menunggu run sebelumnya selesai, termasuk pembersihannya.
 
 ## Server aset sementara
 
@@ -125,7 +169,9 @@ setelah render selesai, gagal, atau dibatalkan.
    `+faststart`.
 4. `.srt` opsional dari kata narasi per adegan (`timelineChunks`).
 
-Pembatalan: `generate:cancel` → `AbortController` job → `makeCancelSignal().cancel()` milik Remotion.
+Pembatalan: `generate:cancel` → `AbortController` job → `makeCancelSignal().cancel()` milik Remotion. Saat ekspor
+masih mengunduh mesin render, sinyal yang sama menghentikan unduhannya (lihat
+[Unduhan yang bisa dibatalkan](#unduhan-yang-bisa-dibatalkan-utility-process)).
 
 ## Template dan adegan
 
@@ -238,6 +284,14 @@ pilihan tetap). Field adegan tinggal di `scene_json`, jadi tidak perlu migrasi d
 - Build terpaket tanpa installer (menguji path `resources/remotion`, `app.asar.unpacked`, dan unduhan browser):
   `npx electron-builder --dir` (di Linux: `--linux --dir`). Dev harness tidak aktif di build terpaket; jalankan
   dengan `--remote-debugging-port=9333` dan panggil `window.api.renderEngine.test()` lewat DevTools Protocol.
+- Membatalkan unduhan browser: dari langkah `js` harness, `window.api.renderEngine.install()`, tunggu
+  `renderEngine.status()` sampai `received / total` mencapai 20–50%, lalu `renderEngine.cancel()` (atau klik
+  **Batalkan**). Setelah itu tidak boleh ada proses `--type=utility --utility-sub-type=node.mojom.NodeService`
+  (Linux: `ps`, Windows: Task Manager › Details, `Story Maker.exe`), dan `render-browser` hanya berisi
+  `package.json`. Untuk ekspor: `exporter.start(...)` di proyek `seedExplainer` tanpa browser, lalu
+  `generate.cancel(jobId)` saat pesan job "Mengunduh mesin render". Di jaringan cepat unduhannya selesai dalam 1–2
+  detik; untuk menguji di mode pengembangan bisa diperlambat dengan skrip `--require` lewat `NODE_OPTIONS` yang
+  menjeda `https.get` (build terpaket mengabaikan `NODE_OPTIONS`).
 - Periksa hasil dengan ffprobe/ffmpeg seperti ekspor cerita (resolusi, durasi video vs audio, `ebur128` untuk
   loudness, cuplikan frame).
 
@@ -253,6 +307,11 @@ Semua di atas sudah diuji di Linux (mode pengembangan dan build terpaket `--dir`
    terisi, dan tidak ada folder `.remotion` atau `node_modules` baru di folder instalasi.
 4. Klik **Uji render**: muncul "Render uji berhasil". Kalau Windows Defender/SmartScreen bertanya soal
    `chrome-headless-shell.exe` atau `remotion.exe`, izinkan, lalu catat di dokumentasi.
+4a. Hapus mesin render, unduh lagi, lalu klik **Batalkan** di tengah unduhan: panel menulis "Unduhan dibatalkan…",
+   folder `render-browser` hanya berisi `package.json` (tidak ada file `.zip`, `download.lock`, atau
+   `download-incomplete`), dan di Task Manager tidak ada proses `Story Maker.exe` tambahan yang tertinggal. Ulangi,
+   lalu tutup aplikasi di tengah unduhan: folder tetap bersih setelah ditutup, atau dibersihkan saat unduhan
+   berikutnya kalau Windows masih mengunci filenya.
 5. Buat Video penjelasan (mis. template Tutorial, 9:16), unggah screenshot dan tarik kotak sorotan, buat narasi,
    ekspor 1080p: MP4 terbuka di pemutar Windows, durasi video = audio, caption tidak menutupi isi, emoji tips
    tampil berwarna (Segoe UI Emoji).

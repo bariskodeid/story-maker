@@ -3,10 +3,13 @@ import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmS
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { extname, join, normalize, sep } from 'node:path'
-import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer'
+import { makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer'
+import { utilityProcess, type UtilityProcess } from 'electron'
 import type { RenderEngineStatus, RenderTestResult } from '@shared/render'
 import { emit } from './events'
 import { dataDir, fontsDir, projectDir, remotionBinariesDir, remotionBundleDir } from './paths'
+import type { BrowserWorkerMessage } from './renderBrowserWorker'
+import browserWorker from './renderBrowserWorker?modulePath'
 import { getSecret } from './secrets'
 
 /**
@@ -17,9 +20,21 @@ import { getSecret } from './secrets'
  * process.cwd() (the nearest package.json, then node_modules/.remotion). The installed app's working directory
  * can be Program Files, which is not writable, so the download runs from a folder of our own that holds a stub
  * package.json, and every render passes the resulting executable path explicitly.
+ *
+ * ensureBrowser itself runs in an Electron utility process (renderBrowserWorker.ts), never in this one:
+ * - its download cannot be cancelled (Remotion hands it a signal that never aborts), so cancelling kills that
+ *   process, and nothing it opened outlives it;
+ * - the process starts in the folder above, so this one never changes its own working directory;
+ * - Remotion chains each ensureBrowser call onto the previous one with .then, so a single failed call here would
+ *   fail every later one, including the call inside each renderMedia, until the app restarts.
+ * A utility process rather than child_process.fork with ELECTRON_RUN_AS_NODE: it is Electron's supported way to
+ * run Node code in a process of its own, loads the script from inside app.asar, does not depend on the runAsNode
+ * fuse, and is ended together with the app.
  */
 
 const CHROME_MODE = 'headless-shell' as const
+// Written by renderBrowserWorker.ts before a download fetches anything; removed once the browser is installed.
+const PARTIAL = 'download-incomplete'
 
 function browserRoot(): string {
   const dir = join(dataDir(), 'render-browser')
@@ -30,6 +45,7 @@ function browserRoot(): string {
 }
 
 const installedFile = (): string => join(browserRoot(), 'installed.json')
+const partialFile = (): string => join(browserRoot(), PARTIAL)
 
 interface Installed {
   path: string
@@ -37,6 +53,8 @@ interface Installed {
 }
 
 function readInstalled(): Installed | null {
+  // A download that never finished can leave a browser folder behind; that is not an installed browser.
+  if (existsSync(partialFile())) return null
   try {
     const v = JSON.parse(readFileSync(installedFile(), 'utf8')) as Installed
     return v.path && existsSync(v.path) ? v : null
@@ -51,75 +69,238 @@ function folderSize(path: string): number {
   return readdirSync(path).reduce((n, name) => n + folderSize(join(path, name)), 0)
 }
 
-let download: { received: number; total: number } | null = null
+/**
+ * Removes the browser and anything a download wrote. The marker goes last: while a file is still locked (Windows,
+ * antivirus), the marker stays and the next download clears the folder before it starts.
+ */
+function clearBrowserFolder(retry = true): void {
+  rmSync(join(browserRoot(), 'node_modules'), { recursive: true, force: true, ...(retry ? { maxRetries: 5, retryDelay: 200 } : {}) })
+  rmSync(installedFile(), { force: true })
+  rmSync(partialFile(), { force: true })
+}
+
+interface Waiter {
+  onProgress?: (received: number, total: number) => void
+}
+
+/** One ensureBrowser in a utility process: a quick version check, and a download when one is needed. */
+interface Run {
+  /** Null before the process is forked and after it exited. */
+  child: UtilityProcess | null
+  /** Renders (and the Settings button) waiting for this run. */
+  waiters: Set<Waiter>
+  /** Started or joined from Settings: a cancelled export leaves it running; only Batalkan there stops it. */
+  manual: boolean
+  downloading: boolean
+  received: number
+  total: number
+  cancelled: boolean
+  result: Promise<string>
+}
+
+let run: Run | null = null
+/** The latest run including its cleanup. A new run waits for it, so two runs never touch the folder at once. */
+let previous: Promise<unknown> = Promise.resolve()
+/** The executable a run confirmed in this session; the browser version Remotion wants cannot change meanwhile. */
+let verified: string | null = null
 let lastError: string | null = null
-let installing: Promise<string> | null = null
+let lastCancelled = false
+let lastEmit = 0
 
 export function renderEngineStatus(): RenderEngineStatus {
-  if (download) return { state: 'downloading', received: download.received, total: download.total, sizeBytes: null, error: null }
   const inst = readInstalled()
-  return { state: inst ? 'ready' : 'missing', received: 0, total: 0, sizeBytes: inst?.sizeBytes ?? null, error: inst ? null : lastError }
+  if (run && (run.downloading || !inst))
+    return { state: 'downloading', received: run.received, total: run.total, sizeBytes: null, error: null, cancelled: false }
+  return {
+    state: inst ? 'ready' : 'missing',
+    received: 0,
+    total: 0,
+    sizeBytes: inst?.sizeBytes ?? null,
+    error: inst ? null : lastError,
+    cancelled: !inst && lastCancelled
+  }
+}
+
+function report(force = false): void {
+  if (!force && Date.now() - lastEmit < 250) return
+  lastEmit = Date.now()
+  emit.renderEngine(renderEngineStatus())
+}
+
+export interface EnsureBrowserOptions {
+  onProgress?: (received: number, total: number) => void
+  /** A render's cancel signal: it stops waiting, and stops the download too when nothing else waits for it. */
+  signal?: AbortSignal
+  /** The download button in Settings. */
+  manual?: boolean
 }
 
 /**
  * Makes sure Chrome Headless Shell is installed and returns its executable. Remotion checks the installed
- * version on every call, so an app update that needs a newer browser downloads it again here.
+ * version on every run, so an app update that needs a newer browser downloads it again here.
  */
-export function ensureRenderBrowser(onProgress?: (received: number, total: number) => void): Promise<string> {
-  if (installing) return installing
-  installing = (async () => {
-    const root = browserRoot()
-    const previous = process.cwd()
-    lastError = null
-    let lastEmit = 0
-    try {
-      process.chdir(root)
-      const status = await ensureBrowser({
-        chromeMode: CHROME_MODE,
-        logLevel: 'error',
-        onBrowserDownload: () => {
-          download = { received: 0, total: 0 }
-          emit.renderEngine(renderEngineStatus())
-          return {
-            version: null,
-            onProgress: ({ downloadedBytes, totalSizeInBytes }) => {
-              download = { received: downloadedBytes, total: totalSizeInBytes }
-              onProgress?.(downloadedBytes, totalSizeInBytes)
-              if (Date.now() - lastEmit > 250) {
-                lastEmit = Date.now()
-                emit.renderEngine(renderEngineStatus())
-              }
-            }
-          }
-        }
-      })
-      if (status.type !== 'local-puppeteer-browser' && status.type !== 'user-defined-path')
-        throw new Error('Mesin render tidak bisa dipasang. Periksa koneksi internet lalu coba lagi.')
-      const known = readInstalled()
-      if (known?.path !== status.path || !known.sizeBytes) {
-        const folder = join(root, 'node_modules', '.remotion')
-        writeFileSync(installedFile(), JSON.stringify({ path: status.path, sizeBytes: existsSync(folder) ? folderSize(folder) : 0 }))
+export function ensureRenderBrowser({ onProgress, signal, manual }: EnsureBrowserOptions = {}): Promise<string> {
+  if (signal?.aborted) return Promise.reject(new Error('Dibatalkan'))
+  if (!run && verified && existsSync(verified) && !existsSync(partialFile())) return Promise.resolve(verified)
+  const r = run ?? startRun()
+  if (manual) r.manual = true
+  const waiter: Waiter = { onProgress }
+  r.waiters.add(waiter)
+  return new Promise<string>((resolve, reject) => {
+    const leave = (): void => {
+      r.waiters.delete(waiter)
+      signal?.removeEventListener('abort', onAbort)
+    }
+    const onAbort = (): void => {
+      leave()
+      reject(new Error('Dibatalkan'))
+      // The first export downloads the browser by itself; cancelling that export cancels its download, unless
+      // Settings or another render still waits for it.
+      if (!r.manual && r.waiters.size === 0) void stopRun(r)
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    r.result.then(
+      (path) => {
+        leave()
+        resolve(path)
+      },
+      (e: unknown) => {
+        leave()
+        reject(e)
       }
-      return status.path
+    )
+  })
+}
+
+function startRun(): Run {
+  lastError = null
+  lastCancelled = false
+  const r: Run = {
+    child: null,
+    waiters: new Set(),
+    manual: false,
+    downloading: false,
+    received: 0,
+    total: 0,
+    cancelled: false,
+    result: Promise.resolve('')
+  }
+  const before = previous
+  r.result = (async () => {
+    await before.catch(() => {})
+    try {
+      if (r.cancelled) throw new Error('Dibatalkan')
+      // Left by a download that was cut short when the app quit or crashed.
+      if (existsSync(partialFile())) clearBrowserFolder()
+      const path = await runWorker(r)
+      rmSync(partialFile(), { force: true })
+      const known = readInstalled()
+      if (known?.path !== path || !known.sizeBytes) {
+        const folder = join(browserRoot(), 'node_modules', '.remotion')
+        writeFileSync(installedFile(), JSON.stringify({ path, sizeBytes: existsSync(folder) ? folderSize(folder) : 0 }))
+      }
+      verified = path
+      return path
     } catch (e) {
+      // The worker has exited by now, so nothing writes into the folder any more.
+      if (existsSync(partialFile())) clearBrowserFolder()
+      if (r.cancelled) throw new Error('Unduhan mesin render dibatalkan.')
       lastError = `Gagal mengunduh mesin render: ${(e as Error).message}`
       throw new Error(lastError)
     } finally {
-      process.chdir(previous)
-      download = null
-      installing = null
-      emit.renderEngine(renderEngineStatus())
+      if (run === r) run = null
+      report(true)
     }
   })()
-  return installing
+  previous = r.result
+  run = r
+  report(true)
+  return r
+}
+
+/** Forks the worker. Settles only once the process has exited, never while it may still write files. */
+function runWorker(r: Run): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const child = utilityProcess.fork(browserWorker, [], { cwd: browserRoot(), serviceName: 'Story Maker render browser', stdio: 'inherit' })
+    r.child = child
+    let outcome: { path: string } | { error: string } | null = null
+    // kill() does nothing before the process is up, so a run cancelled that early is stopped here.
+    child.once('spawn', () => {
+      if (r.cancelled) child.kill()
+    })
+    child.on('message', (m: BrowserWorkerMessage) => {
+      if (m.type === 'download') {
+        r.downloading = true
+        report(true)
+      } else if (m.type === 'progress') {
+        r.downloading = true
+        r.received = m.received
+        r.total = m.total
+        for (const w of r.waiters) w.onProgress?.(m.received, m.total)
+        report()
+      } else {
+        outcome = m.type === 'done' ? { path: m.path } : { error: m.message }
+        child.kill()
+      }
+    })
+    child.once('exit', (code) => {
+      r.child = null
+      // A browser that finished installing is kept, even when Batalkan came a moment too late.
+      if (outcome && 'path' in outcome) resolve(outcome.path)
+      else if (r.cancelled) reject(new Error('Dibatalkan'))
+      else reject(new Error(outcome?.error ?? `proses unduhan berhenti tiba-tiba (kode ${code}).`))
+    })
+  })
+}
+
+/** Kills the run's worker; resolves once it has exited and the partial download is gone. */
+function stopRun(r: Run): Promise<void> {
+  if (!r.cancelled) {
+    r.cancelled = true
+    lastCancelled = true
+    if (run === r) run = null
+    r.child?.kill()
+    report(true)
+  }
+  return r.result.then(
+    () => undefined,
+    () => undefined
+  )
+}
+
+/** The Batalkan button in Settings. Exports waiting for this download fail with a message that says so. */
+export function cancelRenderBrowserDownload(): Promise<void> {
+  if (run) return stopRun(run)
+  return previous.then(
+    () => undefined,
+    () => undefined
+  )
+}
+
+/**
+ * Quitting the app: kill a running download and remove its files without waiting. If the dying process still
+ * holds a file, the marker stays and the next download clears the folder first.
+ */
+export function stopRenderBrowserDownloadOnQuit(): void {
+  const r = run
+  if (!r) return
+  r.cancelled = true
+  run = null
+  r.child?.kill()
+  try {
+    if (existsSync(partialFile())) clearBrowserFolder(false)
+  } catch {
+    // Cleared before the next download (see above).
+  }
 }
 
 export function removeRenderBrowser(): void {
-  if (installing) throw new Error('Tunggu sampai unduhan mesin render selesai.')
-  const root = browserRoot()
-  rmSync(join(root, 'node_modules'), { recursive: true, force: true })
-  rmSync(installedFile(), { force: true })
-  emit.renderEngine(renderEngineStatus())
+  if (run) throw new Error('Tunggu sampai unduhan mesin render selesai.')
+  verified = null
+  lastError = null
+  lastCancelled = false
+  clearBrowserFolder()
+  report(true)
 }
 
 // ---------- assets for the headless browser ----------
@@ -247,9 +428,11 @@ const mb = (n: number): string => `${Math.round(n / 1_000_000)} MB`
 export async function renderVideo(req: RenderRequest): Promise<void> {
   const bundle = remotionBundleDir()
   if (!existsSync(join(bundle, 'index.html'))) throw new Error('Bundle video belum dibuat. Jalankan npm run build lalu buka lagi aplikasinya.')
-  const browserExecutable = await ensureRenderBrowser((received, total) =>
-    req.onProgress(0.05 * (total ? received / total : 0), `Mengunduh mesin render (${mb(received)} dari ${mb(total)})`)
-  )
+  const browserExecutable = await ensureRenderBrowser({
+    signal: req.signal,
+    onProgress: (received, total) =>
+      req.onProgress(0.05 * (total ? received / total : 0), `Mengunduh mesin render (${mb(received)} dari ${mb(total)})`)
+  })
   if (req.signal.aborted) throw new Error('Dibatalkan')
   // Companies above the free tier add their Remotion Company License key in Settings. With a key, Remotion
   // reports each finished render to remotion.pro (the key, success, nothing about the video) before it
