@@ -1,0 +1,172 @@
+import type { ReactNode } from 'react'
+import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
+import { Button, Progress, Spinner, cx } from '../../components/ui'
+import { dismissAutopilot, startAutopilot, stopAutopilot, type AutopilotRun, type AutopilotStage } from '../../lib/autopilot'
+import { useProject } from '../../store/project'
+
+type RowState = 'pending' | 'active' | 'done' | 'failed'
+
+const ORDER: AutopilotStage[] = ['script', 'visuals', 'media', 'finish']
+
+function stageState(run: AutopilotRun, stage: AutopilotStage): RowState {
+  const at = ORDER.indexOf(run.stage)
+  const me = ORDER.indexOf(stage)
+  if (me < at) return 'done'
+  if (me > at) return 'pending'
+  // A run the user stopped is paused, not broken.
+  return run.state === 'running' ? 'active' : run.state === 'failed' ? 'failed' : 'pending'
+}
+
+function Row({ state, title, detail, children }: { state: RowState; title: string; detail: ReactNode; children?: ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span
+        className={cx(
+          'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border text-xs',
+          state === 'done' && 'border-ok-ink/30 bg-ok-soft text-ok-ink',
+          state === 'active' && 'border-ink bg-sun-soft text-ink',
+          state === 'failed' && 'border-bad-ink/40 bg-bad-soft text-bad-ink',
+          state === 'pending' && 'border-line-2 bg-surface text-muted'
+        )}
+      >
+        {state === 'done' ? (
+          <Check className="size-[15px]" strokeWidth={3} />
+        ) : state === 'active' ? (
+          <Spinner className="size-[15px]" />
+        ) : state === 'failed' ? (
+          <AlertTriangle className="size-[14px]" />
+        ) : (
+          <span className="size-1.5 rounded-full bg-line-3" />
+        )}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className={cx('text-[15px] font-semibold', state === 'pending' ? 'text-muted' : 'text-ink')}>{title}</span>
+          <span className="text-[13px] text-ink-2">{detail}</span>
+        </div>
+        {children}
+      </div>
+    </li>
+  )
+}
+
+/** Progress of one-click generate in place of the step pages, so nobody edits a project that is being rewritten. */
+export function AutopilotPanel({ run }: { run: AutopilotRun }) {
+  const { project, clips, characters, assets } = useProject()
+  if (!project) return null
+
+  const jobs = Object.values(run.jobs).sort((a, b) => a.createdAt - b.createdAt)
+  // A resumed run makes new sheet jobs; only the latest one per character counts.
+  const sheetJobs = [...new Map(jobs.filter((j) => j.kind === 'sheet').map((j) => [j.characterId ?? j.id, j])).values()]
+  const narration = jobs.filter((j) => j.kind === 'narration').sort((a, b) => b.createdAt - a.createdAt)[0]
+  const withImage = clips.filter((c) => c.imageAssetId).length
+  const toVoice = clips.filter((c) => c.narration.trim())
+  const voiced = toVoice.filter((c) => c.audioAssetId).length
+  const media = stageState(run, 'media')
+  const imagesDone = clips.length > 0 && withImage === clips.length
+  const voicesDone = toVoice.length > 0 && voiced === toVoice.length
+  const portrait = project.aspectRatio === '9:16'
+
+  const mediaRow = (done: boolean): RowState => (media === 'active' || media === 'failed' ? (done ? 'done' : media) : media)
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[760px] flex-col gap-6 px-6 py-10">
+        <div className="flex items-start gap-3.5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border-[1.5px] border-ink bg-accent text-white shadow-ink">
+            <Wand2 className="size-5" />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="font-display text-[26px] font-bold leading-tight">
+              {run.state === 'running' ? 'Membuat video otomatis' : run.state === 'stopped' ? 'Pembuatan otomatis dihentikan' : 'Pembuatan otomatis terhenti'}
+            </h1>
+            <p className="line-clamp-2 text-sm text-ink-2">{project.synopsis}</p>
+          </div>
+        </div>
+
+        <ol className="flex flex-col gap-4 rounded-2xl border border-line bg-surface px-5 py-5">
+          <Row state={stageState(run, 'script')} title="Naskah" detail={clips.length ? `${clips.length} adegan` : 'Menyusun adegan dan narasi'} />
+          <Row
+            state={stageState(run, 'visuals')}
+            title="Rencana visual"
+            detail={characters.length ? `${characters.length} pemeran, prompt gambar, dan gerak kamera` : 'Prompt gambar, pemeran, dan gerak kamera'}
+          />
+          <Row
+            state={mediaRow(imagesDone)}
+            title="Gambar"
+            detail={
+              <>
+                {clips.length ? `${withImage}/${clips.length} gambar klip` : 'Gambar klip'}
+                {sheetJobs.length > 0 && ` · ${sheetJobs.filter((j) => j.status === 'done').length}/${sheetJobs.length} lembar karakter`}
+              </>
+            }
+          >
+            {clips.length > 0 && media !== 'pending' && (
+              <div className={cx('grid gap-1.5', portrait ? 'grid-cols-8' : 'grid-cols-6')}>
+                {clips.map((c, i) => {
+                  const url = c.imageAssetId ? assets[c.imageAssetId]?.url : null
+                  return (
+                    <div
+                      key={c.id}
+                      className={cx('relative overflow-hidden rounded-md border border-line bg-sand', portrait ? 'aspect-[9/16]' : 'aspect-video')}
+                      title={c.title}
+                    >
+                      {url ? (
+                        <img src={url} alt="" className="size-full object-cover" />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center text-muted">
+                          <ImageIcon className="size-4" />
+                        </span>
+                      )}
+                      <span className="absolute left-1 top-1 rounded bg-ink/70 px-1 font-mono text-[10px] text-paper">{i + 1}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Row>
+          <Row
+            state={mediaRow(voicesDone)}
+            title="Narasi dan caption"
+            detail={
+              narration && narration.status === 'running' && narration.message
+                ? narration.message
+                : toVoice.length && media !== 'pending'
+                  ? `${voiced}/${toVoice.length} klip bersuara`
+                  : 'Suara narator, lalu caption disamakan dengan suaranya'
+            }
+          >
+            {narration?.status === 'running' && <Progress value={narration.progress} className="max-w-[320px]" />}
+          </Row>
+          <Row state={stageState(run, 'finish')} title="Editor" detail="Siap kamu cek dan ekspor" />
+        </ol>
+
+        {run.state === 'failed' && run.error && (
+          <p className="flex items-start gap-2 rounded-xl border border-bad-ink/30 bg-bad-soft px-4 py-3 text-sm text-bad-ink">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {run.error}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {run.state === 'running' ? (
+            <>
+              <Button loading={run.stopping} onClick={() => void stopAutopilot(run.projectId)}>
+                Hentikan
+              </Button>
+              <span className="text-[13px] text-muted">Kamu boleh kembali ke beranda. Prosesnya tetap berjalan selama aplikasi terbuka.</span>
+            </>
+          ) : (
+            <>
+              <Button variant="primary" icon={<Wand2 className="size-[17px]" />} onClick={() => startAutopilot(run.projectId)}>
+                {run.state === 'stopped' ? 'Lanjutkan otomatis' : 'Coba lagi'}
+              </Button>
+              <Button onClick={() => dismissAutopilot(run.projectId)}>Lanjut manual</Button>
+              <span className="text-[13px] text-muted">Langkah yang sudah selesai tidak diulang.</span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

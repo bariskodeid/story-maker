@@ -82,6 +82,13 @@ dan audio dimatikan lewat parameter kalau modelnya punya. Audio dari file video 
 Kunci kriptografi `safeStorage` baru tertulis ke `Local State` sekitar 10 detik setelah dibuat. Membuatnya saat
 startup (`warmUpEncryption`) mencegah kunci API tidak terbaca setelah aplikasi ditutup paksa.
 
+### Sekali klik dijalankan dari renderer, bukan proses utama
+Renderer menyimpan proyek sebagai snapshot utuh (`saveSnapshot` menghapus klip dan pemeran yang tidak ada di
+snapshot). Kalau proses utama menulis naskah atau pemeran baru sendiri, snapshot lama dari renderer bisa
+menghapusnya lagi, dan tidak ada event "proyek berubah" untuk memuat ulang. Karena itu `autopilot.ts` memanggil IPC
+yang sama dengan tombol langkah dan me-`load()` setiap bundle ke store kalau proyeknya terbuka, persis seperti alur
+manual. Selama berjalan, isi langkah diganti panel progres supaya tidak ada suntingan yang bertabrakan.
+
 ### Narasi 9Router: satu rekaman per bagian 1.000 karakter, tanpa waktu kata
 9Router meneruskan ke banyak mesin suara (Edge TTS, OpenAI, Gemini, ElevenLabs), dan endpoint-nya tidak mengirim
 waktu per kata. Narasinya ikut jalur Gemini (`untimedTake`): satu rekaman per bagian, lalu dipotong dengan Whisper

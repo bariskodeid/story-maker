@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowRight, Copy, FolderOpen, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Copy, FolderOpen, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, Wand2 } from 'lucide-react'
 import { isNineRouterImage } from '@shared/imageModels'
-import { DURATIONS, LANGUAGES, llmName } from '@shared/models'
+import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
 import { getStyle } from '@shared/styles'
 import type { ApiProvider, AppSettings, AspectRatio, KeyStatus, ProjectStatus, ProjectSummary, TtsProvider } from '@shared/types'
 import { Logo } from '../components/Logo'
@@ -9,6 +9,7 @@ import { Select, type SelectOption } from '../components/Select'
 import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
 import { Badge, Button, Chip, IconButton, Menu, confirmDialog, cx } from '../components/ui'
+import { startAutopilot, useAutopilot } from '../lib/autopilot'
 import { errorText, mmss, relativeTime } from '../lib/format'
 import { TTS_NAMES, TTS_PROVIDERS, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
@@ -57,7 +58,8 @@ export function Home() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9')
   const [styleId, setStyleId] = useState('stickman')
   const [tts, setTts] = useState<TtsProvider>('gemini')
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState<'manual' | 'auto' | null>(null)
+  const autopilots = useAutopilot((s) => s.runs)
 
   const refresh = (): void => {
     window.api.projects
@@ -115,15 +117,39 @@ export function Home() {
     return (projects ?? []).filter((p) => f.match(p.status) && (!q || p.title.toLowerCase().includes(q)))
   }, [projects, filter, query])
 
-  const start = async (): Promise<void> => {
-    setCreating(true)
+  const start = async (auto: boolean): Promise<void> => {
+    setCreating(auto ? 'auto' : 'manual')
     try {
       const b = await window.api.projects.create({ synopsis, durationSec, language, aspectRatio, styleId, ttsProvider: tts })
+      if (auto) startAutopilot(b.project.id)
       go({ name: 'project', id: b.project.id })
     } catch (e) {
       toast('error', errorText(e))
-      setCreating(false)
+      setCreating(null)
     }
+  }
+
+  // One-click generate needs every service up front; the manual flow can still start and fix keys later.
+  const autoBlocked = !synopsis.trim()
+    ? 'Tulis ide ceritanya dulu.'
+    : setupIssues.length
+      ? `Atur dulu ${joinList(setupIssues.map((i) => i.what))} di Pengaturan.`
+      : keys.length && !ttsReadiness(keys)[tts].ok
+        ? `Suara narator ${TTS_NAMES[tts]} belum siap. Pilih penyedia suara lain.`
+        : null
+
+  const startAuto = async (): Promise<void> => {
+    const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
+    const ok = await confirmDialog({
+      title: 'Buat video sekali klik?',
+      body:
+        `Naskah, rencana visual, lembar karakter, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption dibuat otomatis, ` +
+        `lalu proyeknya terbuka di editor untuk kamu cek dan ekspor. ` +
+        (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+        'Video AI tidak dibuat; klip memakai gerak kamera.',
+      confirm: 'Buat otomatis'
+    })
+    if (ok) await start(true)
   }
 
   const remove = async (p: ProjectSummary): Promise<void> => {
@@ -221,7 +247,18 @@ export function Home() {
               <StyleMenu value={styleId} onChange={setStyleId} />
               <Select variant="pill" label="Suara narator" value={tts} onChange={setTts} options={ttsOptions} menuWidth={280} />
               <div className="flex-1" />
-              <Button variant="primary" size="lg" loading={creating} onClick={() => void start()}>
+              <span title={autoBlocked ?? undefined}>
+                <Button
+                  size="lg"
+                  icon={<Wand2 className="size-[18px]" />}
+                  disabled={!!autoBlocked || creating !== null}
+                  loading={creating === 'auto'}
+                  onClick={() => void startAuto()}
+                >
+                  Sekali klik
+                </Button>
+              </span>
+              <Button variant="primary" size="lg" disabled={creating !== null} loading={creating === 'manual'} onClick={() => void start(false)}>
                 Mulai
                 <ArrowRight className="size-[18px]" />
               </Button>
@@ -261,7 +298,7 @@ export function Home() {
           <div className="grid grid-cols-4 gap-5">
             <button
               type="button"
-              onClick={() => void start()}
+              onClick={() => void start(false)}
               className="flex min-h-[262px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-3 text-ink-2 hover:border-ink-2 hover:bg-surface"
             >
               <span className="flex size-[54px] items-center justify-center rounded-full border-[1.5px] border-ink bg-accent text-white shadow-ink">
@@ -294,7 +331,7 @@ export function Home() {
                     <div className="line-clamp-2 min-h-[46px] px-4 pb-0.5 pt-3.5 text-base font-semibold leading-snug">{p.title}</div>
                   </button>
                   <div className="flex items-center gap-2 py-2 pl-4 pr-2">
-                    <Badge tone={st.tone}>{st.label}</Badge>
+                    {autopilots[p.id]?.state === 'running' ? <Badge tone="info">Dibuat otomatis…</Badge> : <Badge tone={st.tone}>{st.label}</Badge>}
                     <span className="truncate text-[13px] text-muted">{relativeTime(p.updatedAt)}</span>
                     <div className="flex-1" />
                     <Menu

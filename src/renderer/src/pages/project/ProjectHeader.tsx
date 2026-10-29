@@ -47,7 +47,8 @@ function SaveStatus() {
   )
 }
 
-export function ProjectHeader({ doneSteps, right }: { doneSteps: Step[]; right?: ReactNode }) {
+/** `locked`: one-click generate is working on this project, so the steps cannot be opened yet. */
+export function ProjectHeader({ doneSteps, right, locked = false }: { doneSteps: Step[]; right?: ReactNode; locked?: boolean }) {
   const { project, updateProject, save, flush } = useProject()
   const { go } = useApp()
   const [editing, setEditing] = useState(false)
@@ -116,16 +117,19 @@ export function ProjectHeader({ doneSteps, right }: { doneSteps: Step[]; right?:
               key={s.n}
               type="button"
               aria-current={active ? 'step' : undefined}
+              disabled={locked}
+              title={locked ? 'Tunggu sampai pembuatan otomatis selesai atau dihentikan' : undefined}
               onClick={() => setStep(s.n)}
               className={cx(
-                'inline-flex h-9 items-center gap-2 rounded-full py-0 pl-1.5 pr-4 text-sm',
-                active ? 'bg-ink font-semibold text-paper' : 'font-medium text-ink-2 hover:text-ink'
+                'inline-flex h-9 items-center gap-2 rounded-full py-0 pl-1.5 pr-4 text-sm disabled:cursor-not-allowed',
+                active && !locked ? 'bg-ink font-semibold text-paper' : 'font-medium text-ink-2',
+                !locked && !active && 'hover:text-ink'
               )}
             >
               <span
                 className={cx(
                   'inline-flex size-6 items-center justify-center rounded-full text-xs',
-                  active ? 'bg-accent text-white' : done ? 'bg-ok-soft text-ok-ink' : 'border border-line-2 bg-surface text-ink-2'
+                  active && !locked ? 'bg-accent text-white' : done ? 'bg-ok-soft text-ok-ink' : 'border border-line-2 bg-surface text-ink-2'
                 )}
               >
                 {done ? <Check className="size-[13px]" strokeWidth={3} /> : s.n}

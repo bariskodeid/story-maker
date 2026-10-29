@@ -37,6 +37,12 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 
 ## Fitur
 
+**Sekali klik**
+- Tulis ide, lalu klik **Sekali klik** di Beranda: naskah, rencana visual, lembar karakter, gambar klip, narasi,
+  dan caption dibuat otomatis berurutan, lalu proyek terbuka di editor untuk kamu cek dan ekspor.
+- Video AI tidak ikut dibuat (klip memakai gerak kamera). Proses bisa dihentikan dan dilanjutkan; langkah yang sudah
+  selesai tidak diulang.
+
 **1. Ide cerita**
 - Tulis ide atau sinopsis, lalu atur:
   - durasi (30 detik sampai 10 menit);

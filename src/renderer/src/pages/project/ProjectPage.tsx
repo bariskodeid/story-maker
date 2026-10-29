@@ -3,9 +3,11 @@ import { Download } from 'lucide-react'
 import { needsVisual } from '@shared/script'
 import type { Step } from '@shared/types'
 import { Button, Spinner } from '../../components/ui'
+import { useAutopilot } from '../../lib/autopilot'
 import { errorText } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { useProject } from '../../store/project'
+import { AutopilotPanel } from './AutopilotPanel'
 import { EditorStep } from './EditorStep'
 import { ExportDialog } from './ExportDialog'
 import { IdeaStep } from './IdeaStep'
@@ -17,6 +19,7 @@ export function ProjectPage({ id }: { id: string }) {
   const { load, unload, loaded, project, clips } = useProject()
   const { toast, go } = useApp()
   const [exportOpen, setExportOpen] = useState(false)
+  const autopilot = useAutopilot((s) => s.runs[id])
 
   useEffect(() => {
     let alive = true
@@ -61,8 +64,9 @@ export function ProjectPage({ id }: { id: string }) {
     <div className="flex h-full flex-col">
       <ProjectHeader
         doneSteps={done}
+        locked={!!autopilot}
         right={
-          project.step === 4 ? (
+          project.step === 4 && !autopilot ? (
             <Button variant="primary" icon={<Download className="size-[18px]" />} onClick={() => setExportOpen(true)}>
               Ekspor video
             </Button>
@@ -70,10 +74,16 @@ export function ProjectPage({ id }: { id: string }) {
         }
       />
       <div className="min-h-0 flex-1">
-        {project.step === 1 && <IdeaStep />}
-        {project.step === 2 && <ScriptStep />}
-        {project.step === 3 && <StoryboardStep />}
-        {project.step === 4 && <EditorStep />}
+        {autopilot ? (
+          <AutopilotPanel run={autopilot} />
+        ) : (
+          <>
+            {project.step === 1 && <IdeaStep />}
+            {project.step === 2 && <ScriptStep />}
+            {project.step === 3 && <StoryboardStep />}
+            {project.step === 4 && <EditorStep />}
+          </>
+        )}
       </div>
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>

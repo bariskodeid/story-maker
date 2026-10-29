@@ -18,6 +18,23 @@ Ide cerita ──LLM──► Naskah (adegan + narasi) ──LLM──► Rencan
                                                                   FFmpeg → MP4
 ```
 
+## Sekali klik (`src/renderer/src/lib/autopilot.ts`)
+
+Tombol **Sekali klik** di Beranda membuat proyek lalu menjalankan langkah 1–4 tanpa klik tambahan:
+
+1. `story.script` kalau proyek belum punya adegan;
+2. `story.visuals(…, 'missing')` kalau ada adegan yang belum punya rencana visual (`needsVisual`);
+3. `generate.missingImages` (lembar karakter dulu, lalu gambar klip) **bersamaan dengan** `generate.narration(…,
+   'missing')`, karena antreannya berbeda. Whisper berjalan di dalam job narasi (`whisperAuto`). Gambar atau narasi
+   yang gagal diulang satu putaran lagi (`MEDIA_ROUNDS`);
+4. proyek dipindah ke langkah 4 (Editor), status `editing`.
+
+Video AI tidak dibuat dan ekspor tetap manual. Setiap langkah dilewati kalau hasilnya sudah ada, jadi **Coba lagi**
+atau **Lanjutkan otomatis** cukup menjalankan ulang seluruh urutan. Selama berjalan, halaman proyek menampilkan
+`AutopilotPanel` sebagai ganti isi langkah dan tab langkah dikunci. Proses tetap jalan kalau pengguna kembali ke
+Beranda (kartunya berlabel "Dibuat otomatis…"), tetapi berhenti kalau aplikasi ditutup; job yang terputus ditandai
+gagal oleh `resumeJobs`, dan proyeknya bisa dilanjutkan manual dari langkah terakhir.
+
 ## 1. Ide → naskah (`generateScript`, `src/main/story.ts`)
 
 - Masukan: sinopsis, target durasi, bahasa.
