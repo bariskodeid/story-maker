@@ -1,4 +1,4 @@
-import { Box, Camera, Clapperboard, Droplets, Hand, Layers, PenLine, Pencil, Shapes, Sparkles, Wand2, Zap, type LucideIcon } from 'lucide-react'
+import { Box, Camera, Clapperboard, DraftingCompass, Droplets, Hand, Layers, PenLine, Pencil, Shapes, Sparkles, Wand2, Zap, type LucideIcon } from 'lucide-react'
 import { EXPLAINER_IMAGE_STYLES, getExplainerImageStyle } from '@shared/explainer'
 import { cx } from './ui'
 
@@ -13,6 +13,7 @@ const ICON: Record<string, LucideIcon> = {
   watercolor: Droplets,
   clay: Hand,
   neon: Zap,
+  blueprint: DraftingCompass,
   photo: Camera,
   cinematic: Clapperboard
 }

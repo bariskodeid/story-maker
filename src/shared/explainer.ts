@@ -211,7 +211,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'kertas', name: 'Kertas', bg: '#F4F0E8', surface: '#FFFFFF', ink: '#15171C', muted: '#5D6470', accent: '#2E5BFF', accent2: '#FF7A1A', dark: false },
       { id: 'anggur', name: 'Anggur', bg: '#160F29', surface: '#221A3F', ink: '#F5F0FF', muted: '#A79CC8', accent: '#FFC93C', accent2: '#FF6B9A', dark: true },
       { id: 'laut', name: 'Laut', bg: '#EEF4FB', surface: '#FFFFFF', ink: '#0F1B2D', muted: '#5A6B82', accent: '#0A84FF', accent2: '#00A47A', dark: false },
-      { id: 'terminal', name: 'Terminal', bg: '#0F0B05', surface: '#1C150B', ink: '#FFE8C2', muted: '#B29B76', accent: '#FFB000', accent2: '#FF5F56', dark: true }
+      { id: 'terminal', name: 'Terminal', bg: '#0F0B05', surface: '#1C150B', ink: '#FFE8C2', muted: '#B29B76', accent: '#FFB000', accent2: '#FF5F56', dark: true },
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
     ],
     fonts: ['poppins', 'archivo', 'bebas'],
     numberFont: 'mono',
@@ -313,7 +314,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'poster', name: 'Poster', bg: '#F1ECE2', surface: '#FFFFFF', ink: '#15151C', muted: '#66636E', accent: '#E8452C', accent2: '#2457E6', dark: false },
       { id: 'neon', name: 'Neon', bg: '#0C110D', surface: '#162018', ink: '#EEF6EA', muted: '#91A38F', accent: '#B8F23A', accent2: '#B06CFF', dark: true },
       { id: 'kontras', name: 'Kontras', bg: '#FFFFFF', surface: '#F2F2F5', ink: '#111111', muted: '#5E5E66', accent: '#FF2E63', accent2: '#0BB8B5', dark: false },
-      { id: 'retro', name: 'Retro', bg: '#1E1B2E', surface: '#2A2640', ink: '#FFF8E7', muted: '#B8B0CF', accent: '#FF9F1C', accent2: '#2EC4B6', dark: true }
+      { id: 'retro', name: 'Retro', bg: '#1E1B2E', surface: '#2A2640', ink: '#FFF8E7', muted: '#B8B0CF', accent: '#FF9F1C', accent2: '#2EC4B6', dark: true },
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
     ],
     fonts: ['anton', 'bebas', 'archivo'],
     numberFont: 'anton',
@@ -340,7 +342,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'koran', name: 'Koran', bg: '#F3F0E8', surface: '#FFFFFF', ink: '#111317', muted: '#5D646E', accent: '#D21F26', accent2: '#0B57D0', dark: false },
       { id: 'malam', name: 'Malam', bg: '#101010', surface: '#1B1B1B', ink: '#FAFAFA', muted: '#A1A1A1', accent: '#FF5A1F', accent2: '#2CC5B4', dark: true },
       { id: 'pagi', name: 'Pagi', bg: '#F5F7FA', surface: '#FFFFFF', ink: '#0B1220', muted: '#5B6475', accent: '#0057FF', accent2: '#FFB800', dark: false },
-      { id: 'pasar', name: 'Pasar', bg: '#071A12', surface: '#0E2A1E', ink: '#EAF7F0', muted: '#8FB3A2', accent: '#00C46A', accent2: '#F4C430', dark: true }
+      { id: 'pasar', name: 'Pasar', bg: '#071A12', surface: '#0E2A1E', ink: '#EAF7F0', muted: '#8FB3A2', accent: '#00C46A', accent2: '#F4C430', dark: true },
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
     ],
     fonts: ['archivo', 'anton', 'poppins'],
     numberFont: 'bebas',
@@ -593,6 +596,15 @@ export const EXPLAINER_IMAGE_STYLES: ExplainerImageStyle[] = [
     swatch: '#1B1035',
     ink: '#7CF2E8',
     prompt: 'Futuristic neon illustration on a dark background, glowing cyan and magenta light lines, a sleek technology look, a subtle grid.'
+  },
+  {
+    id: 'blueprint',
+    name: 'Blueprint teknik',
+    blurb: 'Diagram teknis, rekayasa',
+    swatch: '#1E4E8C',
+    ink: '#E6F0FF',
+    prompt:
+      'Technical blueprint illustration: white and light-cyan line drawings on a deep blue grid background, a precise engineering diagram look with cross-sections, exploded views and callout circles.'
   },
   {
     id: 'photo',

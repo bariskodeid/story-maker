@@ -90,8 +90,9 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 - Tulis ide atau sinopsis, lalu atur:
   - durasi (30 detik sampai 10 menit);
   - bahasa dan format (16:9 atau 9:16);
-  - gaya visual (23 gaya: 2D, 3D, dan realistis, termasuk fabel kartun hewan, anime, anime lukisan tangan, chibi,
-    manga, wayang & batik, ilustrasi horor, dan lukisan cat minyak);
+  - gaya visual (28 gaya: 2D, 3D, dan realistis, termasuk fabel kartun hewan, anime, anime lukisan tangan, chibi,
+    manga, wayang & batik, Kamasan Bali, ukiyo-e, komik pop art, kartun retro 90-an, ilustrasi horor, stop-motion
+    kertas 3D, dan lukisan cat minyak);
   - suara narator.
 - Pilih model gambar dan video Higgsfield per proyek, lengkap dengan perkiraan kredit.
 

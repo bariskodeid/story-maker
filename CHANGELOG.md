@@ -9,12 +9,14 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
-- **Gaya visual baru untuk cerita** (total 23): Fabel kartun hewan (semua pemeran digambar sebagai hewan
-  antropomorfik), Anime lukisan tangan, Chibi lucu, Manga hitam putih, Wayang & batik, Ilustrasi horor, dan Lukisan
-  cat minyak.
+- **Gaya visual baru untuk cerita** (total 28): Fabel kartun hewan (semua pemeran digambar sebagai hewan
+  antropomorfik), Anime lukisan tangan, Chibi lucu, Manga hitam putih, Wayang & batik, Lukisan Kamasan Bali, Ukiyo-e
+  Jepang, Komik pop art, Kartun retro 90-an, Ilustrasi horor, Stop-motion kertas 3D, dan Lukisan cat minyak, lengkap
+  dengan gambar contoh di pemilih gaya.
 - **Gaya gambar AI untuk video penjelasan**, dipilih per proyek di editor atau langkah Adegan: ilustrasi flat,
-  isometrik 3D, ikon 3D, line art, doodle, papercut, cat air, claymation, neon, foto realistis, foto sinematik, atau
-  otomatis mengikuti template. Setiap template juga mendapat dua palet warna baru.
+  isometrik 3D, ikon 3D, line art, doodle, papercut, cat air, claymation, neon, blueprint teknik, foto realistis, foto
+  sinematik, atau otomatis mengikuti template. Setiap template juga mendapat dua palet warna baru, dan Tutorial,
+  Perbandingan, serta Berita mendapat palet Korporat.
 - Dua template video penjelasan baru:
   - **Perbandingan (A vs B)**: layar terbelah miring dengan warna masing-masing pilihan, ronde per aspek dengan angka
     besar dan pemenang yang terungkap (cakram VS berubah jadi skor), adegan plus minus, putusan dengan cap dan skor

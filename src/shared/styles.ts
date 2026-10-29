@@ -174,6 +174,54 @@ export const VISUAL_STYLES: VisualStyle[] = [
     characterHint: 'a character in a dark eerie painterly horror illustration, lit by dim cold light'
   },
   {
+    id: 'popart',
+    name: 'Komik pop art',
+    category: '2d',
+    niche: 'Aksi, motivasi, pahlawan',
+    swatch: '#FFD23F',
+    ink: '#1F1D1A',
+    prompt:
+      'Bold comic book pop art illustration: thick black ink outlines, bright primary colors, halftone dot shading, dynamic heroic poses, dramatic angles and an energetic action composition. ' +
+      NO_TEXT,
+    characterHint: 'a bold pop art comic book character with thick ink outlines and halftone shading'
+  },
+  {
+    id: 'kamasan',
+    name: 'Lukisan Kamasan Bali',
+    category: '2d',
+    niche: 'Legenda Bali, Ramayana, Mahabharata',
+    swatch: '#C96A3C',
+    ink: '#1F1D1A',
+    prompt:
+      'Traditional Balinese Kamasan painting: flat two-dimensional figures with stylized faces and ornate golden headdresses, fine black outlines, earthy natural pigments of ochre, red, indigo and cream on aged cloth texture, densely patterned decorative backgrounds of clouds, flames and flowers, a narrative scene composition. ' +
+      NO_TEXT,
+    characterHint: 'a traditional Balinese Kamasan painted figure with an ornate headdress and fine black outlines'
+  },
+  {
+    id: 'retro90',
+    name: 'Kartun retro 90-an',
+    category: '2d',
+    niche: 'Nostalgia, komedi, keluarga',
+    swatch: '#7FD1C7',
+    ink: '#1F1D1A',
+    prompt:
+      'Classic 1990s TV cartoon style: hand-inked slightly uneven outlines, flat cel colors with a gently faded palette, simple painted backgrounds, exaggerated expressive characters, subtle film grain. ' +
+      NO_TEXT,
+    characterHint: 'an exaggerated, expressive 1990s TV cartoon character with hand-inked outlines'
+  },
+  {
+    id: 'ukiyoe',
+    name: 'Ukiyo-e Jepang',
+    category: '2d',
+    niche: 'Legenda Jepang, samurai, sejarah',
+    swatch: '#2F4F7F',
+    ink: '#FAF7F2',
+    prompt:
+      'Japanese ukiyo-e woodblock print: bold flowing outlines, flat areas of color in indigo, vermilion and muted earth tones, textured washi paper grain, stylized waves, clouds and landscapes, an elegant balanced composition. ' +
+      NO_TEXT,
+    characterHint: 'a figure drawn as a Japanese ukiyo-e woodblock print with bold flowing outlines'
+  },
+  {
     id: 'noir',
     name: 'Komik noir',
     category: '2d',
@@ -218,6 +266,18 @@ export const VISUAL_STYLES: VisualStyle[] = [
       'Claymation stop-motion scene, handcrafted plasticine characters and miniature sets, visible fingerprints and clay texture, soft studio lighting. ' +
       NO_TEXT,
     characterHint: 'a handcrafted plasticine clay character'
+  },
+  {
+    id: 'papercraft',
+    name: 'Stop-motion kertas 3D',
+    category: '3d',
+    niche: 'Dongeng, cerita anak',
+    swatch: '#F6C28B',
+    ink: '#1F1D1A',
+    prompt:
+      'Handcrafted paper stop-motion diorama: characters and sets built from folded and cut colored paper and cardboard with visible paper grain, layered depth, soft warm studio lighting with gentle shadows, a miniature theater feel. ' +
+      NO_TEXT,
+    characterHint: 'a handcrafted character made of folded and cut colored paper'
   },
   {
     id: 'lowpoly',
