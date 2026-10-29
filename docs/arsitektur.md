@@ -72,10 +72,10 @@ Setiap job punya `AbortController` sehingga bisa dibatalkan (`generate:cancel`).
 ## Penyimpanan
 
 Semua data pengguna ada di folder data aplikasi (`app.getPath('userData')`). Di Windows:
-`%APPDATA%\Bang Story`.
+`%APPDATA%\Story Maker`.
 
 ```
-%APPDATA%\Bang Story\
+%APPDATA%\Story Maker\
   studio.db                 SQLite: proyek, klip, pemeran, aset, job, pengaturan, kunci terenkripsi, cache
   projects\<id-proyek>\
     images\  videos\  audio\  music\  overlays\     file hasil generate dan unggahan
@@ -86,7 +86,8 @@ Semua data pengguna ada di folder data aplikasi (`app.getPath('userData')`). Di 
 - Nama folder proyek dan file berupa ID acak; judul hanya ada di database.
 - Path aset disimpan **relatif** terhadap folder proyek (`assets.local_path`), sehingga proyek bisa disalin utuh.
 - Menghapus proyek menghapus foldernya.
-- Folder data lama `Studio Cerita` dipindahkan otomatis ke `Bang Story` saat pertama dibuka (`useDataFolder`).
+- Folder data dari nama lama aplikasi (`Bang Story`, atau `Studio Cerita` sebelum itu) dipindahkan otomatis ke
+  `Story Maker` saat pertama dibuka (`useDataFolder`).
 
 ### Protokol `studio://`
 
@@ -109,13 +110,11 @@ sebelum IPC yang membaca klip dari database (generate, split, ekspor), supaya ma
 ## Keamanan
 
 - **CSP** di `src/renderer/index.html`: skrip hanya dari aplikasi sendiri; gambar/media dari `studio:`, `blob:`,
-  `https:`; iframe hanya `https://www.youtube.com` (video tutorial di halaman About).
+  `https:`; tidak ada iframe dari luar.
 - **Navigasi** jendela utama ke luar aplikasi diblok (`will-navigate`); `window.open` dibuka di browser bawaan
   hanya untuk URL https (`setWindowOpenHandler` → `shell.openExternal`).
 - **Kunci API** dienkripsi dengan Electron `safeStorage` (DPAPI di Windows, terikat akun pengguna) di tabel
   `secrets`. Lihat [layanan-ai.md](layanan-ai.md#kunci-api-byok).
-- **YouTube embed**: permintaan ke `https://www.youtube.com/embed/*` diberi header Referer berisi ID aplikasi
-  (`identifyToYouTube` di `index.ts`); tanpa itu YouTube menolak dengan Error 153.
 
 ## Switch Chromium
 

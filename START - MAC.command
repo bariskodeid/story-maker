@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bang Story - klik 2x file ini untuk membuka aplikasi di macOS.
+# Story Maker - klik 2x file ini untuk membuka aplikasi di macOS.
 cd "$(dirname "$0")" || exit 1
 
 # Terminal yang dibuka lewat klik 2x kadang belum memuat PATH Homebrew atau nvm.
@@ -17,13 +17,13 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 # Pertama kali dibuka, atau folder node_modules berasal dari OS lain: pasang ulang.
-if [ ! -f "node_modules/.bangstory-mac" ]; then
+if [ ! -f "node_modules/.storymaker-mac" ]; then
   if [ -d "node_modules" ]; then
     echo " Membersihkan node_modules lama..."
     rm -rf node_modules
   fi
   echo
-  echo " Menyiapkan Bang Story untuk pertama kali."
+  echo " Menyiapkan Story Maker untuk pertama kali."
   echo " Butuh koneksi internet dan beberapa menit, jangan tutup jendela ini..."
   echo
   if ! npm install; then
@@ -32,7 +32,7 @@ if [ ! -f "node_modules/.bangstory-mac" ]; then
     read -r -p " Tekan Enter untuk menutup..."
     exit 1
   fi
-  echo ok > node_modules/.bangstory-mac
+  echo ok > node_modules/.storymaker-mac
 fi
 
 # Electron mengunduh programnya sendiri saat pertama dipakai.
@@ -57,5 +57,5 @@ if [ ! -f "out/main/index.js" ]; then
 fi
 
 nohup ./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron . >/dev/null 2>&1 &
-echo " Bang Story sedang dibuka. Jendela Terminal ini boleh ditutup."
+echo " Story Maker sedang dibuka. Jendela Terminal ini boleh ditutup."
 exit 0

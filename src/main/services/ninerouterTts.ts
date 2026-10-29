@@ -34,7 +34,7 @@ function conn(): Conn {
 function headers(c: Conn, extra: Record<string, string> = {}): Record<string, string> {
   return {
     // Cloudflare in front of hosted 9Router installs challenges fetch's default "node" user agent.
-    'User-Agent': `Bang Story/${app.getVersion()}`,
+    'User-Agent': `Story Maker/${app.getVersion()}`,
     ...(c.key ? { Authorization: `Bearer ${c.key}` } : {}),
     ...extra
   }

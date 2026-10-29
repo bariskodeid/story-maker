@@ -1,10 +1,10 @@
 {
-  "name": "bang-story",
-  "productName": "Bang Story",
+  "name": "story-maker",
+  "productName": "Story Maker",
   "version": "1.0.0",
   "description": "Ubah ide cerita jadi video YouTube: klip, naskah, suara, dan timeline dalam satu aplikasi desktop.",
   "main": "./out/main/index.js",
-  "author": "Bang Tutorial",
+  "author": "Bariskode",
   "license": "MIT",
   "private": true,
   "scripts": {

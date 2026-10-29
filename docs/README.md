@@ -1,6 +1,6 @@
-# Dokumentasi pengembang Bang Story
+# Dokumentasi pengembang Story Maker
 
-Dokumentasi ini untuk siapa pun yang ingin mengembangkan Bang Story, baik sendiri maupun dibantu AI agent
+Dokumentasi ini untuk siapa pun yang ingin mengembangkan Story Maker, baik sendiri maupun dibantu AI agent
 (Claude Code, Codex, Cursor, Gemini CLI, dan lainnya). Untuk cara *memakai* aplikasi, lihat
 [README di root](../README.md).
 
@@ -12,7 +12,7 @@ Mulai dari [AGENTS.md](../AGENTS.md): ringkasan proyek, perintah, peta kode, dan
 | [data-model.md](data-model.md) | Skema SQLite, migrasi, arti setiap kolom klip dan pengaturan editor, cara menambah kolom |
 | [alur-produksi.md](alur-produksi.md) | Ide → naskah → visual → gambar/video → narasi → caption, termasuk prompt AI |
 | [editor-dan-ekspor.md](editor-dan-ekspor.md) | Model timeline, pratinjau, transisi, gerak kamera, caption, dan susunan render FFmpeg |
-| [layanan-ai.md](layanan-ai.md) | LLM, TTS, Higgsfield, Whisper, YouTube embed, kunci API, cara menambah penyedia/model |
+| [layanan-ai.md](layanan-ai.md) | LLM, TTS, Higgsfield, 9Router, Whisper, kunci API, cara menambah penyedia/model |
 | [pengembangan.md](pengembangan.md) | Setup, perintah, dev harness, cara menguji, debugging, build installer, rilis |
 | [konvensi.md](konvensi.md) | Gaya kode, bahasa, design token, komponen, aturan UI |
 | [keputusan-teknis.md](keputusan-teknis.md) | Kenapa sesuatu dibuat begitu (dan bug apa yang muncul kalau diubah) |

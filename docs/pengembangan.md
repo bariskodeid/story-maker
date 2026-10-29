@@ -28,17 +28,17 @@ Electron 44 mengunduh programnya saat pertama dipakai. Kalau `node_modules/elect
 | `npm run typecheck` | TypeScript untuk main+preload+shared (`tsconfig.node.json`) dan renderer+shared (`tsconfig.web.json`) |
 | `npm run build` | build produksi ke `out/` |
 | `npm run preview` | jalankan hasil build |
-| `npm run dist` | build + installer Windows NSIS ke `dist/BangStory-Setup-<versi>.exe` |
+| `npm run dist` | build + installer Windows NSIS ke `dist/StoryMaker-Setup-<versi>.exe` |
 
 Alias impor: `@shared/*` → `src/shared/*` (semua proses), `@renderer/*` → `src/renderer/src/*`.
 
 ## Folder data saat mengembangkan
 
-Mode pengembangan memakai folder data yang sama dengan aplikasi terpasang (`%APPDATA%\Bang Story`). Supaya
+Mode pengembangan memakai folder data yang sama dengan aplikasi terpasang (`%APPDATA%\Story Maker`). Supaya
 proyek dan kunci API asli tidak tersentuh saat bereksperimen, arahkan ke folder lain:
 
 ```powershell
-$env:STUDIO_USER_DATA = "C:\temp\bangstory-dev"; npm run dev
+$env:STUDIO_USER_DATA = "C:\temp\storymaker-dev"; npm run dev
 ```
 
 ## Variabel lingkungan (hanya saat tidak dipaketkan)
@@ -142,7 +142,7 @@ selama ekspor berjalan.
    Halaman About membaca versi dari `app.getVersion()`. Badge versi di `README.md` ditulis manual, jadi ubah juga.
 2. Catat perubahan di `CHANGELOG.md`.
 3. `npm run typecheck` dan `npm run build`.
-4. `npm run dist` → `dist/BangStory-Setup-<versi>.exe`. Build pertama mengunduh alat NSIS dan winCodeSign ke
+4. `npm run dist` → `dist/StoryMaker-Setup-<versi>.exe`. Build pertama mengunduh alat NSIS dan winCodeSign ke
    cache electron-builder.
 5. Buat release di GitHub dengan tag `v<versi>`. Upload hanya file `.exe`. File `.blockmap` dan `latest.yml` baru
    berguna kalau nanti ada fitur update otomatis.

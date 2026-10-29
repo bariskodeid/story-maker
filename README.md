@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/images/logo.svg" width="88" alt="Logo Bang Story">
+<img src="docs/images/logo.svg" width="88" alt="Logo Story Maker">
 
-# Bang Story
+# Story Maker
 
 **Ubah ide cerita jadi video YouTube, langsung dari komputermu.**
 
@@ -15,17 +15,16 @@ lalu kamu merapikannya di editor timeline dan mengekspor MP4.
 [![Electron](https://img.shields.io/badge/Electron-44-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![YouTube](https://img.shields.io/badge/YouTube-Bang%20Tutorial-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://youtube.com/bangtutorial)
 
-[Fitur](#fitur) · [Tampilan](#tampilan) · [Tutorial](#tutorial) · [Mulai cepat](#mulai-cepat) · [Kunci API](#kunci-api) · [Pengembangan](#pengembangan) · [Dokumentasi](docs/README.md)
+[Fitur](#fitur) · [Tampilan](#tampilan) · [Mulai cepat](#mulai-cepat) · [Kunci API](#kunci-api) · [Pengembangan](#pengembangan) · [Dokumentasi](docs/README.md)
 
-<img src="docs/images/editor.webp" width="100%" alt="Editor Bang Story: pratinjau dengan caption karaoke, panel pengaturan klip, dan timeline berisi klip, caption, suara narasi, dan musik">
+<img src="docs/images/editor.webp" width="100%" alt="Editor Story Maker: pratinjau dengan caption karaoke, panel pengaturan klip, dan timeline berisi klip, caption, suara narasi, dan musik">
 
 </div>
 
 ## Tentang
 
-Bang Story adalah aplikasi desktop untuk kreator konten. Tulis satu ide, misalnya *"Bagaimana rasanya hidup di Batavia tahun 1700-an?"*, lalu aplikasi akan:
+Story Maker adalah aplikasi desktop untuk kreator konten. Tulis satu ide, misalnya *"Bagaimana rasanya hidup di Batavia tahun 1700-an?"*, lalu aplikasi akan:
 
 - menyusun naskah per adegan;
 - membuat gambar dan video AI;
@@ -93,12 +92,6 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
   </tr>
 </table>
 
-## Tutorial
-
-<a href="https://youtu.be/5EbWJo3VnRA"><img src="https://img.youtube.com/vi/5EbWJo3VnRA/maxresdefault.jpg" width="560" alt="Tonton tutorial Bang Story di YouTube"></a>
-
-Cara membuat video dari ide sampai ekspor: [tonton di YouTube](https://youtu.be/5EbWJo3VnRA). Video ini juga bisa diputar dari **Pengaturan › Tentang** di dalam aplikasi.
-
 ## Mulai cepat
 
 ### Kebutuhan
@@ -134,7 +127,7 @@ npm run dev
 npm run dist
 ```
 
-Hasilnya ada di `dist/BangStory-Setup-<versi>.exe`. Untuk folder siap jalan tanpa installer, jalankan `npx electron-builder --win --dir`.
+Hasilnya ada di `dist/StoryMaker-Setup-<versi>.exe`. Untuk folder siap jalan tanpa installer, jalankan `npx electron-builder --win --dir`.
 
 Setelah aplikasi terbuka, isi kunci API di **Pengaturan › Layanan AI dan kunci**. Lalu tulis idemu di beranda dan klik **Mulai**.
 
@@ -158,7 +151,7 @@ Setiap bagian (penyusun cerita, suara narator) punya satu dropdown penyedia. Han
 ## Pertanyaan umum
 
 <details>
-<summary><b>Apakah Bang Story gratis?</b></summary>
+<summary><b>Apakah Story Maker gratis?</b></summary>
 
 Ya. Aplikasinya gratis dan kodenya terbuka dengan lisensi MIT. Yang berbayar hanya pemakaian layanan AI. Biayanya kamu bayar langsung ke penyedia, dengan kunci API milikmu:
 - kredit Higgsfield untuk gambar dan video;
@@ -170,7 +163,7 @@ Perkiraan kredit tiap model Higgsfield ditampilkan sebelum membuat gambar atau v
 <details>
 <summary><b>Di mana proyek saya disimpan?</b></summary>
 
-Di folder `%APPDATA%\Bang Story`: database SQLite (`studio.db`) dan folder `projects` berisi gambar, video, dan suara. Proyek tersimpan otomatis, atau langsung dengan Ctrl+S. Data dari nama lama aplikasi (Studio Cerita) dipindahkan otomatis.
+Di folder `%APPDATA%\Story Maker`: database SQLite (`studio.db`) dan folder `projects` berisi gambar, video, dan suara. Proyek tersimpan otomatis, atau langsung dengan Ctrl+S. Data dari nama lama aplikasi (Bang Story atau Studio Cerita) dipindahkan otomatis.
 </details>
 
 <details>
@@ -245,7 +238,7 @@ Laporan bug, ide fitur, dan pull request sangat diterima.
 
 ## Lisensi
 
-Kode Bang Story memakai [lisensi MIT](LICENSE). Komponen pihak ketiga yang ikut terpasang memakai lisensinya sendiri:
+Kode Story Maker memakai [lisensi MIT](LICENSE). Komponen pihak ketiga yang ikut terpasang memakai lisensinya sendiri:
 
 | Komponen | Lisensi |
 |---|---|
@@ -256,11 +249,3 @@ Kode Bang Story memakai [lisensi MIT](LICENSE). Komponen pihak ketiga yang ikut 
 | LobeHub Icons (logo penyedia) | MIT |
 
 Teks lisensinya ada di `resources/licenses`. Lisensi FFmpeg disalin dari paket `ffmpeg-static` saat installer dibuat. Logo penyedia layanan adalah merek milik pemiliknya masing-masing.
-
----
-
-<div align="center">
-
-Dibuat oleh **[Bang Tutorial](https://youtube.com/bangtutorial)**. Tutorial dan tips lainnya ada di channel YouTube-nya.
-
-</div>

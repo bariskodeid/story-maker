@@ -69,7 +69,7 @@ async function request(path: string, init: RequestInit, timeoutMs: number, signa
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         // Node's default "node" agent is challenged by Cloudflare in front of hosted 9Router instances.
-        'User-Agent': `Bang Story/${app.getVersion()}`,
+        'User-Agent': `Story Maker/${app.getVersion()}`,
         ...(key ? { Authorization: `Bearer ${key}` } : {})
       },
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout

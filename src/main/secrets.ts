@@ -31,7 +31,7 @@ interface SecretRow {
  */
 export function warmUpEncryption(): void {
   try {
-    if (safeStorage.isEncryptionAvailable()) safeStorage.encryptString('bang-story')
+    if (safeStorage.isEncryptionAvailable()) safeStorage.encryptString('story-maker')
   } catch {
     // Encryption unavailable; keys fall back to plain storage below.
   }

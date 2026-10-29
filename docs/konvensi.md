@@ -73,5 +73,5 @@ Bayangan "tinta" (`shadow-ink`) memberi kesan kertas dan tinta. Font caption ada
 
 - Kunci API hanya lewat `secrets.ts`; jangan pernah mencetak atau mengirimnya ke tempat lain.
 - Tautan keluar hanya lewat `window.api.app.openExternal` (https saja).
-- Jangan melonggarkan CSP kecuali perlu, dan sebutkan domain secara spesifik (seperti `frame-src https://www.youtube.com`).
+- Jangan melonggarkan CSP kecuali perlu, dan sebutkan domain secara spesifik (misalnya `img-src https://cdn.contoh.com`, bukan `*`).
 - Saat menguji dengan data asli pengguna, pakai salinan dengan tabel `secrets` dikosongkan.

@@ -54,7 +54,7 @@ Sumber: [`src/app/api/v1/audio/speech/route.js`](https://github.com/decolua/9rou
 → `src/sse/handlers/tts.js` → `open-sse/handlers/ttsCore.js` di repo 9Router.
 
 - **Permintaan**: `POST {nineRouterBaseUrl}/audio/speech`, header `Authorization: Bearer <kunci>` (kalau ada) dan
-  `User-Agent: Bang Story/<versi>`, body `{ "model": "<suara>", "input": "<teks>", "language": "Indonesian" }`.
+  `User-Agent: Story Maker/<versi>`, body `{ "model": "<suara>", "input": "<teks>", "language": "Indonesian" }`.
   `model` adalah suara sekaligus model: `edge-tts/id-ID-ArdiNeural`, `openai/tts-1` atau `openai/tts-1/nova`,
   `el/<voice_id>`, `gemini/<model>/<suara>`, atau nama combo. `language` hanya dipakai suara Gemini
   ("Say in Indonesian: ..."), jadi dikirim sebagai nama bahasa Inggris.
@@ -126,7 +126,7 @@ Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video teta
   `getSettings()` mempertahankan ID `9router:` (ID Higgsfield yang hilang dari katalog tetap jatuh ke bawaan).
 - **Koneksi**: memakai koneksi 9Router yang sama dengan LLM (`settings.nineRouterBaseUrl` + kunci `ninerouter`,
   opsional). Kartu *9Router* di Pengaturan › Gambar dan video menyimpannya juga kalau LLM memakai penyedia lain.
-  Semua permintaan mengirim `User-Agent: Bang Story/<versi>`, karena 9Router yang dipasang di server sering berada
+  Semua permintaan mengirim `User-Agent: Story Maker/<versi>`, karena 9Router yang dipasang di server sering berada
   di belakang Cloudflare yang menantang agent bawaan Node (`node`).
 - **Daftar model**: `GET /v1/models/image` → `{ data: [{ id, owned_by }] }` (model gambar dari penyedia yang
   terhubung, plus combo gambar). `GET /v1/models` hanya berisi model chat. Daftar dicache 24 jam dengan kunci
@@ -161,15 +161,7 @@ Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video teta
   `<folder data>\models\whisper`, bisa dijeda dan dilanjutkan (HTTP Range), lalu dicek SHA-256. Untuk pengembangan, `STUDIO_WHISPER_URL` bisa menunjuk salinan lokal.
 - Dijalankan di antrean `whisper` (satu per satu). Detail argumennya di [alur-produksi.md](alur-produksi.md#5-caption-akurat-whisper-lokal).
 
-## YouTube (halaman About)
-
-Video tutorial diputar lewat iframe `https://www.youtube.com/embed/<id>`. Sejak 2025 YouTube mewajibkan pemutar
-embed mengirim identitas lewat header HTTP Referer (tanpa itu: Error 153). Aplikasi yang memuat halaman dari
-`file://` tidak mengirim Referer, jadi `identifyToYouTube()` (`src/main/index.ts`) menambahkan
-`Referer: https://id.bangtutorial.bangstory/` (ID aplikasi) hanya untuk permintaan embed. Iframe tanpa
-autoplay, supaya putaran dari pengguna terhitung sebagai view.
-
 ## Membuka tautan
 
 `app:openExternal` hanya menerima URL `https://` dan membukanya di browser bawaan. Pakai ini untuk semua tautan
-ke luar (dokumentasi penyedia, channel YouTube, Suno, dan lainnya).
+ke luar (dokumentasi penyedia, Suno, dan lainnya).

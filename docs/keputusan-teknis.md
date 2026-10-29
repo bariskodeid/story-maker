@@ -82,10 +82,6 @@ dan audio dimatikan lewat parameter kalau modelnya punya. Audio dari file video 
 Kunci kriptografi `safeStorage` baru tertulis ke `Local State` sekitar 10 detik setelah dibuat. Membuatnya saat
 startup (`warmUpEncryption`) mencegah kunci API tidak terbaca setelah aplikasi ditutup paksa.
 
-### YouTube embed diberi Referer berisi ID aplikasi
-Halaman dari `file://` tidak mengirim Referer, dan YouTube menolak embed tanpa identitas (Error 153). Header
-ditambahkan hanya untuk `https://www.youtube.com/embed/*`.
-
 ### Narasi 9Router: satu rekaman per bagian 1.000 karakter, tanpa waktu kata
 9Router meneruskan ke banyak mesin suara (Edge TTS, OpenAI, Gemini, ElevenLabs), dan endpoint-nya tidak mengirim
 waktu per kata. Narasinya ikut jalur Gemini (`untimedTake`): satu rekaman per bagian, lalu dipotong dengan Whisper

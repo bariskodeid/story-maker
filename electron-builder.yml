@@ -1,5 +1,5 @@
-appId: id.bangtutorial.bangstory
-productName: Bang Story
+appId: com.bariskode.storymaker
+productName: Story Maker
 directories:
   buildResources: build
   output: dist
@@ -24,10 +24,10 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: BangStory-Setup-${version}.${ext}
+  artifactName: StoryMaker-Setup-${version}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  shortcutName: Bang Story
+  shortcutName: Story Maker
 npmRebuild: true

@@ -8,6 +8,17 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ## [Belum dirilis]
 
+### Diubah
+- Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi
+  `com.bariskode.storymaker`). Folder data lama `%APPDATA%\Bang Story` dipindahkan otomatis ke
+  `%APPDATA%\Story Maker` saat pertama dibuka. Karena ID aplikasinya baru, Windows menganggapnya aplikasi lain:
+  instalasi Bang Story yang lama perlu dihapus sendiri.
+
+### Dihapus
+- Video tutorial YouTube dan tautan channel di halaman Tentang, beserta header Referer khusus embed YouTube dan izin
+  iframe YouTube di CSP.
+- Tautan referral Higgsfield di Pengaturan, diganti dengan dashboard Higgsfield Cloud.
+
 ### Ditambahkan
 - **9Router** (gateway AI lokal atau yang di-host sendiri, kompatibel OpenAI) sebagai penyedia baru. Satu koneksi
   (alamat + kunci opsional) dipakai untuk:
@@ -18,7 +29,7 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
     referensi. Video tetap dari Higgsfield.
 
 ### Diperbaiki
-- Permintaan ke penyedia LLM mengirim User-Agent `Bang Story/<versi>`, supaya tidak diblokir Cloudflare di server
+- Permintaan ke penyedia LLM mengirim User-Agent `Story Maker/<versi>`, supaya tidak diblokir Cloudflare di server
   yang di-host sendiri.
 
 ## [1.0.0] - 2026-10-02

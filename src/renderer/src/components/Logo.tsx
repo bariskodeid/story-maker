@@ -18,10 +18,7 @@ export function Logo() {
   return (
     <span className="flex items-center gap-2.5">
       <LogoMark />
-      <span className="flex flex-col leading-none">
-        <span className="font-display text-[21px] font-bold tracking-[-0.01em]">Bang Story</span>
-        <span className="mt-[3px] self-end text-[10.5px] font-medium text-muted">by Bang Tutorial</span>
-      </span>
+      <span className="font-display text-[21px] font-bold leading-none tracking-[-0.01em]">Story Maker</span>
     </span>
   )
 }

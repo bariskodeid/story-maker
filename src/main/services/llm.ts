@@ -34,7 +34,7 @@ function compat(provider: CompatProvider, keyOverride?: string | null, baseOverr
   const key = keyOverride !== undefined ? keyOverride : getSecret(provider)
   if (provider === 'openrouter') {
     // App attribution; OpenRouter asks apps without a public URL to send the title header.
-    return { provider, base: 'https://openrouter.ai/api/v1', key, headers: { 'X-OpenRouter-Title': 'Bang Story', 'X-Title': 'Bang Story' } }
+    return { provider, base: 'https://openrouter.ai/api/v1', key, headers: { 'X-OpenRouter-Title': 'Story Maker', 'X-Title': 'Story Maker' } }
   }
   if (provider === 'groq') return { provider, base: 'https://api.groq.com/openai/v1', key, headers: {} }
   const base = (baseOverride ?? endpointUrl(getSettings(), provider)).trim().replace(/\/+$/, '')
@@ -71,7 +71,7 @@ async function call<T>(c: Compat, path: string, init: RequestInit = {}): Promise
       headers: {
         Accept: 'application/json',
         // Node's fetch says "node", which Cloudflare-fronted gateways (e.g. a self-hosted 9Router) challenge with a 403 page.
-        'User-Agent': `Bang Story/${app.getVersion()}`,
+        'User-Agent': `Story Maker/${app.getVersion()}`,
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...(c.key ? { Authorization: `Bearer ${c.key}` } : {}),
         ...c.headers,

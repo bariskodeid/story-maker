@@ -1,8 +1,8 @@
 @echo off
 setlocal
-rem Bang Story - klik 2x file ini untuk membuka aplikasi di Windows.
+rem Story Maker - klik 2x file ini untuk membuka aplikasi di Windows.
 cd /d "%~dp0"
-title Bang Story
+title Story Maker
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -16,13 +16,13 @@ if errorlevel 1 (
 )
 
 rem Pertama kali dibuka, atau folder node_modules berasal dari OS lain: pasang ulang.
-if not exist "node_modules\.bangstory-windows" (
+if not exist "node_modules\.storymaker-windows" (
   if exist "node_modules" (
     echo  Membersihkan node_modules lama...
     rmdir /s /q "node_modules"
   )
   echo.
-  echo  Menyiapkan Bang Story untuk pertama kali.
+  echo  Menyiapkan Story Maker untuk pertama kali.
   echo  Butuh koneksi internet dan beberapa menit, jangan tutup jendela ini...
   echo.
   call npm install
@@ -32,7 +32,7 @@ if not exist "node_modules\.bangstory-windows" (
     pause
     exit /b 1
   )
-  echo ok> "node_modules\.bangstory-windows"
+  echo ok> "node_modules\.storymaker-windows"
 )
 
 rem Electron mengunduh programnya sendiri saat pertama dipakai.
