@@ -33,6 +33,7 @@ import { cancelJob } from './jobs'
 import { generateNarration, syncCaptions } from './narration'
 import { cancelDownload, downloadModel, openModelFolder, removeModel, whisperStatus } from './whisper'
 import { assetAbsPath } from './paths'
+import { ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
 import { detachVoice, splitClip } from './editing'
 import { emit } from './events'
 import {
@@ -112,6 +113,13 @@ export function registerIpc(): void {
   handle('whisper:cancel', () => cancelDownload())
   handle('whisper:remove', () => removeModel())
   handle('whisper:openFolder', () => openModelFolder())
+  handle('renderEngine:status', () => renderEngineStatus())
+  // Like the Whisper model, the download runs in the background and reports through events.
+  handle('renderEngine:install', () => {
+    void ensureRenderBrowser().catch(() => {})
+  })
+  handle('renderEngine:remove', () => removeRenderBrowser())
+  handle('renderEngine:test', () => renderTest())
   handle('generate:cancel', (jobId: string) => cancelJob(jobId))
   handle('generate:estimate', (kind: 'image' | 'video', modelId: string, aspect: AspectRatio, seconds?: number, resolution?: string | null) =>
     estimateCredits(kind, modelId, aspect, seconds, resolution)

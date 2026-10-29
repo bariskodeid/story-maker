@@ -84,12 +84,19 @@ const api: StudioApi = {
     remove: call('whisper:remove'),
     openFolder: call('whisper:openFolder')
   },
+  renderEngine: {
+    status: call('renderEngine:status'),
+    install: call('renderEngine:install'),
+    remove: call('renderEngine:remove'),
+    test: call('renderEngine:test')
+  },
   on: {
     whisper: listen(EVENTS.whisper),
     job: listen(EVENTS.job),
     clip: listen(EVENTS.clip),
     character: listen(EVENTS.character),
-    asset: listen(EVENTS.asset)
+    asset: listen(EVENTS.asset),
+    renderEngine: listen(EVENTS.renderEngine)
   }
 }
 

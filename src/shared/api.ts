@@ -23,6 +23,7 @@ import type {
   TtsProvider,
   VoiceOption
 } from './types'
+import type { RenderEngineStatus, RenderTestResult } from './render'
 
 /** The typed surface the preload script exposes as `window.api`. */
 export interface StudioApi {
@@ -112,12 +113,22 @@ export interface StudioApi {
     remove(): Promise<void>
     openFolder(): Promise<void>
   }
+  /** Chrome Headless Shell, which Remotion renders explainer videos with. */
+  renderEngine: {
+    status(): Promise<RenderEngineStatus>
+    /** Starts the download in the background; progress comes through `on.renderEngine`. */
+    install(): Promise<void>
+    remove(): Promise<void>
+    /** Renders a two-second test video with the whole engine. */
+    test(): Promise<RenderTestResult>
+  }
   on: {
     whisper(cb: (status: WhisperStatus) => void): () => void
     job(cb: (job: Job) => void): () => void
     clip(cb: (e: ClipPatchEvent) => void): () => void
     character(cb: (e: CharacterPatchEvent) => void): () => void
     asset(cb: (asset: Asset) => void): () => void
+    renderEngine(cb: (status: RenderEngineStatus) => void): () => void
   }
 }
 
@@ -126,5 +137,6 @@ export const EVENTS = {
   clip: 'event:clip',
   character: 'event:character',
   asset: 'event:asset',
-  whisper: 'event:whisper'
+  whisper: 'event:whisper',
+  renderEngine: 'event:renderEngine'
 } as const
