@@ -220,12 +220,13 @@ menyusun ulang semuanya. Pemeran lama tidak ditimpa; pemeran baru ditambahkan be
   `Wardrobe`), lalu gaya visual, lalu baris `Avoid` sebagai "Must not appear", lalu format frame. Gaya yang mengubah
   wujud pemeran (fabel: semua pemeran hewan antropomorfik) punya `planHint` yang dikirim ke perencana visual dan ke
   rencana seri sebagai "Style rule", supaya identitas pemeran ditulis sebagai spesies hewan, bukan "human". Lembar karakter
-  dikirim sebagai gambar referensi: ke Higgsfield sebagai URL hasil unggah, ke 9Router sebagai data URI JPEG.
-- **Penyedia gambar**: `project.imageModel` berawalan `9router:` membuat gambar klip dan lembar karakter lewat
-  9Router (`startNineRouter`, satu permintaan sinkron, antrean `ninerouter`); selain itu lewat Higgsfield
-  (`startHiggsfield`, kirim lalu polling). Keduanya menyimpan hasil lewat `saveResult`, jadi storyboard, editor,
-  ekspor, dan unggahan ke Higgsfield untuk Video AI tidak membedakan asal gambarnya (`asset.provider` =
-  `higgsfield` atau `ninerouter`).
+  dikirim sebagai gambar referensi: ke Higgsfield sebagai URL hasil unggah, ke 9Router sebagai data URI JPEG, ke
+  Gemini sebagai `inlineData` JPEG.
+- **Penyedia gambar**: `project.imageModel` berawalan `9router:` atau `gemini:` membuat gambar klip dan lembar
+  karakter lewat 9Router atau Gemini API (`startDirect`, satu permintaan sinkron, antrean `ninerouter`/`gemini`);
+  selain itu lewat Higgsfield (`startHiggsfield`, kirim lalu polling). Semuanya menyimpan hasil lewat `saveResult`,
+  jadi storyboard, editor, ekspor, dan unggahan ke Higgsfield untuk Video AI tidak membedakan asal gambarnya
+  (`asset.provider` = `higgsfield`, `ninerouter`, atau `gemini`).
 - **Video AI** (`generateClipVideo`): gambar klip + `videoPrompt` (atau prompt cadangan). Setiap prompt video
   diakhiri `NO_MUSIC` ("Silent clip: no background music...") dan audio dimatikan lewat parameter kalau
   modelnya punya (`sound: off`, `generate_audio: false`). Durasi video = durasi terpendek model yang menutup

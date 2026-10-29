@@ -1,4 +1,4 @@
-import { isNineRouterImage } from '@shared/imageModels'
+import { imageSource } from '@shared/imageModels'
 import { llmName } from '@shared/models'
 import type { ApiProvider, AppSettings, KeyStatus, TtsProvider } from '@shared/types'
 
@@ -55,8 +55,11 @@ export function missingServices(
   if (need.story && !keyOk(keys, llm)) out.push(llm === 'ninerouter' ? NINEROUTER : `kunci ${llmName(llm)}`)
   else if (need.story && !settings.llmModels[llm]) out.push(`model ${llmName(llm)}`)
   if (need.imageModel !== null) {
-    if (isNineRouterImage(need.imageModel)) {
+    const source = imageSource(need.imageModel)
+    if (source === 'ninerouter') {
       if (!keyOk(keys, 'ninerouter')) out.push(NINEROUTER)
+    } else if (source === 'gemini') {
+      if (!keyOk(keys, 'gemini')) out.push(`kunci ${llmName('gemini')}`)
     } else if (!keyOk(keys, 'higgsfield')) out.push('kunci Higgsfield')
   }
   if (need.tts && !ttsReadiness(keys)[need.tts].ok) out.push(need.tts === 'ninerouter' ? NINEROUTER : `suara narator ${TTS_NAMES[need.tts]}`)

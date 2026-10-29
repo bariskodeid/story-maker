@@ -15,7 +15,7 @@ import {
   Wand2
 } from 'lucide-react'
 import { explainerSceneCount, getTemplate } from '@shared/explainer'
-import { isNineRouterImage } from '@shared/imageModels'
+import { imageSourceAside, imageSourceSentence } from '@shared/imageModels'
 import { DURATIONS, clipCountFor } from '@shared/models'
 import { MAX_EPISODES, episodeTag, stripEpisodeTag } from '@shared/series'
 import { getStyle } from '@shared/styles'
@@ -77,7 +77,7 @@ const isReady = (e: SeriesEpisode): boolean => e.status === 'editing' || e.statu
 async function servicesReady(
   series: Series,
   back: () => void
-): Promise<{ autoExport: boolean; viaNineRouter: boolean; imagesReady: boolean } | null> {
+): Promise<{ autoExport: boolean; imageModel: string; imagesReady: boolean } | null> {
   const [settings, keys] = await Promise.all([window.api.settings.get(), window.api.settings.keys()])
   const imageModel = series.imageModel ?? settings.imageModel
   const explainer = series.kind === 'explainer'
@@ -87,13 +87,13 @@ async function servicesReady(
     return null
   }
   const imagesReady = missingServices(settings, keys, { story: false, imageModel, tts: null }).length === 0
-  return { autoExport: settings.autoExport, viaNineRouter: isNineRouterImage(imageModel), imagesReady }
+  return { autoExport: settings.autoExport, imageModel, imagesReady }
 }
 
 /** How the AI pictures of an explainer run are made, for the start dialogs. */
-function explainerImageText(ready: { viaNineRouter: boolean; imagesReady: boolean }): string {
+function explainerImageText(ready: { imageModel: string; imagesReady: boolean }): string {
   return ready.imagesReady
-    ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${ready.viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+    ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${imageSourceAside(ready.imageModel)}. `
     : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. '
 }
 
@@ -510,7 +510,7 @@ export function SeriesPage({ id }: { id: string }) {
         : `${count} dibuat satu per satu: naskah, rencana visual, lembar karakter, ` +
           `sekitar ${clipCountFor(series.durationSec)} gambar klip, narasi, dan caption per episode, lalu tiap episode terbuka di editor. ` +
           'Lembar karakter dari episode sebelumnya dipakai ulang. ' +
-          (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+          imageSourceSentence(ready.imageModel) +
           'Episode yang sudah selesai dilewati.',
       confirm: `Buat semua ${word.one}`,
       option: {
@@ -536,7 +536,7 @@ export function SeriesPage({ id }: { id: string }) {
           explainerImageText(ready).trim()
         : 'Naskah, rencana visual, gambar klip, narasi, dan caption episode ini dibuat otomatis memakai pemeran seri, lalu episodenya terbuka di editor. ' +
           (earlier ? 'Ada episode sebelumnya yang belum punya naskah, jadi naskah ini ditulis dari rencananya saja. ' : '') +
-          (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router.' : 'Gambar dibuat lewat Higgsfield dan memakai kredit.'),
+          imageSourceSentence(ready.imageModel).trim(),
       confirm: 'Buat otomatis',
       option: { ...exportOption(exportAfter, (on) => (exportAfter = on)), hint: 'Ke subfolder seri di folder ekspor bawaan.' }
     })

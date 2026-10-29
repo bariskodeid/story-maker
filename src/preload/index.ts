@@ -59,7 +59,8 @@ const api: StudioApi = {
     syncCaptions: call('generate:syncCaptions'),
     cancel: call('generate:cancel'),
     estimate: call('generate:estimate'),
-    nineRouterModels: call('generate:nineRouterModels')
+    nineRouterModels: call('generate:nineRouterModels'),
+    geminiImageModels: call('generate:geminiImageModels')
   },
   clips: {
     split: call('clips:split'),

@@ -101,6 +101,8 @@ export interface StudioApi {
     estimate(kind: 'image' | 'video', modelId: string, aspect: AspectRatio, seconds?: number, resolution?: string | null): Promise<CreditEstimate | null>
     /** Image models of the providers connected in 9Router, cached like other model lists. */
     nineRouterModels(refresh?: boolean): Promise<ModelList>
+    /** Gemini API models that can draw, for the user's own Google AI Studio key; cached like other model lists. */
+    geminiImageModels(refresh?: boolean): Promise<ModelList>
   }
   clips: {
     /** Splits a clip at `atMs` into two clips (picture, voice and narration divided at the nearest pause). */

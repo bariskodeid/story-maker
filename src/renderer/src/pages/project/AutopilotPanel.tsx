@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
 import { wantsAiImage } from '@shared/explainer'
-import { isNineRouterImage } from '@shared/imageModels'
+import { imageSource } from '@shared/imageModels'
 import { Button, IconButton, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
 import {
   dismissAutopilot,
@@ -255,7 +255,7 @@ export function AutopilotButton({ compact = false }: { compact?: boolean }) {
         title: 'Lanjutkan otomatis?',
         body:
           `Yang akan dibuat: ${joinList(work.parts)}. Bagian yang sudah jadi tidak diulang, lalu proyek terbuka di editor. ` +
-          (work.images && !isNineRouterImage(imageModel) ? 'Gambar Higgsfield memakai kredit. ' : '') +
+          (work.images && imageSource(imageModel) === 'higgsfield' ? 'Gambar Higgsfield memakai kredit. ' : '') +
           (explainer ? 'Screenshot tutorial tetap kamu tambahkan sendiri.' : 'Video AI tidak dibuat.'),
         confirm: 'Lanjutkan otomatis',
         option: exportOption(exportAfter, (on) => (exportAfter = on))

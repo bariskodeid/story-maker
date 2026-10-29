@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, FolderOpen, Layers, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, Wand2 } from 'lucide-react'
 import { explainerSceneCount, getTemplate, type ExplainerTemplateId } from '@shared/explainer'
-import { isNineRouterImage } from '@shared/imageModels'
+import { imageSource, imageSourceAside, imageSourceSentence } from '@shared/imageModels'
 import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
 import { MAX_EPISODES, MIN_EPISODES } from '@shared/series'
 import { getStyle } from '@shared/styles'
@@ -159,9 +159,10 @@ export function Home() {
       return !!k?.configured && k.lastOk !== false
     }
     const issues: { what: string; blocks: string }[] = []
-    // With images drawn through 9Router, Higgsfield is only needed for the optional AI videos.
-    const imagesViaNineRouter = isNineRouterImage(appSettings.imageModel) && ok('ninerouter')
-    if (!ok('higgsfield') && !imagesViaNineRouter) issues.push({ what: 'kunci Higgsfield', blocks: 'gambar' })
+    // With images drawn through 9Router or the Gemini API, Higgsfield is only needed for the optional AI videos.
+    const source = imageSource(appSettings.imageModel)
+    const imagesElsewhere = (source === 'ninerouter' && ok('ninerouter')) || (source === 'gemini' && ok('gemini'))
+    if (!ok('higgsfield') && !imagesElsewhere) issues.push({ what: 'kunci Higgsfield', blocks: 'gambar' })
     const llm = appSettings.llmProvider
     if (!ok(llm)) issues.push({ what: `kunci ${llmName(llm)}`, blocks: 'cerita' })
     else if (!appSettings.llmModels[llm]) issues.push({ what: `model ${llmName(llm)}`, blocks: 'cerita' })
@@ -212,7 +213,7 @@ export function Home() {
       : null
 
   const startAuto = async (): Promise<void> => {
-    const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
+    const imageModel = appSettings?.imageModel ?? ''
     let exportAfter = appSettings?.autoExport ?? false
     const imagesReady = !!appSettings && missingServices(appSettings, keys, { story: false, imageModel: appSettings.imageModel, tts: null }).length === 0
     const ok = await confirmDialog({
@@ -220,13 +221,13 @@ export function Home() {
       body: explainer
         ? `Sekitar ${explainerSceneCount(durationSec)} adegan ${getTemplate(templateId).name.toLowerCase()} dan narasinya dibuat otomatis, lalu proyeknya terbuka di editor. ` +
           (imagesReady
-            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${imageSourceAside(imageModel)}. `
             : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. ') +
           'Screenshot untuk tutorial bisa kamu tambahkan sendiri di langkah Adegan.'
         :
         `Naskah, rencana visual, lembar karakter, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption dibuat otomatis, ` +
         `lalu proyeknya terbuka di editor. ` +
-        (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+        imageSourceSentence(imageModel) +
         'Video AI tidak dibuat; klip memakai gerak kamera.',
       confirm: 'Buat otomatis',
       option: exportOption(exportAfter, (on) => (exportAfter = on))
@@ -262,7 +263,7 @@ export function Home() {
   }
 
   const startSeriesAuto = async (): Promise<void> => {
-    const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
+    const imageModel = appSettings?.imageModel ?? ''
     let exportAfter = appSettings?.autoExport ?? false
     const imagesReady = !!appSettings && missingServices(appSettings, keys, { story: false, imageModel: appSettings.imageModel, tts: null }).length === 0
     const ok = await confirmDialog({
@@ -271,13 +272,13 @@ export function Home() {
         ? `AI menyusun bible seri dan rencana ${episodeCount} ${word.one}, lalu membuat ${word.one}nya satu per satu: sekitar ` +
           `${explainerSceneCount(durationSec)} adegan ${getTemplate(templateId).name.toLowerCase()} dan narasinya per ${word.one}. ` +
           (imagesReady
-            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${imageSourceAside(imageModel)}. `
             : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. ') +
           'Screenshot untuk tutorial bisa kamu tambahkan sendiri di langkah Adegan.'
         : `AI menyusun bible seri, pemeran tetap, dan rencana ${episodeCount} episode, lalu membuat episodenya satu per satu: naskah, ` +
           `rencana visual, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption per episode. Lembar karakter dibuat sekali dan ` +
           'dipakai ulang di semua episode. ' +
-          (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+          imageSourceSentence(imageModel) +
           'Video AI tidak dibuat.',
       confirm: `Buat semua ${word.one}`,
       option: {

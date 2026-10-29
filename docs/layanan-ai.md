@@ -19,17 +19,19 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 | Penyedia (`ApiProvider`) | Dipakai untuk |
 |---|---|
 | `higgsfield` | gambar, lembar karakter, video |
-| `gemini` | LLM (naskah/visual) dan Gemini TTS |
+| `gemini` | LLM (naskah/visual), Gemini TTS, serta gambar klip dan lembar karakter lewat Gemini API |
+| `anthropic` | LLM (naskah/visual) lewat Messages API resmi Anthropic |
 | `elevenlabs` | TTS |
 | `openrouter`, `groq`, `custom` | LLM lewat API kompatibel OpenAI |
 | `ninerouter` | LLM, TTS, serta gambar klip dan lembar karakter lewat gateway 9Router (satu base URL + kunci opsional untuk semuanya) |
 | `remotion` | bukan layanan AI: kunci Remotion Company License opsional untuk render video penjelasan, diisi di Pengaturan › Umum dan tidak dites (lihat [remotion.md](remotion.md#kunci-lisensi-remotion)) |
 
-## LLM (`services/llm.ts`, `services/gemini.ts`)
+## LLM (`services/llm.ts`, `services/gemini.ts`, `services/anthropic.ts`)
 
 - `generateJson({ system, prompt, schema, name })` memanggil penyedia aktif (`settings.llmProvider` +
   `llmModels[provider]`).
   - Gemini: `@google/genai` dengan `responseJsonSchema` (dan cadangan: skema ditulis di system instruction).
+  - Anthropic: SDK resmi `@anthropic-ai/sdk`, lihat [Anthropic Claude](#anthropic-claude-servicesanthropicts).
   - Lainnya: `/chat/completions`, dicoba berurutan `json_schema` (strict) → `json_object` → teks biasa, lalu JSON
     diambil dari teks (`extractJson`) untuk model yang tidak mendukung structured output.
 - `listModels(source)`: daftar model live dari penyedia, dicache di tabel `cache` dan disegarkan saat basi.
@@ -39,7 +41,29 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
   *endpoint provider* (`isEndpointProvider` di `shared/models.ts`) dan disimpan lewat IPC `settings:setCustom`.
   ID model mengikuti 9Router, misalnya `cc/claude-sonnet-4-5` atau nama combo.
 - **Menambah penyedia LLM baru** yang kompatibel OpenAI: tambahkan ke `LlmProvider` dan `ApiProvider`
-  (`types.ts`), `LLM_PROVIDERS` (`shared/models.ts`), konfigurasi base URL di `llm.ts`, dan `DEFAULT_SETTINGS.llmModels`.
+  (`types.ts`), `LLM_PROVIDERS` (`shared/models.ts`), `PROVIDERS` dan `PROVIDER_NAMES` (`secrets.ts`, tanpa ini
+  status kuncinya tidak pernah tampil), konfigurasi base URL di `llm.ts`, `DEFAULT_SETTINGS.llmModels`, dan logo di
+  `components/ProviderLogo.tsx`.
+
+### Anthropic Claude (`services/anthropic.ts`)
+
+- **Klien**: `new Anthropic({ apiKey, baseURL, maxRetries: 2 })`. Kunci dan alamat selalu diisi sendiri, supaya
+  `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, atau login CLI di komputer pengguna tidak pernah dipakai diam-diam.
+  Untuk pengembangan, `STUDIO_ANTHROPIC_BASE` bisa diarahkan ke server tiruan.
+- **Naskah dan rencana visual**: `beta.messages.stream(...).finalMessage()` (streaming, jadi naskah panjang tidak
+  kena batas waktu HTTP) dengan `output_config.format = { type: 'json_schema', schema }`. `max_tokens` = 64.000 atau
+  batas model itu kalau lebih kecil (dibaca sekali lewat `models.retrieve` dan diingat per proses). Kalau API menolak
+  skema (400 yang menyebut schema/format), permintaan diulang tanpa structured output: skema ditulis di system
+  prompt dan JSON diambil dari teks (`extractJson`).
+- **Fallback saat ditolak**: setiap permintaan mengirim `fallbacks: 'default'` dengan beta
+  `server-side-fallback-2026-07-01`. Kalau filter keamanan model menolak, API mengulang di model lain yang cocok
+  untuk kategori itu; model yang tidak mendukung fallback mengabaikannya. `stop_reason: 'refusal'` tetap menjadi
+  pesan error berbahasa Indonesia, begitu juga `max_tokens` (jawaban terpotong).
+- **Daftar model dan tes kunci**: `models.list()`. Model `retired` disembunyikan, model `deprecated` diberi label
+  "Usang". Model bawaan `claude-opus-5-5`.
+- **Error** (`friendly`, memakai kelas error SDK): 401 kunci, 403 izin model, 404 model, 429 rate limit, 400 saldo
+  kredit habis, 529 server penuh (setelah SDK mencoba ulang 2 kali), koneksi dan timeout. Pembatalan
+  (`APIUserAbortError`) diteruskan apa adanya.
 
 ## TTS
 
@@ -116,7 +140,21 @@ di API Higgsfield (hanya di aplikasi webnya). Satu entri:
   "butuh <field>" (`checkRequired`). Ikon keluarga model diatur di `components/ModelLogo.tsx`.
 - Model bawaan: `DEFAULT_IMAGE_MODEL` dan `DEFAULT_VIDEO_MODEL` di `shared/higgsfield.ts`.
 
-## Gambar lewat 9Router (`services/ninerouterImages.ts`, `shared/imageModels.ts`)
+## Sumber gambar klip (`shared/imageModels.ts`)
+
+`project.imageModel` menentukan sumber gambar klip dan lembar karakter lewat awalannya, jadi tidak butuh migrasi:
+ID Higgsfield biasa, `9router:<model>`, atau `gemini:<model>`. `imageSource(id)` mengembalikan `higgsfield`,
+`ninerouter`, atau `gemini`; pakai fungsi ini (bukan cek awalan sendiri) di main dan renderer. Helper lain di file yang
+sama: `normalizeImageModel` (ID 9Router/Gemini dipertahankan, ID Higgsfield yang hilang dari katalog jatuh ke bawaan),
+`imageModelLabel`, `imageRefLimit`, `imageSourceSentence`/`imageSourceAside` (teks dialog Sekali klik). Kartu
+*Gambar klip* di langkah Ide punya tombol `Higgsfield | 9Router | Gemini` (`ModelSection.tsx`).
+
+9Router dan Gemini sama-sama satu permintaan sinkron yang langsung mengembalikan gambar, jadi keduanya dijalankan
+`startDirect` di `generation.ts` (tabel `DIRECT`): antrean bernama sama dengan sumbernya, progres berupa perkiraan
+waktu, jawaban tanpa gambar dicoba ulang sampai 3 kali, dan job yang terputus saat aplikasi ditutup ditandai gagal.
+Lembar karakter dikirim sebagai JPEG lebar ≤1536 px (`inlineReference` di `services/images.ts`).
+
+## Gambar lewat 9Router (`services/ninerouterImages.ts`)
 
 Gambar klip dan lembar karakter bisa dibuat lewat 9Router, memakai akun yang pengguna hubungkan di sana (misalnya
 Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video tetap selalu dari Higgsfield.
@@ -154,6 +192,28 @@ Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video teta
   (429/503), jawaban tanpa gambar. Awalan `[status]:` dari pesan upstream dibuang.
 - Sumber 9Router: route `src/app/api/v1/images/generations/route.js`, handler `src/sse/handlers/imageGeneration.js`,
   adapter per penyedia di `open-sse/handlers/imageProviders/`, daftar per jenis di `src/app/api/v1/models/[...model]/route.js`.
+
+## Gambar lewat Gemini API (`services/geminiImages.ts`)
+
+Model gambar Gemini ("Nano Banana") dipanggil langsung dengan kunci Google AI Studio milik pengguna (kunci `gemini`
+yang sama dengan LLM dan TTS). Video tetap dari Higgsfield.
+
+- **Membuat gambar**: `models.generateContent` dengan `responseModalities: ['IMAGE']` dan
+  `imageConfig.aspectRatio` = `16:9` / `9:16`. Lembar karakter (maksimal 4, `GEMINI_MAX_REFS`) dikirim sebagai
+  `inlineData` sebelum teks prompt yang menyebut nama mereka. Batas waktu 5 menit.
+- **Jawaban**: gambar pertama di `candidates[0].content.parts[].inlineData`. Tanpa gambar dengan `finishReason` atau
+  `promptFeedback.blockReason` berisi SAFETY/PROHIBITED/BLOCKLIST/SPII menjadi error filter konten (tidak dicoba
+  ulang); tanpa gambar karena alasan lain menjadi `NoImageError` dan dicoba ulang.
+- **Daftar model**: `models.list()` disaring ke ID `gemini…image` yang mendukung `generateContent` (Imagen memakai
+  endpoint lain). Dicache 24 jam dengan kunci `models:gemini-image`, yang ikut terhapus saat kunci Gemini diganti.
+  IPC: `generate.geminiImageModels(refresh)`. Model bawaan saat sumber Gemini dipilih: `gemini-3.1-flash-image`
+  (`DEFAULT_GEMINI_IMAGE_MODEL`).
+- **Antrean**: `gemini` (2 paralel). Batas per menit model gambar Gemini di tier awal cukup ketat.
+- **Biaya**: model gambar Gemini tidak punya kuota gratis. `estimateCredits` mengembalikan `null` dan UI menulis
+  bahwa biayanya ditagih ke akun Google AI Studio.
+- **Error** (`friendly`): kunci ditolak, 429 dengan `limit: 0`/free tier (billing belum aktif), 429 lain (kuota atau
+  rate limit, bisa dicoba lagi), 403 izin, 404 model, 413 terlalu besar, 5xx, dan filter konten.
+- Untuk pengembangan, `STUDIO_GEMINI_BASE` mengarahkan semua panggilan Gemini (LLM, TTS, gambar) ke server tiruan.
 
 ## Whisper lokal (`src/main/whisper.ts`)
 

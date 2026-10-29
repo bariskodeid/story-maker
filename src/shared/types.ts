@@ -5,9 +5,9 @@ export type ProjectStatus = 'draft' | 'script' | 'storyboard' | 'editing' | 'exp
 export type ProjectKind = 'story' | 'explainer'
 export type AspectRatio = '16:9' | '9:16'
 export type TtsProvider = 'gemini' | 'elevenlabs' | 'ninerouter'
-export type LlmProvider = 'gemini' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
+export type LlmProvider = 'gemini' | 'anthropic' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
 /** Services with a stored key. 'remotion' is not an AI service: it holds the optional Remotion Company License key. */
-export type ApiProvider = 'higgsfield' | 'gemini' | 'elevenlabs' | 'openrouter' | 'groq' | 'ninerouter' | 'custom' | 'remotion'
+export type ApiProvider = 'higgsfield' | 'gemini' | 'anthropic' | 'elevenlabs' | 'openrouter' | 'groq' | 'ninerouter' | 'custom' | 'remotion'
 /** LLM providers reached at a user-chosen base URL, with an optional key. */
 export type EndpointProvider = 'ninerouter' | 'custom'
 /** Where a live model list comes from: an LLM provider, or a TTS catalog. */

@@ -59,6 +59,7 @@ import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
 import * as hf from './services/higgsfield'
 import * as llm from './services/llm'
+import { listImageModels as geminiImageModels } from './services/geminiImages'
 import { listImageModels as nineRouterImageModels } from './services/ninerouterImages'
 import * as ninerouterTts from './services/ninerouterTts'
 import {
@@ -164,6 +165,7 @@ export function registerIpc(): void {
     estimateCredits(kind, modelId, aspect, seconds, resolution)
   )
   handle('generate:nineRouterModels', (refresh?: boolean) => nineRouterImageModels(!!refresh))
+  handle('generate:geminiImageModels', (refresh?: boolean) => geminiImageModels(!!refresh))
 
   handle('assets:setActive', (clipId: string, assetId: string) => setActiveAsset(clipId, assetId))
   handle('clips:split', (clipId: string, atMs: number) => splitClip(clipId, Number(atMs)))

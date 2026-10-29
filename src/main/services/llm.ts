@@ -3,6 +3,7 @@ import { endpointUrl, isEndpointProvider } from '@shared/models'
 import type { EndpointProvider, KeyTestResult, LlmProvider, ModelList, ModelOption, ModelSource } from '@shared/types'
 import { getSecret, PROVIDER_NAMES } from '../secrets'
 import { getSettings, readCache, writeCache } from '../settings'
+import * as anthropic from './anthropic'
 import * as eleven from './elevenlabs'
 import * as gemini from './gemini'
 import { readError } from './http'
@@ -11,7 +12,7 @@ import { extractJson } from './json'
 const STALE_MS = 24 * 60 * 60 * 1000
 const GENERATE_TIMEOUT_MS = 4 * 60 * 1000
 
-type CompatProvider = Exclude<LlmProvider, 'gemini'>
+type CompatProvider = Exclude<LlmProvider, 'gemini' | 'anthropic'>
 
 interface Compat {
   provider: CompatProvider
@@ -171,6 +172,8 @@ async function fetchModels(source: ModelSource): Promise<ModelOption[]> {
       return gemini.listModels('text')
     case 'gemini-tts':
       return gemini.listModels('tts')
+    case 'anthropic':
+      return anthropic.listModels()
     case 'elevenlabs':
       return eleven.listModels()
     case 'openrouter':
@@ -200,6 +203,7 @@ export async function listModels(source: ModelSource, refresh = false): Promise<
 
 export async function testLlm(provider: LlmProvider, key?: string | null, baseUrl?: string): Promise<KeyTestResult> {
   if (provider === 'gemini') return gemini.testKey(key ?? undefined)
+  if (provider === 'anthropic') return anthropic.testKey(key)
   try {
     const c = compat(provider, key, baseUrl)
     requireKey(c)
@@ -318,5 +322,6 @@ export async function generateJson<T>(req: { system: string; prompt: string; sch
   const { provider, model } = activeLlm()
   if (!model) throw new LlmError(`Pilih model ${PROVIDER_NAMES[provider]} dulu di Pengaturan › Kunci API dan model.`)
   if (provider === 'gemini') return (await gemini.generateJson(model, req.system, req.prompt, req.schema)) as T
+  if (provider === 'anthropic') return (await anthropic.generateJson(model, req.system, req.prompt, req.schema, req.signal)) as T
   return (await chatJson(compat(provider), model, req.system, req.prompt, req.schema, req.name, req.signal)) as T
 }

@@ -51,7 +51,7 @@ menjalankannya.
 | `durationSec`, `language`, `aspectRatio` | target durasi, bahasa naskah/suara, `16:9` atau `9:16` |
 | `styleId` | gaya visual (`src/shared/styles.ts`, 28 gaya; `planHint` opsional untuk perencana visual, misalnya fabel) |
 | `ttsProvider`, `ttsVoice` | `gemini`, `elevenlabs`, atau `ninerouter` + ID suara (untuk 9Router, ID suara = ID model 9Router, mis. `edge-tts/id-ID-ArdiNeural`; bawaan per bahasa dari `defaultTtsVoice` di `shared/voices.ts`) |
-| `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi); `imageModel` berawalan `9router:` berarti model gambar 9Router |
+| `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi); `imageModel` berawalan `9router:` berarti model gambar 9Router, `gemini:` model gambar Gemini API |
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
 | `coverAssetId` | gambar sampul kartu proyek |
 | `editor` | `EditorSettings` (JSON), lihat di bawah |

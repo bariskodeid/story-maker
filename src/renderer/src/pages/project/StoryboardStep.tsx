@@ -471,7 +471,7 @@ export function StoryboardStep() {
   useEffect(() => {
     if (project)
       void window.api.generate
-        // 9Router models have no Higgsfield price; the estimate comes back null and no credits are shown.
+        // 9Router and Gemini models have no Higgsfield price; the estimate comes back null and no credits are shown.
         .estimate('image', normalizeImageModel(project.imageModel), project.aspectRatio)
         .then((e) => setCredits(e?.credits ?? null))
   }, [project?.id, project?.imageModel, project?.aspectRatio])

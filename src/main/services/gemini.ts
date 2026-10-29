@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { app } from 'electron'
 import { GEMINI_LIBRARY_VOICES, GEMINI_VOICES, geminiVoiceName, geminiVoiceTone } from '@shared/models'
 import type { KeyTestResult, ModelOption, VoiceOption } from '@shared/types'
 import { getSecret, requireSecret } from '../secrets'
@@ -6,11 +7,14 @@ import { getSettings, readCache, writeCache } from '../settings'
 import { isWav, pcmToWav } from './audio'
 import { extractJson } from './json'
 
-function client(key?: string): GoogleGenAI {
-  return new GoogleGenAI({ apiKey: key ?? requireSecret('gemini') })
+// Development builds can point at a local mock (STUDIO_GEMINI_BASE) to test without a key or spending money.
+const MOCK_BASE = !app.isPackaged ? process.env.STUDIO_GEMINI_BASE : undefined
+
+export function client(key?: string): GoogleGenAI {
+  return new GoogleGenAI({ apiKey: key ?? requireSecret('gemini'), ...(MOCK_BASE ? { httpOptions: { baseUrl: MOCK_BASE } } : {}) })
 }
 
-function friendly(e: unknown): Error {
+export function friendly(e: unknown): Error {
   const msg = (e as Error)?.message ?? String(e)
   if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(msg))
     return new Error('Kunci Gemini ditolak. Periksa kunci di Pengaturan.')

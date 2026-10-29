@@ -44,7 +44,8 @@ src/
     fontMetrics.ts lebar teks dari file TTF (untuk kotak caption di ekspor)
     jobs.ts, events.ts  antrean job + event ke renderer
     secrets.ts     kunci API terenkripsi (safeStorage/DPAPI)
-    services/      klien API: gemini, elevenlabs, higgsfield, llm (OpenAI-compatible), audio, http
+    services/      klien API: gemini (+ geminiImages), anthropic, elevenlabs, higgsfield, ninerouter*, llm (pemilih
+                   penyedia + OpenAI-compatible), images, audio, http
     devharness.ts  otomatisasi uji (hanya mode pengembangan)
   preload/         jembatan aman: window.api (lihat src/shared/api.ts)
   shared/          kode yang dipakai main DAN renderer (tipe, aturan gerak, caption, timeline, explainer.ts)

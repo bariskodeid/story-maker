@@ -50,6 +50,8 @@ $env:STUDIO_USER_DATA = "C:\temp\storymaker-dev"; npm run dev
 | `STUDIO_CAPTURE_PLAN` | path file JSON rencana dev harness (lihat di bawah) |
 | `STUDIO_LOG` | file untuk menampung `console` renderer dan error harness |
 | `STUDIO_HF_BASE` | base URL Higgsfield tiruan (mock) supaya UI bisa diuji tanpa kredit |
+| `STUDIO_ANTHROPIC_BASE` | base URL Anthropic tiruan (mock), misalnya `http://127.0.0.1:18081` (melayani `/v1/models` dan `/v1/messages` dengan SSE) |
+| `STUDIO_GEMINI_BASE` | base URL Gemini tiruan (mock) untuk semua panggilan Gemini: LLM, TTS, dan gambar (`/v1beta/models`, `/v1beta/models/<model>:generateContent`) |
 | `STUDIO_WHISPER_URL` | URL model Whisper alternatif (misalnya server lokal) untuk menguji unduhan |
 
 ## Dev harness (pengujian otomatis)

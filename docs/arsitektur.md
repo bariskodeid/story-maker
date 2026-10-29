@@ -12,7 +12,7 @@
 | Video/audio | FFmpeg (`ffmpeg-static`), libass untuk caption |
 | Video penjelasan | Remotion 4.0.539: `@remotion/player` di renderer, `@remotion/renderer` + Chrome Headless Shell di main ([remotion.md](remotion.md)) |
 | Pengenal suara | whisper.cpp (`resources/whisper/whisper-cli.exe`) + model Whisper Small |
-| AI | Gemini (`@google/genai`), API OpenAI-compatible (OpenRouter, Groq, custom), ElevenLabs, Higgsfield |
+| AI | Gemini (`@google/genai`), Anthropic (`@anthropic-ai/sdk`), API OpenAI-compatible (OpenRouter, Groq, 9Router, custom), ElevenLabs, Higgsfield |
 
 ## Tiga proses
 

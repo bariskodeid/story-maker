@@ -10,11 +10,19 @@ import {
   maxRefs,
   resolutionOptions
 } from '@shared/higgsfield'
-import { isNineRouterImage, nineRouterImageId, nineRouterModel } from '@shared/imageModels'
+import {
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  geminiImageId,
+  geminiImageModel,
+  imageSource,
+  nineRouterImageId,
+  nineRouterModel,
+  type ImageSource
+} from '@shared/imageModels'
 import type { CreditEstimate, KeyStatus, ModelList, ModelOption, Project } from '@shared/types'
 import { ModelLogo } from '../../components/ModelLogo'
 import { ModelPicker } from '../../components/ModelPicker'
-import { ProviderLogo } from '../../components/ProviderLogo'
+import { ProviderLogo, type ProviderLogoId } from '../../components/ProviderLogo'
 import { Segmented, Spinner } from '../../components/ui'
 import { creditLabel, errorText } from '../../lib/format'
 import { useEstimate, useEstimates } from '../../lib/useEstimate'
@@ -72,31 +80,99 @@ function Card({ icon, title, action, children }: { icon: ReactNode; title: strin
   )
 }
 
-type ImageSource = 'higgsfield' | 'ninerouter'
-
-/** Image models of the providers connected in 9Router; asked for only once 9Router is the image source. */
-function useNineRouterModels(enabled: boolean) {
+/** Image models the user's 9Router or Gemini key can use; asked for only once that service is the image source. */
+function useServiceModels(fetch: (refresh: boolean) => Promise<ModelList>, enabled: boolean) {
   const [list, setList] = useState<ModelList | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const load = useCallback(async (refresh: boolean): Promise<void> => {
-    setLoading(true)
-    setError(null)
-    try {
-      setList(await window.api.generate.nineRouterModels(refresh))
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (refresh: boolean): Promise<void> => {
+      setLoading(true)
+      setError(null)
+      try {
+        setList(await fetch(refresh))
+      } catch (e) {
+        setError(errorText(e))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetch]
+  )
   useEffect(() => {
     if (enabled) void load(false)
   }, [enabled, load])
   return { models: list?.models ?? [], fetchedAt: list?.fetchedAt ?? null, loading, error, refresh: () => void load(true) }
 }
 
-/** Which models draw (Higgsfield or 9Router) and animate (Higgsfield) this project's clips. */
+/** The picker and notes for an image service reached with the user's own account (9Router or Gemini). */
+function ServicePicker({
+  logo,
+  value,
+  list,
+  ready,
+  notReady,
+  placeholder,
+  billing,
+  sheets,
+  onOpenSettings,
+  onPick
+}: {
+  logo: ProviderLogoId
+  value: string
+  list: ReturnType<typeof useServiceModels>
+  /** Null while the saved keys are still loading. */
+  ready: boolean | null
+  notReady: string
+  placeholder: string
+  billing: string
+  /** How character sheets are used, or null when sheets are not shown (explainer pictures). */
+  sheets: string | null
+  onOpenSettings?: () => void
+  onPick: (id: string) => void
+}) {
+  return (
+    <>
+      <ModelPicker
+        value={value}
+        models={list.models}
+        loading={list.loading}
+        error={ready === false ? notReady : list.error}
+        fetchedAt={list.fetchedAt}
+        onRefresh={ready ? list.refresh : undefined}
+        allowCustom
+        placeholder={placeholder}
+        footerNote="ketik ID lain kalau modelnya tidak ada di daftar"
+        renderIcon={() => <ProviderLogo id={logo} size={30} />}
+        detail="description"
+        menuClassName="w-[430px]"
+        onChange={onPick}
+      />
+      <p className="text-[12.5px] leading-snug text-ink-2">
+        {ready === false ? (
+          <>
+            {notReady}{' '}
+            {onOpenSettings && (
+              <button type="button" onClick={onOpenSettings} className="font-semibold text-accent-dark hover:underline">
+                Atur di Pengaturan
+              </button>
+            )}
+          </>
+        ) : (
+          billing
+        )}
+      </p>
+      {sheets && (
+        <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
+          <Users className="mt-px size-3.5 shrink-0" />
+          {sheets}
+        </p>
+      )}
+    </>
+  )
+}
+
+/** Which models draw (Higgsfield, 9Router or Gemini) and animate (Higgsfield) this project's clips. */
 export function ModelSection({
   project,
   clipCount,
@@ -118,7 +194,7 @@ export function ModelSection({
   note?: string
 }) {
   const image = getImageModel(project.imageModel)
-  const viaNineRouter = isNineRouterImage(project.imageModel)
+  const current = imageSource(project.imageModel)
   const video = getVideoModel(project.videoModel)
   const seconds = fitDuration(video, perClip) ?? perClip
   const imageCost = useEstimate('image', image.id, project.aspectRatio)
@@ -127,27 +203,34 @@ export function ModelSection({
   const videoCost = useEstimate('video', video.id, project.aspectRatio, perClip, resolution)
   const [keys, setKeys] = useState<KeyStatus[] | null>(null)
   const hasKey = keys ? !!keys.find((k) => k.provider === 'higgsfield')?.configured : null
-  const nineRouterReady = !!keys?.find((k) => k.provider === 'ninerouter')?.configured
+  const configured = (p: 'ninerouter' | 'gemini'): boolean | null => (keys ? !!keys.find((k) => k.provider === p)?.configured : null)
+  const nineRouterReady = configured('ninerouter')
+  const geminiReady = configured('gemini')
 
   useEffect(() => {
     void window.api.settings.keys().then(setKeys)
   }, [])
 
-  // Choosing 9Router only opens its list; the project switches once a model is picked from it.
-  const [source, setSource] = useState<ImageSource>(viaNineRouter ? 'ninerouter' : 'higgsfield')
+  // 9Router has no default model, so choosing it only opens its list and the project switches once a model is
+  // picked. Gemini starts on Nano Banana 2 right away.
+  const [source, setSource] = useState<ImageSource>(current)
   // The last pick per source, so flipping back and forth restores it.
-  const lastPick = useRef<Record<ImageSource, string | null>>({ higgsfield: null, ninerouter: null })
+  const lastPick = useRef<Record<ImageSource, string | null>>({ higgsfield: null, ninerouter: null, gemini: null })
   useEffect(() => {
     if (!project.imageModel) return
-    lastPick.current[viaNineRouter ? 'ninerouter' : 'higgsfield'] = project.imageModel
-    if (viaNineRouter) setSource('ninerouter')
+    lastPick.current[current] = project.imageModel
+    if (current !== 'higgsfield') setSource(current)
   }, [project.imageModel])
   const switchSource = (next: ImageSource): void => {
     setSource(next)
-    if (next === 'higgsfield' && viaNineRouter) onChange({ imageModel: lastPick.current.higgsfield ?? DEFAULT_IMAGE_MODEL })
-    else if (next === 'ninerouter' && !viaNineRouter && lastPick.current.ninerouter) onChange({ imageModel: lastPick.current.ninerouter })
+    if (next === current) return
+    const last = lastPick.current[next]
+    if (next === 'higgsfield') onChange({ imageModel: last ?? DEFAULT_IMAGE_MODEL })
+    else if (last) onChange({ imageModel: last })
+    else if (next === 'gemini') onChange({ imageModel: geminiImageId(DEFAULT_GEMINI_IMAGE_MODEL) })
   }
-  const nineRouter = useNineRouterModels(source === 'ninerouter' && nineRouterReady)
+  const nineRouter = useServiceModels(window.api.generate.nineRouterModels, source === 'ninerouter' && nineRouterReady === true)
+  const gemini = useServiceModels(window.api.generate.geminiImageModels, source === 'gemini' && geminiReady === true)
 
   const imageCosts = useEstimates('image', IMAGE_IDS, project.aspectRatio, undefined, hasKey === true && source === 'higgsfield')
   const videoCosts = useEstimates('video', VIDEO_IDS, project.aspectRatio, perClip, hasKey === true)
@@ -168,6 +251,8 @@ export function ModelSection({
             ? 'Untuk adegan yang memakai gambar AI'
             : source === 'ninerouter'
             ? `Gambar lewat 9Router, ${VIDEO_OPTIONS.length} model video dari Higgsfield`
+            : source === 'gemini'
+            ? `Gambar lewat Gemini API, ${VIDEO_OPTIONS.length} model video dari Higgsfield`
             : `${IMAGE_OPTIONS.length} model gambar dan ${VIDEO_OPTIONS.length} model video dari Higgsfield`}
         </span>
       </div>
@@ -182,7 +267,8 @@ export function ModelSection({
               onChange={switchSource}
               options={[
                 { id: 'higgsfield', label: 'Higgsfield' },
-                { id: 'ninerouter', label: '9Router', title: 'Model gambar dari akun yang kamu hubungkan di 9Router' }
+                { id: 'ninerouter', label: '9Router', title: 'Model gambar dari akun yang kamu hubungkan di 9Router' },
+                { id: 'gemini', label: 'Gemini', title: 'Model gambar Gemini (Nano Banana) dengan kunci Google AI Studio kamu' }
               ]}
             />
           }
@@ -217,44 +303,36 @@ export function ModelSection({
                 </p>
               )}
             </>
+          ) : source === 'ninerouter' ? (
+            <ServicePicker
+              logo="ninerouter"
+              value={current === 'ninerouter' ? nineRouterModel(project.imageModel!) : ''}
+              list={nineRouter}
+              ready={nineRouterReady}
+              notReady="9Router belum terhubung. Simpan alamat 9Router di Pengaturan › Layanan AI dan kunci dulu."
+              placeholder="Pilih model gambar 9Router"
+              billing="Tanpa kredit Higgsfield. Biayanya mengikuti akun yang kamu hubungkan di 9Router."
+              sheets={
+                imageOnly
+                  ? null
+                  : 'Lembar karakter ikut dikirim sebagai referensi, tapi tidak semua model di 9Router memakainya, jadi wajah pemeran bisa kurang konsisten antar klip.'
+              }
+              onOpenSettings={onOpenSettings}
+              onPick={(id) => onChange({ imageModel: nineRouterImageId(id) })}
+            />
           ) : (
-            <>
-              <ModelPicker
-                value={viaNineRouter ? nineRouterModel(project.imageModel!) : ''}
-                models={nineRouter.models}
-                loading={nineRouter.loading}
-                error={keys && !nineRouterReady ? '9Router belum terhubung. Simpan alamat 9Router di Pengaturan › Gambar dan video dulu.' : nineRouter.error}
-                fetchedAt={nineRouter.fetchedAt}
-                onRefresh={nineRouterReady ? nineRouter.refresh : undefined}
-                allowCustom
-                placeholder="Pilih model gambar 9Router"
-                footerNote="ketik ID lain kalau modelnya tidak ada di daftar"
-                renderIcon={() => <ProviderLogo id="ninerouter" size={30} />}
-                detail="description"
-                menuClassName="w-[430px]"
-                onChange={(id) => onChange({ imageModel: nineRouterImageId(id) })}
-              />
-              <p className="text-[12.5px] leading-snug text-ink-2">
-                {keys && !nineRouterReady ? (
-                  <>
-                    9Router belum terhubung.{' '}
-                    {onOpenSettings && (
-                      <button type="button" onClick={onOpenSettings} className="font-semibold text-accent-dark hover:underline">
-                        Atur di Pengaturan
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  'Tanpa kredit Higgsfield. Biayanya mengikuti akun yang kamu hubungkan di 9Router.'
-                )}
-              </p>
-              {!imageOnly && (
-                <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
-                  <Users className="mt-px size-3.5 shrink-0" />
-                  Lembar karakter ikut dikirim sebagai referensi, tapi tidak semua model di 9Router memakainya, jadi wajah pemeran bisa kurang konsisten antar klip.
-                </p>
-              )}
-            </>
+            <ServicePicker
+              logo="gemini"
+              value={current === 'gemini' ? geminiImageModel(project.imageModel!) : ''}
+              list={gemini}
+              ready={geminiReady}
+              notReady="Kunci Gemini belum diisi. Simpan kunci Google AI Studio di Pengaturan › Layanan AI dan kunci dulu."
+              placeholder="Pilih model gambar Gemini"
+              billing="Tanpa kredit Higgsfield. Biayanya ditagih ke akun Google AI Studio kamu, dan model gambar butuh billing aktif."
+              sheets={imageOnly ? null : 'Lembar karakter ikut dikirim sebagai referensi, jadi wajah dan kostum tokoh tetap mirip di tiap klip.'}
+              onOpenSettings={onOpenSettings}
+              onPick={(id) => onChange({ imageModel: geminiImageId(id) })}
+            />
           )}
         </Card>
         {!imageOnly && (

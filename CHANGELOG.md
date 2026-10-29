@@ -8,6 +8,19 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ## [Belum dirilis]
 
+### Ditambahkan
+- **Gambar lewat Gemini API**: kartu Gambar klip di langkah Ide sekarang punya pilihan `Higgsfield | 9Router | Gemini`.
+  Model gambar Gemini (Nano Banana) dipanggil langsung dengan kunci Google AI Studio milikmu, lembar karakter ikut
+  dikirim sebagai referensi, dan daftar modelnya diambil langsung dari Google. Kunci Gemini bisa disimpan di kartu
+  baru Pengaturan › Layanan AI dan kunci. Model gambar Gemini butuh billing aktif.
+- **Anthropic Claude** sebagai penyusun cerita, dengan kunci API resmi dari Claude Console. Naskah dan rencana visual
+  memakai structured output, daftar model diambil langsung dari Anthropic (model yang sudah pensiun disembunyikan),
+  dan permintaan yang ditolak filter keamanan otomatis diulang di model lain yang cocok.
+
+### Diubah
+- Pesan dialog Sekali klik dan Lanjutkan otomatis menyebut sumber gambar yang sebenarnya (Higgsfield, 9Router, atau
+  Gemini).
+
 ## [1.1.0] - 2026-10-29
 
 ### Ditambahkan

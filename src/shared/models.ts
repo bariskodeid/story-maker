@@ -9,6 +9,13 @@ export const LLM_PROVIDERS: { id: LlmProvider; name: string; note: string; link:
     linkLabel: 'Buat kunci di Google AI Studio'
   },
   {
+    id: 'anthropic',
+    name: 'Anthropic Claude',
+    note: 'Model Claude (Opus, Sonnet, Haiku) langsung dari Anthropic, dibayar sesuai pemakaian di akun Claude Console.',
+    link: 'https://platform.claude.com/settings/keys',
+    linkLabel: 'Buat kunci di Claude Console'
+  },
+  {
     id: 'openrouter',
     name: 'OpenRouter',
     note: 'Satu kunci untuk ratusan model dari banyak penyedia, termasuk model gratis.',

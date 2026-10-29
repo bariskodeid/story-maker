@@ -196,9 +196,9 @@ Setiap bagian (penyusun cerita, suara narator) punya satu dropdown penyedia. Han
 
 | Layanan | Dipakai untuk | Wajib |
 |---|---|---|
-| [Higgsfield](https://higgsfield.ai) (satu kunci dari tombol **Copy API key**, format `KEY_ID:KEY_SECRET`) | Gambar, lembar karakter, video AI | Ya |
-| Penyusun cerita, pilih satu: Google Gemini, OpenRouter, Groq, atau endpoint custom yang kompatibel dengan OpenAI | Naskah, rencana visual, pemeran | Ya, salah satu |
-| Google Gemini | Suara narator Gemini TTS | Kalau memakai Gemini TTS |
+| [Higgsfield](https://higgsfield.ai) (satu kunci dari tombol **Copy API key**, format `KEY_ID:KEY_SECRET`) | Gambar, lembar karakter, video AI | Untuk video AI, dan untuk gambar kalau tidak memakai 9Router atau Gemini |
+| Penyusun cerita, pilih satu: Google Gemini, Anthropic Claude, OpenRouter, Groq, 9Router, atau endpoint custom yang kompatibel dengan OpenAI | Naskah, rencana visual, pemeran | Ya, salah satu |
+| Google Gemini | Suara narator Gemini TTS, dan gambar klip lewat model Nano Banana (butuh billing aktif di Google AI Studio) | Kalau memakai Gemini TTS atau gambar Gemini |
 | ElevenLabs | Suara narator dengan waktu per kata yang presisi | Opsional |
 
 - **Daftar model penyusun cerita** diambil langsung dari penyedia setelah kuncinya disimpan, lalu dipilih lewat dropdown yang bisa dicari.
@@ -214,7 +214,7 @@ Setiap bagian (penyusun cerita, suara narator) punya satu dropdown penyedia. Han
 
 Ya. Aplikasinya gratis dan kodenya terbuka dengan lisensi MIT. Yang berbayar hanya pemakaian layanan AI. Biayanya kamu bayar langsung ke penyedia, dengan kunci API milikmu:
 - kredit Higgsfield untuk gambar dan video;
-- biaya Gemini, OpenRouter, Groq, atau ElevenLabs sesuai paket akunmu.
+- biaya Gemini, Anthropic, OpenRouter, Groq, atau ElevenLabs sesuai paket akunmu.
 
 Perkiraan kredit tiap model Higgsfield ditampilkan sebelum membuat gambar atau video. Perkiraannya diambil dari endpoint `estimate` Higgsfield, yang tidak memakai kredit.
 </details>
@@ -265,7 +265,7 @@ npm run dist         # installer Windows ke folder dist/
 | Video dan audio | FFmpeg (ffmpeg-static), caption ASS/libass |
 | Video penjelasan | Remotion 4 (Player di aplikasi, render dengan Chrome Headless Shell) |
 | Caption akurat | whisper.cpp dengan model Whisper Small |
-| Layanan AI | Higgsfield, Google Gemini, OpenRouter, Groq, ElevenLabs |
+| Layanan AI | Higgsfield, Google Gemini, Anthropic Claude, OpenRouter, Groq, 9Router, ElevenLabs |
 
 ```
 src/

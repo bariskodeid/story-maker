@@ -4,11 +4,12 @@ import { getDb } from './db'
 import { endpointUrl, isEndpointProvider } from '@shared/models'
 import { getSettings } from './settings'
 
-const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'elevenlabs', 'openrouter', 'groq', 'ninerouter', 'custom', 'remotion']
+const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'anthropic', 'elevenlabs', 'openrouter', 'groq', 'ninerouter', 'custom', 'remotion']
 
 export const PROVIDER_NAMES: Record<ApiProvider, string> = {
   higgsfield: 'Higgsfield',
   gemini: 'Google Gemini',
+  anthropic: 'Anthropic Claude',
   elevenlabs: 'ElevenLabs',
   openrouter: 'OpenRouter',
   groq: 'Groq',

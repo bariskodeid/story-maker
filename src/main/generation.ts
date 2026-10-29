@@ -5,7 +5,7 @@ import { estimateWordTimings } from '@shared/captions'
 import { explainerImagePrompt, wantsAiImage } from '@shared/explainer'
 import { stripVoiceTags } from '@shared/speech'
 import { getImageModel, getVideoModel, imageBody, maxRefs, promptLimit, videoBody, type HfModel } from '@shared/higgsfield'
-import { imageRefLimit, isNineRouterImage, nineRouterModel } from '@shared/imageModels'
+import { geminiImageModel, imageRefLimit, imageSource, nineRouterModel, type ImageSource } from '@shared/imageModels'
 import { getStyle } from '@shared/styles'
 import type { AspectRatio, Asset, Character, Clip, CreditEstimate, Job, Project, WordTiming } from '@shared/types'
 import { defaultTtsVoice } from '@shared/voices'
@@ -35,8 +35,10 @@ import { dropCache, getSettings, readCache, writeCache } from './settings'
 import { probeDurationMs, probeSize } from './services/audio'
 import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
+import * as gi from './services/geminiImages'
 import * as hf from './services/higgsfield'
 import { downloadTo, sleep } from './services/http'
+import { inlineReference } from './services/images'
 import * as nr from './services/ninerouterImages'
 import * as ninerouter from './services/ninerouterTts'
 
@@ -265,69 +267,86 @@ function updateJobPayload(jobId: string, payload: HfPayload): void {
   getDb().prepare('UPDATE jobs SET payload_json = ? WHERE id = ?').run(JSON.stringify(payload), jobId)
 }
 
-// ---------- 9Router images (one request that returns the finished picture) ----------
+// ---------- 9Router and Gemini images (one request that returns the finished picture) ----------
 
-/** 9Router does not say which model limits apply, so prompts get the same budget as undocumented Higgsfield ones. */
-const NINEROUTER_PROMPT_LIMIT = 4000
-const NINEROUTER_IMAGE_ATTEMPTS = 3
+type DirectSource = Exclude<ImageSource, 'higgsfield'>
 
-interface NineRouterRequest {
+/** Neither service says which limits apply to a model, so prompts get the same budget as undocumented Higgsfield ones. */
+const DIRECT_PROMPT_LIMIT = 4000
+const DIRECT_IMAGE_ATTEMPTS = 3
+
+interface DirectRequest {
   payload: HfPayload
   aspect: AspectRatio
   refs: string[]
 }
 
-function startNineRouter(job: Job, build: (ctx: TaskCtx) => Promise<NineRouterRequest>): Job {
+/** The services that draw with one blocking request. Each has its own queue, named like the source. */
+const DIRECT: Record<
+  DirectSource,
+  {
+    name: string
+    model: (imageModel: string) => string
+    generate: (model: string, prompt: string, aspect: AspectRatio, refs: string[], signal: AbortSignal) => Promise<{ bytes: Buffer; ext: string; url?: string | null }>
+    noImage: (e: unknown) => boolean
+  }
+> = {
+  ninerouter: { name: '9Router', model: nineRouterModel, generate: nr.generateImage, noImage: (e) => e instanceof nr.NoImageError },
+  gemini: { name: 'Gemini', model: geminiImageModel, generate: gi.generateImage, noImage: (e) => e instanceof gi.NoImageError }
+}
+
+function startDirect(job: Job, source: DirectSource, build: (ctx: TaskCtx) => Promise<DirectRequest>): Job {
+  const service = DIRECT[source]
   emit.job(job)
-  return runJob(job, 'ninerouter', async (ctx) => {
+  return runJob(job, source, async (ctx) => {
     ctx.progress(0.04, 'Menyiapkan prompt')
     const { payload, aspect, refs } = await build(ctx)
     updateJobPayload(job.id, payload)
     const what = payload.target === 'sheet' ? 'Membuat lembar karakter' : 'Membuat gambar'
-    ctx.progress(0.1, 'Mengirim ke 9Router')
-    // The gateway gives no progress, so the bar is a time estimate that slows down the longer it waits.
+    ctx.progress(0.1, `Mengirim ke ${service.name}`)
+    // Neither service reports progress, so the bar is a time estimate that slows down the longer it waits.
     const started = Date.now()
-    let label = `${what} lewat 9Router`
+    let label = `${what} lewat ${service.name}`
     const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), label), 1000)
-    let image: nr.NineRouterImage | null = null
+    let image: { bytes: Buffer; ext: string; url?: string | null } | null = null
     try {
-      // Gemini image models over 9Router return no picture for about half of long scene prompts at random
-      // (same prompt, same references), so an empty answer is retried before the job fails.
+      // Gemini image models (directly or over 9Router) return no picture for about half of long scene prompts at
+      // random (same prompt, same references), so an empty answer is retried before the job fails.
       for (let attempt = 1; !image; attempt++) {
         try {
-          image = await nr.generateImage(payload.model, payload.prompt, aspect, refs, ctx.signal)
+          image = await service.generate(payload.model, payload.prompt, aspect, refs, ctx.signal)
         } catch (e) {
-          if (!(e instanceof nr.NoImageError) || attempt >= NINEROUTER_IMAGE_ATTEMPTS || ctx.signal.aborted) throw e
-          label = `Model tidak mengirim gambar, mencoba lagi (${attempt + 1}/${NINEROUTER_IMAGE_ATTEMPTS})`
+          if (!service.noImage(e) || attempt >= DIRECT_IMAGE_ATTEMPTS || ctx.signal.aborted) throw e
+          label = `Model tidak mengirim gambar, mencoba lagi (${attempt + 1}/${DIRECT_IMAGE_ATTEMPTS})`
         }
       }
     } finally {
       clearInterval(tick)
     }
     ctx.progress(0.95, 'Menyimpan gambar')
-    return saveResult(job, payload, 'ninerouter', { bytes: image.bytes, ext: image.ext, remoteId: null, remoteUrl: image.url })
+    return saveResult(job, payload, source, { bytes: image.bytes, ext: image.ext, remoteId: null, remoteUrl: image.url ?? null })
   })
 }
 
-function nineRouterClipImage(clipId: string, projectId: string, imageModel: string): Job {
-  const job = insertJob({ projectId, clipId, kind: 'image', provider: 'ninerouter' })
-  return startNineRouter(job, async (ctx) => {
+function directClipImage(clipId: string, projectId: string, imageModel: string, source: DirectSource): Job {
+  const job = insertJob({ projectId, clipId, kind: 'image', provider: source })
+  return startDirect(job, source, async (ctx) => {
     const fresh = getClip(clipId)
     const project = getProject(fresh.projectId)
     const chars = charactersOf(project.id).filter((c) => fresh.characterIds.includes(c.id))
     if (chars.length) ctx.progress(0.06, 'Menyiapkan lembar karakter')
     const { sheets, names } = await sheetsFor(chars, imageRefLimit(imageModel), ctx.signal)
-    const refs = await Promise.all(sheets.map((s) => nr.inlineReference(assetAbsPath(s.projectId, s.localPath))))
-    const prompt = clipPrompt(project, fresh, chars, names, NINEROUTER_PROMPT_LIMIT)
-    return { payload: { target: 'clip-image', model: nineRouterModel(imageModel), prompt }, aspect: imageAspect(project), refs }
+    const refs = await Promise.all(sheets.map((s) => inlineReference(assetAbsPath(s.projectId, s.localPath))))
+    const prompt = clipPrompt(project, fresh, chars, names, DIRECT_PROMPT_LIMIT)
+    return { payload: { target: 'clip-image', model: DIRECT[source].model(imageModel), prompt }, aspect: imageAspect(project), refs }
   })
 }
 
-function nineRouterSheet(characterId: string, projectId: string, imageModel: string): Job {
-  const job = insertJob({ projectId, characterId, kind: 'sheet', provider: 'ninerouter' })
-  return startNineRouter(job, async () => {
+function directSheet(characterId: string, projectId: string, imageModel: string, source: DirectSource): Job {
+  const job = insertJob({ projectId, characterId, kind: 'sheet', provider: source })
+  return startDirect(job, source, async () => {
     const prompt = sheetPrompt(getProject(projectId), getCharacter(characterId))
-    return { payload: { target: 'sheet', model: nineRouterModel(imageModel), prompt }, aspect: '16:9', refs: [] }
+    return { payload: { target: 'sheet', model: DIRECT[source].model(imageModel), prompt }, aspect: '16:9', refs: [] }
   })
 }
 
@@ -338,7 +357,8 @@ export function generateClipImage(clipId: string): Job {
   if (existing) return existing
   const clip = getClip(clipId)
   const imageModel = getProject(clip.projectId).imageModel
-  if (isNineRouterImage(imageModel)) return nineRouterClipImage(clipId, clip.projectId, imageModel)
+  const source = imageSource(imageModel)
+  if (source !== 'higgsfield') return directClipImage(clipId, clip.projectId, imageModel!, source)
   const job = insertJob({ projectId: clip.projectId, clipId, kind: 'image', provider: 'higgsfield' })
   return startHiggsfield(job, async (ctx) => {
     const fresh = getClip(clipId)
@@ -360,7 +380,8 @@ export function generateCharacterSheet(characterId: string): Job {
   if (existing) return existing
   const c = getCharacter(characterId)
   const imageModel = getProject(c.projectId).imageModel
-  if (isNineRouterImage(imageModel)) return nineRouterSheet(characterId, c.projectId, imageModel)
+  const source = imageSource(imageModel)
+  if (source !== 'higgsfield') return directSheet(characterId, c.projectId, imageModel!, source)
   const job = insertJob({ projectId: c.projectId, characterId, kind: 'sheet', provider: 'higgsfield' })
   return startHiggsfield(job, async () => {
     const project = getProject(c.projectId)
@@ -529,8 +550,9 @@ export async function estimateCredits(
   seconds = 5,
   resolution?: string | null
 ): Promise<CreditEstimate | null> {
-  // 9Router bills through whatever accounts the user connected there; Higgsfield cannot price it.
-  if (kind === 'image' && isNineRouterImage(modelId)) return null
+  // 9Router bills through whatever accounts the user connected there, Gemini through the user's Google account;
+  // Higgsfield cannot price either.
+  if (kind === 'image' && imageSource(modelId) !== 'higgsfield') return null
   const model = kind === 'image' ? getImageModel(modelId) : getVideoModel(modelId)
   const body =
     kind === 'image'

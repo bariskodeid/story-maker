@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultLanguage: 'id',
   exportFolder: null,
   llmProvider: 'gemini',
-  llmModels: { gemini: 'gemini-3.8-flash', openrouter: '', groq: '', ninerouter: '', custom: '' },
+  llmModels: { gemini: 'gemini-3.8-flash', anthropic: 'claude-opus-5-5', openrouter: '', groq: '', ninerouter: '', custom: '' },
   customBaseUrl: '',
   nineRouterBaseUrl: '',
   geminiTtsModel: 'gemini-3.8-flash-tts',

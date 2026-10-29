@@ -579,7 +579,7 @@ function HiggsfieldSection({ status, onChanged }: { status?: KeyStatus; onChange
       <SectionTitle
         icon={<ImageIcon className="size-5" />}
         title="Gambar dan video"
-        sub="Higgsfield membuat gambar klip, lembar karakter, dan video AI. Gambar juga bisa dibuat lewat 9Router."
+        sub="Higgsfield membuat gambar klip, lembar karakter, dan video AI. Gambar juga bisa dibuat lewat 9Router atau Gemini API."
       />
       <Card>
         <div className="flex items-center gap-3">
@@ -660,6 +660,46 @@ function NineRouterImageCard({ settings, status, onChanged }: { settings: AppSet
   )
 }
 
+/** The Gemini key for images, which also works when stories and voices come from other providers. */
+function GeminiImageCard({ settings, status, onChanged }: { settings: AppSettings; status?: KeyStatus; onChanged: () => void }) {
+  // The story or voice section above already shows this same key form when Gemini is picked there.
+  const sharedAbove = settings.llmProvider === 'gemini' || settings.defaultTtsProvider === 'gemini'
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <ProviderLogo id="gemini" />
+        <div className="flex flex-1 flex-col">
+          <span className="text-base font-bold">
+            Gemini <span className="text-[13px] font-medium text-muted">· opsional, untuk gambar</span>
+          </span>
+          <span className="text-[13px] text-ink-2">Model gambar Gemini (Nano Banana) langsung dari Google dengan kunci AI Studio kamu. Video tetap dari Higgsfield.</span>
+        </div>
+        <StatusBadge status={status} />
+      </div>
+      {sharedAbove ? (
+        <p className="text-[13px] text-ink-2">Kunci Gemini di bagian atas dipakai juga untuk gambar.</p>
+      ) : (
+        <KeyForm
+          provider="gemini"
+          name="Google Gemini"
+          status={status}
+          help="Kunci yang sama juga bisa dipakai untuk penyusun cerita dan suara narator Gemini."
+          link="https://aistudio.google.com/apikey"
+          linkLabel="Buat kunci di Google AI Studio"
+          onChanged={onChanged}
+        />
+      )}
+      <p className="flex items-start gap-2.5 border-t border-dashed border-line pt-4 text-[13px] leading-relaxed text-ink-2">
+        <ImageIcon className="mt-0.5 size-4 shrink-0" />
+        <span>
+          Pilih <strong className="text-ink">Gemini</strong> di kartu Gambar klip pada langkah <strong className="text-ink">Ide cerita</strong>. Model gambar
+          Gemini tidak punya kuota gratis, jadi aktifkan billing untuk project kunci ini di Google AI Studio. Lembar karakter ikut dikirim sebagai referensi.
+        </span>
+      </p>
+    </Card>
+  )
+}
+
 export function Settings() {
   const { go, route } = useApp()
   const back = route.name === 'settings' && route.back ? route.back : ({ name: 'home' } as const)
@@ -731,6 +771,7 @@ export function Settings() {
                 <TtsSection settings={settings} statusOf={statusOf} onChanged={reload} onSettings={setSettings} />
                 <HiggsfieldSection status={statusOf('higgsfield')} onChanged={reload} />
                 <NineRouterImageCard settings={settings} status={statusOf('ninerouter')} onChanged={reload} />
+                <GeminiImageCard settings={settings} status={statusOf('gemini')} onChanged={reload} />
                 <WhisperSection settings={settings} onSettings={setSettings} />
               </>
             )}

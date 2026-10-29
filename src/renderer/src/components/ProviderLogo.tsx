@@ -4,15 +4,16 @@ import { cx } from './ui'
 /**
  * Brand marks of the services the app connects to. Gemini, OpenRouter, Groq and ElevenLabs come from
  * LobeHub Icons (MIT); the Higgsfield mark is its official app icon. Logos belong to their owners.
- * 9Router ships no logo asset, so it gets a plain text mark.
+ * 9Router ships no logo asset, and Anthropic's mark is not in the bundled set, so both get a plain text mark.
  */
 const FILES = import.meta.glob('../assets/providers/*.{svg,png}', { eager: true, import: 'default' }) as Record<string, string>
 const file = (name: string): string => FILES[`../assets/providers/${name}`]
 
-export type ProviderLogoId = 'gemini' | 'openrouter' | 'groq' | 'ninerouter' | 'elevenlabs' | 'higgsfield' | 'custom'
+export type ProviderLogoId = 'gemini' | 'anthropic' | 'openrouter' | 'groq' | 'ninerouter' | 'elevenlabs' | 'higgsfield' | 'custom'
 
 const LOOK: Record<ProviderLogoId, { bg: string; src?: string; text?: string; inset: number }> = {
   gemini: { bg: '#FFFFFF', src: 'gemini.svg', inset: 0.2 },
+  anthropic: { bg: '#C96442', text: 'A', inset: 0.2 },
   openrouter: { bg: '#FFFFFF', src: 'openrouter.svg', inset: 0.2 },
   groq: { bg: '#F55036', src: 'groq.svg', inset: 0.2 },
   ninerouter: { bg: '#111111', text: '9R', inset: 0.2 },
