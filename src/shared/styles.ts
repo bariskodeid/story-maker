@@ -12,6 +12,8 @@ export interface VisualStyle {
   prompt: string
   /** How characters should look on the character sheet. */
   characterHint: string
+  /** A rule for the visual planner when the style changes what characters are (e.g. animals in a fable). */
+  planHint?: string
 }
 
 export const STYLE_CATEGORIES: { id: StyleCategory | 'all'; label: string }[] = [
@@ -95,6 +97,81 @@ export const VISUAL_STYLES: VisualStyle[] = [
       'High-quality anime film still, clean cel shading, expressive characters, detailed painted background, cinematic lighting and color. ' +
       NO_TEXT,
     characterHint: 'an anime character with clean cel shading'
+  },
+  {
+    id: 'animepaint',
+    name: 'Anime lukisan tangan',
+    category: '2d',
+    niche: 'Petualangan, keluarga, slice of life',
+    swatch: '#9CC9A5',
+    ink: '#1F1D1A',
+    // Described by its look rather than a studio name: some image models refuse studio names, and the look is what matters.
+    prompt:
+      'Hand-painted 2D anime feature film still in the classic Japanese animation tradition: soft gouache and watercolor painted backgrounds full of lush detailed nature, fluffy cumulus clouds, warm natural sunlight, a gentle slightly muted pastel palette, simple rounded character designs with small expressive eyes and soft cel shading, a nostalgic, whimsical and calm atmosphere, cinematic wide composition. ' +
+      NO_TEXT,
+    characterHint: 'a gently rounded hand-painted 2D anime film character with soft cel shading'
+  },
+  {
+    id: 'chibi',
+    name: 'Chibi lucu',
+    category: '2d',
+    niche: 'Anak, komedi, kawaii',
+    swatch: '#FFC6DD',
+    ink: '#1F1D1A',
+    prompt:
+      'Cute chibi kawaii illustration: characters with oversized heads about a third of their height, tiny bodies, big sparkling eyes and blush cheeks, soft pastel colors, rounded shapes, clean thick outlines, a cheerful simple background. ' +
+      NO_TEXT,
+    characterHint: 'a cute chibi character with an oversized head, tiny body and big sparkling eyes'
+  },
+  {
+    id: 'manga',
+    name: 'Manga hitam putih',
+    category: '2d',
+    niche: 'Drama, aksi, misteri',
+    swatch: '#E6E2DA',
+    ink: '#1F1D1A',
+    prompt:
+      'Black and white manga panel, crisp ink line art, screentone shading, speed lines for motion, dramatic close-ups and angles, high contrast, Japanese comic book style, no color. ' +
+      NO_TEXT,
+    characterHint: 'a black and white manga character drawn in crisp ink with screentone shading'
+  },
+  {
+    id: 'fable',
+    name: 'Fabel kartun hewan',
+    category: '2d',
+    niche: 'Fabel, dongeng anak',
+    swatch: '#B8D98C',
+    ink: '#1F1D1A',
+    prompt:
+      "Warm 2D storybook cartoon of a fable: the characters are anthropomorphic animals with expressive faces and big readable eyes, simple clothing or props that fit their role, soft rounded shapes, clean outlines, cozy painted nature backgrounds such as forests, rivers, rice fields and villages, bright friendly colors, gentle soft lighting, a children's picture-book feel. " +
+      NO_TEXT,
+    characterHint: 'an anthropomorphic cartoon animal with an expressive face, wearing simple role-specific clothes or props',
+    planHint:
+      'This is a fable: every named character is an anthropomorphic animal, never a human. In each identity, write a specific animal species that fits the role and personality (for example "a young mouse-deer", "an old wise owl", "a proud tiger"), with its fur or feather colors and size, and whether it walks upright. Settings are places where these animals live.'
+  },
+  {
+    id: 'wayang',
+    name: 'Wayang & batik',
+    category: '2d',
+    niche: 'Cerita rakyat, legenda Nusantara',
+    swatch: '#C8873E',
+    ink: '#1F1D1A',
+    prompt:
+      'Indonesian wayang kulit inspired illustration: characters drawn as ornate flat shadow-puppet figures with intricately carved filigree patterns, elegant elongated limbs and stylized profiles, a palette of gold, deep red, indigo and black, batik-patterned backgrounds with traditional motifs, warm oil-lamp glow, layered stage-like composition. ' +
+      NO_TEXT,
+    characterHint: 'an ornate wayang kulit shadow-puppet figure with carved filigree patterns and gold details'
+  },
+  {
+    id: 'horror',
+    name: 'Ilustrasi horor',
+    category: '2d',
+    niche: 'Horor, cerita misteri',
+    swatch: '#3B4A47',
+    ink: '#FAF7F2',
+    prompt:
+      'Dark eerie horror illustration, painterly digital art, desaturated cold palette with deep shadows, mist, dim moonlight or a single flickering light source, unsettling atmosphere, subtle film grain, suspenseful framing, frightening but never gory. ' +
+      NO_TEXT,
+    characterHint: 'a character in a dark eerie painterly horror illustration, lit by dim cold light'
   },
   {
     id: 'noir',
@@ -200,6 +277,18 @@ export const VISUAL_STYLES: VisualStyle[] = [
       'Vintage archival photograph, faded sepia or black and white, film grain, light scratches and dust, historical documentary look. ' +
       NO_TEXT,
     characterHint: 'a person in a vintage archival sepia photograph'
+  },
+  {
+    id: 'oilpaint',
+    name: 'Lukisan cat minyak',
+    category: 'realistis',
+    niche: 'Sejarah, religi, tokoh besar',
+    swatch: '#8C5A3C',
+    ink: '#FAF7F2',
+    prompt:
+      'Classical oil painting in the manner of the old masters, visible brush strokes and canvas texture, rich warm chiaroscuro lighting, deep earthy colors, dramatic yet balanced composition, museum-quality fine art. ' +
+      NO_TEXT,
+    characterHint: 'a person painted as a classical oil portrait with visible brush strokes'
   },
   {
     id: 'epic',

@@ -189,6 +189,14 @@ ditempatkan dan diukur dari zona teks (`textZones`: area isi + pita caption, dit
 Tutorial dan grid peta Berita disembunyikan di zona teks dengan `holeMask`. Penutup memakai cahaya lembut, bukan
 cincin bergaris yang melintasi huruf.
 
+### Palet dan gaya gambar AI
+
+Setiap template punya lima palet (`palettes`, yang pertama bawaan). Gaya gambar AI dipilih per proyek di
+`theme.imageStyleId` dari `EXPLAINER_IMAGE_STYLES` (flat, isometrik 3D, ikon 3D, line art, doodle, papercut, cat air,
+claymation, neon, foto realistis, foto sinematik); `auto` memakai gaya bawaan template di `explainerImagePrompt`.
+Pemilihnya `components/ImageStylePicker.tsx`, dipasang di editor (Tampilan video) dan di panel gambar AI langkah
+Adegan. Gaya baru: tambahkan entri dengan `prompt` bahasa Inggris tanpa teks, lalu ikon di `ImageStylePicker`.
+
 ### Menambah template
 
 1. Tambahkan entri di `EXPLAINER_TEMPLATES` (`src/shared/explainer.ts`): `id`, nama dan deskripsi, `sceneTypes`,

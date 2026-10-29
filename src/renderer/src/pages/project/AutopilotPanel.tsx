@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
 import { wantsAiImage } from '@shared/explainer'
 import { isNineRouterImage } from '@shared/imageModels'
-import { Button, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
+import { Button, IconButton, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
 import {
   dismissAutopilot,
   exportOption,
@@ -216,8 +216,11 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
   )
 }
 
-/** Header button that hands an existing project to one-click generate from wherever it stands. */
-export function AutopilotButton() {
+/**
+ * Header button that hands an existing project to one-click generate from wherever it stands. `compact` shows only
+ * the icon, for the editor step where the export button already fills the header.
+ */
+export function AutopilotButton({ compact = false }: { compact?: boolean }) {
   const { project, clips } = useProject()
   const { toast, go } = useApp()
   const [busy, setBusy] = useState(false)
@@ -265,6 +268,12 @@ export function AutopilotButton() {
     }
   }
 
+  if (compact)
+    return (
+      <IconButton label="Lanjutkan otomatis" title={`Lanjutkan otomatis: ${joinList(work.parts)}`} disabled={busy} onClick={() => void start()}>
+        {busy ? <Spinner className="size-[18px]" /> : <Wand2 className="size-[18px]" />}
+      </IconButton>
+    )
   return (
     <Button icon={<Wand2 className="size-[17px]" />} loading={busy} onClick={() => void start()}>
       Lanjutkan otomatis

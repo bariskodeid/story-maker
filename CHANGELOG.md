@@ -9,6 +9,12 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- **Gaya visual baru untuk cerita** (total 23): Fabel kartun hewan (semua pemeran digambar sebagai hewan
+  antropomorfik), Anime lukisan tangan, Chibi lucu, Manga hitam putih, Wayang & batik, Ilustrasi horor, dan Lukisan
+  cat minyak.
+- **Gaya gambar AI untuk video penjelasan**, dipilih per proyek di editor atau langkah Adegan: ilustrasi flat,
+  isometrik 3D, ikon 3D, line art, doodle, papercut, cat air, claymation, neon, foto realistis, foto sinematik, atau
+  otomatis mengikuti template. Setiap template juga mendapat dua palet warna baru.
 - Dua template video penjelasan baru:
   - **Perbandingan (A vs B)**: layar terbelah miring dengan warna masing-masing pilihan, ronde per aspek dengan angka
     besar dan pemenang yang terungkap (cakram VS berubah jadi skor), adegan plus minus, putusan dengan cap dan skor
@@ -51,6 +57,8 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   episode itu.
 
 ### Diperbaiki
+- Di langkah Editor, tombol Lanjutkan otomatis kini tampil sebagai ikon, supaya header tidak menimpa tab langkah saat
+  tombol Ekspor video juga tampil.
 - Pemeran yang dihapus dari satu episode tidak lagi ditambahkan kembali setiap kali episode itu dibuka. Membuka
   episode sekarang hanya menyalin lembar karakter; pemeran seri ditambahkan saat episode dibuat dan sebelum Sekali
   klik menulis naskah atau rencana visualnya, kecuali yang pernah kamu hapus. Pemeran yang dihapus atau diganti

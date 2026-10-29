@@ -354,6 +354,8 @@ export async function generateVisuals(projectId: string, mode: 'missing' | 'all'
     .join('\n\n')
   const prompt = [
     `Visual style of the video (for your framing choices only, do not repeat it in the descriptions): ${getStyle(project.styleId).name}.`,
+    // Some styles change what the characters are (a fable draws animals), which the character identities must say.
+    ...(getStyle(project.styleId).planHint ? [`Style rule: ${getStyle(project.styleId).planHint}`] : []),
     `Frame format: ${project.aspectRatio === '9:16' ? 'vertical 9:16' : 'horizontal 16:9'}.`,
     `Idea of the video: ${project.synopsis}`,
     ...(project.seriesId ? seriesWorldLine(project.seriesId) : []),
@@ -710,6 +712,7 @@ function seriesPlanRequest(s: Series, count: number): { system: string; prompt: 
     prompt: [
       `Series premise:\n${s.premise}`,
       `Visual style of the videos (for your choices only; the image model adds it, so never repeat it in the cast descriptions): ${getStyle(s.styleId).name}.`,
+      ...(getStyle(s.styleId).planHint ? [`Style rule for the cast: ${getStyle(s.styleId).planHint}`] : []),
       `Write exactly ${count} episodes, numbered 1 to ${count}.`
     ].join('\n\n'),
     schema: SERIES_SCHEMA,

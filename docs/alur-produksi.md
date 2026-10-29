@@ -211,7 +211,9 @@ menyusun ulang semuanya. Pemeran lama tidak ditimpa; pemeran baru ditambahkan be
   Dibuat lebih dulu kalau model gambar menerima referensi (`imageRefLimit(project.imageModel) > 0`; selalu untuk
   model 9Router).
 - **Gambar klip** (`clipPrompt`): adegan dulu, lalu pemeran (tubuh dari lembar karakter, baju mengikuti baris
-  `Wardrobe`), lalu gaya visual, lalu baris `Avoid` sebagai "Must not appear", lalu format frame. Lembar karakter
+  `Wardrobe`), lalu gaya visual, lalu baris `Avoid` sebagai "Must not appear", lalu format frame. Gaya yang mengubah
+  wujud pemeran (fabel: semua pemeran hewan antropomorfik) punya `planHint` yang dikirim ke perencana visual dan ke
+  rencana seri sebagai "Style rule", supaya identitas pemeran ditulis sebagai spesies hewan, bukan "human". Lembar karakter
   dikirim sebagai gambar referensi: ke Higgsfield sebagai URL hasil unggah, ke 9Router sebagai data URI JPEG.
 - **Penyedia gambar**: `project.imageModel` berawalan `9router:` membuat gambar klip dan lembar karakter lewat
   9Router (`startNineRouter`, satu permintaan sinkron, antrean `ninerouter`); selain itu lewat Higgsfield

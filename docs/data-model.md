@@ -48,7 +48,7 @@ menjalankannya.
 |---|---|
 | `title`, `synopsis` | judul (diisi AI saat menulis naskah) dan ide cerita |
 | `durationSec`, `language`, `aspectRatio` | target durasi, bahasa naskah/suara, `16:9` atau `9:16` |
-| `styleId` | gaya visual (`src/shared/styles.ts`, 20 gaya) |
+| `styleId` | gaya visual (`src/shared/styles.ts`, 23 gaya; `planHint` opsional untuk perencana visual, misalnya fabel) |
 | `ttsProvider`, `ttsVoice` | `gemini`, `elevenlabs`, atau `ninerouter` + ID suara (untuk 9Router, ID suara = ID model 9Router, mis. `edge-tts/id-ID-ArdiNeural`; bawaan per bahasa dari `defaultTtsVoice` di `shared/voices.ts`) |
 | `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi); `imageModel` berawalan `9router:` berarti model gambar 9Router |
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
@@ -58,7 +58,7 @@ menjalankannya.
 | `episodeSummary` | ringkasan 2–3 kalimat yang ditulis bersama naskah episode, dibaca naskah episode berikutnya |
 | `kind` | `story` (bawaan, semua proyek lama) atau `explainer` (video penjelasan); tidak berubah setelah dibuat |
 | `templateId` | template video penjelasan: `tutorial`, `tips`, `facts`, `quote`, `compare`, `news` (null untuk cerita) |
-| `theme` | `ExplainerTheme` (JSON `theme_json`): `paletteId`, `accent`, `fontId`, `logoAssetId`, `captions`, `captionStyle` (`box`/`karaoke`/`minimal`/`bold`), `captionPosition` (`bottom`/`middle`/`top`); kosong = bawaan template |
+| `theme` | `ExplainerTheme` (JSON `theme_json`): `paletteId`, `accent`, `fontId`, `logoAssetId`, `captions`, `captionStyle` (`box`/`karaoke`/`minimal`/`bold`), `captionPosition` (`bottom`/`middle`/`top`), `imageStyleId` (gaya gambar AI dari `EXPLAINER_IMAGE_STYLES`, `auto` = bawaan template); kosong = bawaan template |
 
 Untuk video penjelasan, langkahnya 1 Ide & template, 2 Adegan, 4 Editor (langkah 3 tidak dipakai, jadi `step === 4`
 tetap berarti editor di semua jenis proyek).

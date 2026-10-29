@@ -85,7 +85,7 @@ export function ProjectPage({ id }: { id: string }) {
         right={
           autopilot ? undefined : (
             <>
-              <AutopilotButton />
+              <AutopilotButton compact={project.step === 4} />
               {project.step === 4 && (
                 <Button variant="primary" icon={<Download className="size-[18px]" />} onClick={() => setExportOpen(true)}>
                   Ekspor video

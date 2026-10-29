@@ -14,6 +14,7 @@ import {
   type ExplainerTheme
 } from '@shared/explainer'
 import { CaptionPicker, ExplainerPlayer, captionFrame, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
+import { ImageStylePicker } from '../../../components/ImageStylePicker'
 import { Select } from '../../../components/Select'
 import { Button, Segmented, Switch, cx } from '../../../components/ui'
 import { errorText, mmss } from '../../../lib/format'
@@ -166,6 +167,10 @@ export function ExplainerEditor() {
               </button>
             )}
           </label>
+        </Group>
+        <Group title="Gaya gambar AI">
+          <ImageStylePicker value={theme.imageStyleId} onChange={(id) => setTheme({ imageStyleId: id })} />
+          <p className="text-[12.5px] text-muted">Berlaku untuk gambar AI yang dibuat setelah ini. Buat ulang gambar di langkah Adegan untuk menerapkannya.</p>
         </Group>
         <Group title="Font judul">
           <Select

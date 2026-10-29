@@ -209,7 +209,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'malam', name: 'Malam', bg: '#0E1116', surface: '#171C24', ink: '#F2F5F9', muted: '#8C97A8', accent: '#7CF29C', accent2: '#5AA9FF', dark: true },
       { id: 'kertas', name: 'Kertas', bg: '#F4F0E8', surface: '#FFFFFF', ink: '#15171C', muted: '#5D6470', accent: '#2E5BFF', accent2: '#FF7A1A', dark: false },
-      { id: 'anggur', name: 'Anggur', bg: '#160F29', surface: '#221A3F', ink: '#F5F0FF', muted: '#A79CC8', accent: '#FFC93C', accent2: '#FF6B9A', dark: true }
+      { id: 'anggur', name: 'Anggur', bg: '#160F29', surface: '#221A3F', ink: '#F5F0FF', muted: '#A79CC8', accent: '#FFC93C', accent2: '#FF6B9A', dark: true },
+      { id: 'laut', name: 'Laut', bg: '#EEF4FB', surface: '#FFFFFF', ink: '#0F1B2D', muted: '#5A6B82', accent: '#0A84FF', accent2: '#00A47A', dark: false },
+      { id: 'terminal', name: 'Terminal', bg: '#0F0B05', surface: '#1C150B', ink: '#FFE8C2', muted: '#B29B76', accent: '#FFB000', accent2: '#FF5F56', dark: true }
     ],
     fonts: ['poppins', 'archivo', 'bebas'],
     numberFont: 'mono',
@@ -233,7 +235,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'kuning', name: 'Kuning', bg: '#FFD23F', surface: '#FFFFFF', ink: '#151515', muted: '#4B4221', accent: '#FF4D2E', accent2: '#2B59FF', dark: false },
       { id: 'mint', name: 'Mint', bg: '#BDF0D3', surface: '#FFFFFF', ink: '#0F2419', muted: '#3C5A4A', accent: '#FF5C39', accent2: '#6B4BFF', dark: false },
-      { id: 'arang', name: 'Arang', bg: '#171717', surface: '#262626', ink: '#FFF6E5', muted: '#B3AA99', accent: '#FFD23F', accent2: '#FF4D2E', dark: true }
+      { id: 'arang', name: 'Arang', bg: '#171717', surface: '#262626', ink: '#FFF6E5', muted: '#B3AA99', accent: '#FFD23F', accent2: '#FF4D2E', dark: true },
+      { id: 'persik', name: 'Persik', bg: '#FFD9C2', surface: '#FFFFFF', ink: '#2A1408', muted: '#6E4A35', accent: '#E63946', accent2: '#1D63F5', dark: false },
+      { id: 'lavender', name: 'Lavender', bg: '#D9CCFF', surface: '#FFFFFF', ink: '#1A1036', muted: '#4F4475', accent: '#FF4F87', accent2: '#00A884', dark: false }
     ],
     fonts: ['archivo', 'poppins', 'lilita'],
     numberFont: 'anton',
@@ -256,7 +260,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'bioskop', name: 'Bioskop', bg: '#0B0B0C', surface: '#18181B', ink: '#F5F5F4', muted: '#A1A1AA', accent: '#FF3B30', accent2: '#FFB800', dark: true },
       { id: 'samudra', name: 'Samudra', bg: '#04182B', surface: '#0B2742', ink: '#E8F4FF', muted: '#86A8C7', accent: '#00D1FF', accent2: '#FFD166', dark: true },
-      { id: 'arsip', name: 'Arsip', bg: '#EFE7DA', surface: '#FFFBF4', ink: '#1A1714', muted: '#6E6458', accent: '#D7261E', accent2: '#1F6FEB', dark: false }
+      { id: 'arsip', name: 'Arsip', bg: '#EFE7DA', surface: '#FFFBF4', ink: '#1A1714', muted: '#6E6458', accent: '#D7261E', accent2: '#1F6FEB', dark: false },
+      { id: 'magma', name: 'Magma', bg: '#140805', surface: '#24100A', ink: '#FFF1E8', muted: '#C2A08F', accent: '#FF6A2B', accent2: '#FFD166', dark: true },
+      { id: 'es', name: 'Es', bg: '#E9F1F5', surface: '#FFFFFF', ink: '#0B1D26', muted: '#557080', accent: '#0077B6', accent2: '#E63946', dark: false }
     ],
     fonts: ['bebas', 'anton', 'archivo'],
     numberFont: 'bebas',
@@ -279,7 +285,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'hutan', name: 'Hutan', bg: '#11241E', surface: '#1A332B', ink: '#F3EBDD', muted: '#A9BDB2', accent: '#E9B44C', accent2: '#8FC0A9', dark: true },
       { id: 'senja', name: 'Senja', bg: '#2A1B3D', surface: '#3A2652', ink: '#FCE9DA', muted: '#C9B2C9', accent: '#FF8C61', accent2: '#F4C95D', dark: true },
-      { id: 'linen', name: 'Linen', bg: '#F3EDE2', surface: '#FFFFFF', ink: '#2B2522', muted: '#76695F', accent: '#B5452F', accent2: '#3F6E5A', dark: false }
+      { id: 'linen', name: 'Linen', bg: '#F3EDE2', surface: '#FFFFFF', ink: '#2B2522', muted: '#76695F', accent: '#B5452F', accent2: '#3F6E5A', dark: false },
+      { id: 'fajar', name: 'Fajar', bg: '#FFF3E4', surface: '#FFFFFF', ink: '#2D1E14', muted: '#8A6E5A', accent: '#D9692A', accent2: '#B5466B', dark: false },
+      { id: 'tinta', name: 'Tinta', bg: '#0D0D0D', surface: '#1A1A1A', ink: '#F2F2F2', muted: '#9B9B9B', accent: '#E8E1D2', accent2: '#C9A86A', dark: true }
     ],
     fonts: ['dmserif', 'poppins', 'bebas'],
     numberFont: 'dmserif',
@@ -303,7 +311,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'arena', name: 'Arena', bg: '#0E0F1A', surface: '#181A2B', ink: '#F5F5FA', muted: '#9A9CB8', accent: '#FF4D6D', accent2: '#2EC8FF', dark: true },
       { id: 'poster', name: 'Poster', bg: '#F1ECE2', surface: '#FFFFFF', ink: '#15151C', muted: '#66636E', accent: '#E8452C', accent2: '#2457E6', dark: false },
-      { id: 'neon', name: 'Neon', bg: '#0C110D', surface: '#162018', ink: '#EEF6EA', muted: '#91A38F', accent: '#B8F23A', accent2: '#B06CFF', dark: true }
+      { id: 'neon', name: 'Neon', bg: '#0C110D', surface: '#162018', ink: '#EEF6EA', muted: '#91A38F', accent: '#B8F23A', accent2: '#B06CFF', dark: true },
+      { id: 'kontras', name: 'Kontras', bg: '#FFFFFF', surface: '#F2F2F5', ink: '#111111', muted: '#5E5E66', accent: '#FF2E63', accent2: '#0BB8B5', dark: false },
+      { id: 'retro', name: 'Retro', bg: '#1E1B2E', surface: '#2A2640', ink: '#FFF8E7', muted: '#B8B0CF', accent: '#FF9F1C', accent2: '#2EC4B6', dark: true }
     ],
     fonts: ['anton', 'bebas', 'archivo'],
     numberFont: 'anton',
@@ -328,7 +338,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     palettes: [
       { id: 'studio', name: 'Studio', bg: '#0A1322', surface: '#132139', ink: '#F2F5FA', muted: '#8DA0BC', accent: '#E3262E', accent2: '#F6C518', dark: true },
       { id: 'koran', name: 'Koran', bg: '#F3F0E8', surface: '#FFFFFF', ink: '#111317', muted: '#5D646E', accent: '#D21F26', accent2: '#0B57D0', dark: false },
-      { id: 'malam', name: 'Malam', bg: '#101010', surface: '#1B1B1B', ink: '#FAFAFA', muted: '#A1A1A1', accent: '#FF5A1F', accent2: '#2CC5B4', dark: true }
+      { id: 'malam', name: 'Malam', bg: '#101010', surface: '#1B1B1B', ink: '#FAFAFA', muted: '#A1A1A1', accent: '#FF5A1F', accent2: '#2CC5B4', dark: true },
+      { id: 'pagi', name: 'Pagi', bg: '#F5F7FA', surface: '#FFFFFF', ink: '#0B1220', muted: '#5B6475', accent: '#0057FF', accent2: '#FFB800', dark: false },
+      { id: 'pasar', name: 'Pasar', bg: '#071A12', surface: '#0E2A1E', ink: '#EAF7F0', muted: '#8FB3A2', accent: '#00C46A', accent2: '#F4C430', dark: true }
     ],
     fonts: ['archivo', 'anton', 'poppins'],
     numberFont: 'bebas',
@@ -365,6 +377,8 @@ export interface ExplainerTheme {
   captionStyle?: CaptionStyleId
   /** Where captions sit; unset = bottom. */
   captionPosition?: CaptionPosition
+  /** Look of AI pictures (EXPLAINER_IMAGE_STYLES); unset or 'auto' = the template's own look. */
+  imageStyleId?: string
 }
 
 export interface ExplainerLook {
@@ -493,8 +507,117 @@ export function explainerSceneCount(durationSec: number): number {
   return Math.max(4, Math.min(40, Math.round(durationSec / 7)))
 }
 
-/** The AI image prompt for a scene: its own description plus a look that suits the template, never text. */
-export function explainerImagePrompt(project: Pick<Project, 'templateId'>, scene: ExplainerScene): string {
+export interface ExplainerImageStyle {
+  id: string
+  name: string
+  /** One line for the picker. */
+  blurb: string
+  /** Tile colors in the picker. */
+  swatch: string
+  ink: string
+  /** Style line of the image prompt; empty for 'auto' (the template's own look). */
+  prompt: string
+}
+
+/** Looks for the AI pictures of an explainer, chosen per project on top of the template. */
+export const EXPLAINER_IMAGE_STYLES: ExplainerImageStyle[] = [
+  { id: 'auto', name: 'Otomatis', blurb: 'Mengikuti template', swatch: '#F3EFE8', ink: '#1F1D1A', prompt: '' },
+  {
+    id: 'flat',
+    name: 'Ilustrasi flat',
+    blurb: 'Bentuk sederhana, warna rapi',
+    swatch: '#8CCBE3',
+    ink: '#1F1D1A',
+    prompt: 'Clean modern flat vector illustration, simple geometric shapes, a limited harmonious palette, soft shading, plenty of empty space.'
+  },
+  {
+    id: 'isometric',
+    name: 'Isometrik 3D',
+    blurb: 'Teknologi, proses, sistem',
+    swatch: '#B9C6FF',
+    ink: '#1F1D1A',
+    prompt: 'Isometric 3D illustration of tidy geometric objects on a simple base, soft pastel colors, gentle shadows, clean tech-explainer look.'
+  },
+  {
+    id: 'icon3d',
+    name: 'Ikon 3D',
+    blurb: 'Objek 3D mengilap, ceria',
+    swatch: '#FFB4C8',
+    ink: '#1F1D1A',
+    prompt: 'Glossy 3D rendered icon-style objects with soft rounded shapes like smooth plastic, vibrant colors, soft studio lighting, simple gradient background.'
+  },
+  {
+    id: 'lineart',
+    name: 'Line art minimal',
+    blurb: 'Garis tipis, banyak ruang',
+    swatch: '#FAF7F2',
+    ink: '#1F1D1A',
+    prompt: 'Minimal single-weight line art illustration, dark lines on an off-white background with one accent color, lots of empty space.'
+  },
+  {
+    id: 'doodle',
+    name: 'Doodle tangan',
+    blurb: 'Coretan spidol, santai',
+    swatch: '#FFFFFF',
+    ink: '#1F1D1A',
+    prompt: 'Hand-drawn marker doodle on white paper, sketchy lines, arrows and small icons, one accent color, a friendly whiteboard explainer look.'
+  },
+  {
+    id: 'papercut',
+    name: 'Papercut berlapis',
+    blurb: 'Kertas bertumpuk, hangat',
+    swatch: '#F2B266',
+    ink: '#1F1D1A',
+    prompt: 'Layered papercut illustration, stacked paper shapes with soft drop shadows that give depth, a warm limited palette, handcrafted texture.'
+  },
+  {
+    id: 'watercolor',
+    name: 'Cat air',
+    blurb: 'Lembut dan tenang',
+    swatch: '#C9DDE8',
+    ink: '#1F1D1A',
+    prompt: 'Soft watercolor illustration, gentle washes of color, visible paper texture, a calm and airy composition.'
+  },
+  {
+    id: 'clay',
+    name: 'Claymation',
+    blurb: 'Plastisin buatan tangan',
+    swatch: '#F4A988',
+    ink: '#1F1D1A',
+    prompt: 'Claymation style scene of handcrafted plasticine objects and characters, visible clay texture, soft studio lighting, a simple backdrop.'
+  },
+  {
+    id: 'neon',
+    name: 'Neon futuristik',
+    blurb: 'Gelap, cahaya menyala',
+    swatch: '#1B1035',
+    ink: '#7CF2E8',
+    prompt: 'Futuristic neon illustration on a dark background, glowing cyan and magenta light lines, a sleek technology look, a subtle grid.'
+  },
+  {
+    id: 'photo',
+    name: 'Foto realistis',
+    blurb: 'Natural dan jelas',
+    swatch: '#8A9A7B',
+    ink: '#FAF7F2',
+    prompt: 'Realistic high-quality photograph, natural light, sharp focus, true-to-life colors, a simple uncluttered composition.'
+  },
+  {
+    id: 'cinematic',
+    name: 'Foto sinematik',
+    blurb: 'Dramatis, kontras',
+    swatch: '#3C4258',
+    ink: '#FAF7F2',
+    prompt: 'Dramatic cinematic photograph, strong directional lighting, rich color grading, shallow depth of field.'
+  }
+]
+
+export function getExplainerImageStyle(id: string | undefined): ExplainerImageStyle {
+  return EXPLAINER_IMAGE_STYLES.find((s) => s.id === id) ?? EXPLAINER_IMAGE_STYLES[0]
+}
+
+/** The AI image prompt for a scene: its own description plus the chosen look (or the template's), never text. */
+export function explainerImagePrompt(project: Pick<Project, 'templateId' | 'theme'>, scene: ExplainerScene): string {
   const look: Record<ExplainerTemplateId, string> = {
     tutorial: 'Clean modern flat illustration, soft shading, simple shapes, plenty of empty space.',
     tips: 'Bold, playful editorial illustration with clean shapes and bright colors, simple background.',
@@ -503,10 +626,11 @@ export function explainerImagePrompt(project: Pick<Project, 'templateId'>, scene
     compare: 'Clean product-style photograph on a plain backdrop, even studio lighting.',
     news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.'
   }
+  const chosen = getExplainerImageStyle(project.theme?.imageStyleId).prompt
   const subject = scene.imagePrompt.trim() || [scene.heading, scene.body].filter(Boolean).join('. ')
   return [
     `Subject: ${subject}`,
-    `Style: ${look[getTemplate(project.templateId).id]}`,
+    `Style: ${chosen || look[getTemplate(project.templateId).id]}`,
     'Landscape 16:9 frame. No text, letters, numbers, captions, watermarks or logos anywhere in the image.'
   ].join('\n\n')
 }

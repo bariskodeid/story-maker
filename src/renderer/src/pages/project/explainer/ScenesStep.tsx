@@ -18,6 +18,7 @@ import { wordCount } from '@shared/script'
 import type { Clip } from '@shared/types'
 import { AutoTextarea } from '../../../components/AutoTextarea'
 import { ExplainerStill, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
+import { ImageStylePicker } from '../../../components/ImageStylePicker'
 import { Select } from '../../../components/Select'
 import { Badge, Button, Field, IconButton, Menu, Progress, Segmented, confirmDialog, cx, inputCls } from '../../../components/ui'
 import { errorText } from '../../../lib/format'
@@ -220,6 +221,15 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
             </div>
           )}
           {job?.status === 'failed' && job.error && <p className="rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad-ink">{job.error}</p>}
+          {project && (
+            <Field label="Gaya gambar AI" hint="Berlaku untuk semua gambar AI di video ini yang dibuat setelah diganti.">
+              <ImageStylePicker
+                columns={6}
+                value={project.theme.imageStyleId}
+                onChange={(id) => updateProject({ theme: { ...project.theme, imageStyleId: id } })}
+              />
+            </Field>
+          )}
           {project && (
             // The model chosen in step 1 can change here; it applies to the next picture made, existing ones stay.
             <ModelSection
