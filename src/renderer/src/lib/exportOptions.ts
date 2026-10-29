@@ -17,7 +17,8 @@ export function defaultExportOptions(project: Project, folder: string): ExportOp
     fileName: slug(project.title),
     resolution: 1080,
     fps: 30,
-    burnCaptions: project.editor.captionStyle !== 'none',
+    // Explainers switch captions in their look; story projects through the caption style.
+    burnCaptions: project.kind === 'explainer' ? project.theme?.captions !== false : project.editor.captionStyle !== 'none',
     writeSrt: false,
     normalizeAudio: true,
     duckMusic: project.editor.duckMusic,

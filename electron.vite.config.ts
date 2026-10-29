@@ -14,7 +14,8 @@ export default defineConfig({
   },
   renderer: {
     resolve: {
-      alias: { ...shared, '@renderer': resolve('src/renderer/src') }
+      // @video: the Remotion compositions, which the app's Player mounts directly (the render uses the bundle).
+      alias: { ...shared, '@renderer': resolve('src/renderer/src'), '@video': resolve('src/remotion') }
     },
     plugins: [react(), tailwindcss()]
   }

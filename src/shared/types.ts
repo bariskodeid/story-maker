@@ -1,4 +1,8 @@
+import type { ExplainerScene, ExplainerTemplateId, ExplainerTheme } from './explainer'
+
 export type ProjectStatus = 'draft' | 'script' | 'storyboard' | 'editing' | 'exported'
+/** A story video (AI pictures per scene) or an explainer video (designed scenes rendered by Remotion). */
+export type ProjectKind = 'story' | 'explainer'
 export type AspectRatio = '16:9' | '9:16'
 export type TtsProvider = 'gemini' | 'elevenlabs' | 'ninerouter'
 export type LlmProvider = 'gemini' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
@@ -113,6 +117,11 @@ export interface Project {
   step: Step
   coverAssetId: string | null
   editor: EditorSettings
+  kind: ProjectKind
+  /** Explainer template; null for story projects. */
+  templateId: ExplainerTemplateId | null
+  /** Explainer look chosen on top of the template (palette, accent, font, logo, captions). */
+  theme: ExplainerTheme
   createdAt: number
   updatedAt: number
 }
@@ -160,6 +169,8 @@ export interface Clip {
   imageAssetId: string | null
   videoAssetId: string | null
   audioAssetId: string | null
+  /** The designed scene of an explainer clip; null for story clips. */
+  scene: ExplainerScene | null
 }
 
 export type AssetKind = 'image' | 'video' | 'audio' | 'music' | 'overlay' | 'export'
@@ -235,6 +246,8 @@ export interface ProjectSummary {
   totalMs: number
   coverUrl: string | null
   updatedAt: number
+  kind: ProjectKind
+  templateId: ExplainerTemplateId | null
 }
 
 /** What the renderer sends on save. Asset links are owned by the main process and never overwritten by a save. */
@@ -251,6 +264,8 @@ export interface NewProjectInput {
   aspectRatio?: AspectRatio
   styleId?: string
   ttsProvider?: TtsProvider
+  kind?: ProjectKind
+  templateId?: ExplainerTemplateId
 }
 
 export interface KeyStatus {

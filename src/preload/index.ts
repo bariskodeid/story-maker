@@ -28,6 +28,9 @@ const api: StudioApi = {
     visuals: call('story:visuals'),
     musicPrompt: call('story:musicPrompt')
   },
+  explainer: {
+    scenes: call('explainer:scenes')
+  },
   generate: {
     clipImage: call('generate:clipImage'),
     clipVideo: call('generate:clipVideo'),
@@ -44,13 +47,15 @@ const api: StudioApi = {
   },
   clips: {
     split: call('clips:split'),
-    detachVoice: call('clips:detachVoice')
+    detachVoice: call('clips:detachVoice'),
+    clearImage: call('clips:clearImage')
   },
   assets: {
     setActive: call('assets:setActive'),
     setWords: call('assets:setWords'),
     pickMusic: call('assets:pickMusic'),
-    pickImage: call('assets:pickImage')
+    pickImage: call('assets:pickImage'),
+    pickSceneImage: call('assets:pickSceneImage')
   },
   settings: {
     get: call('settings:get'),

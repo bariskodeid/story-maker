@@ -162,7 +162,13 @@ export async function startAssetServer(projectId: string | null): Promise<AssetS
       res.writeHead(404).end()
       return
     }
-    const abs = normalize(join(root, ...parts.slice(2).map(decodeURIComponent)))
+    let abs: string
+    try {
+      abs = normalize(join(root, ...parts.slice(2).map(decodeURIComponent)))
+    } catch {
+      res.writeHead(400).end()
+      return
+    }
     if (!abs.startsWith(normalize(root) + sep)) {
       res.writeHead(403).end()
       return
@@ -200,7 +206,9 @@ export async function startAssetServer(projectId: string | null): Promise<AssetS
       res.end()
       return
     }
-    createReadStream(abs, { start, end }).pipe(res)
+    createReadStream(abs, { start, end })
+      .on('error', () => res.destroy())
+      .pipe(res)
   })
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
@@ -225,6 +233,8 @@ export interface RenderRequest {
   compositionId: string
   inputProps: Record<string, unknown>
   outputPath: string
+  /** Output size relative to the composition (1 = 1080p). */
+  scale?: number
   signal: AbortSignal
   /** Overall progress 0–1 and a message for the job. */
   onProgress(p: number, message: string): void
@@ -267,6 +277,9 @@ export async function renderVideo(req: RenderRequest): Promise<void> {
       audioBitrate: '192k',
       outputLocation: req.outputPath,
       overwrite: true,
+      scale: req.scale ?? 1,
+      // A video without any voice or music still gets a (silent) track, so the loudness pass has audio to read.
+      enforceAudioTrack: true,
       imageFormat: 'jpeg',
       jpegQuality: 92,
       cancelSignal,

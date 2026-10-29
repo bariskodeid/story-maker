@@ -43,6 +43,10 @@ export interface StudioApi {
     /** A background-music prompt that fits the finished script, for use in Suno or another music AI. */
     musicPrompt(projectId: string): Promise<MusicPrompt>
   }
+  explainer: {
+    /** Idea + template → designed scenes with narration (replaces the scenes). */
+    scenes(projectId: string): Promise<ProjectBundle>
+  }
   generate: {
     clipImage(clipId: string): Promise<Job>
     clipVideo(clipId: string): Promise<Job>
@@ -67,6 +71,8 @@ export interface StudioApi {
     split(clipId: string, atMs: number): Promise<ProjectBundle>
     /** Takes the voice off a clip. */
     detachVoice(clipId: string): Promise<void>
+    /** Takes the picture off a scene (the file stays as an earlier version). */
+    clearImage(clipId: string): Promise<void>
   }
   assets: {
     setActive(clipId: string, assetId: string): Promise<void>
@@ -75,6 +81,8 @@ export interface StudioApi {
     pickMusic(projectId: string): Promise<Asset | null>
     /** A logo or watermark image for an overlay. */
     pickImage(projectId: string): Promise<Asset | null>
+    /** A screenshot or picture for an explainer scene; it becomes the scene's image. */
+    pickSceneImage(clipId: string): Promise<Asset | null>
   }
   settings: {
     get(): Promise<AppSettings>

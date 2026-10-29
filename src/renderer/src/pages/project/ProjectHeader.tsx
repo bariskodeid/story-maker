@@ -13,6 +13,13 @@ const STEPS: { n: Step; label: string }[] = [
   { n: 4, label: 'Editor' }
 ]
 
+// Explainers have no storyboard: scenes are designed, so step 3 is skipped and the editor stays step 4.
+const EXPLAINER_STEPS: { n: Step; label: string }[] = [
+  { n: 1, label: 'Ide & template' },
+  { n: 2, label: 'Adegan' },
+  { n: 4, label: 'Editor' }
+]
+
 function SaveStatus() {
   const { saveState, saveError, savedAt, save } = useProject()
   if (saveState === 'saving')
@@ -109,8 +116,8 @@ export function ProjectHeader({ doneSteps, right, locked = false }: { doneSteps:
       </div>
 
       <nav aria-label="Langkah pembuatan" className="flex items-center gap-1 rounded-full border border-line bg-sand p-1">
-        {STEPS.map((s) => {
-          const active = project.step === s.n
+        {(project.kind === 'explainer' ? EXPLAINER_STEPS : STEPS).map((s, i) => {
+          const active = project.step === s.n || (project.kind === 'explainer' && s.n === 2 && project.step === 3)
           const done = doneSteps.includes(s.n) && !active
           return (
             <button
@@ -132,7 +139,7 @@ export function ProjectHeader({ doneSteps, right, locked = false }: { doneSteps:
                   active && !locked ? 'bg-accent text-white' : done ? 'bg-ok-soft text-ok-ink' : 'border border-line-2 bg-surface text-ink-2'
                 )}
               >
-                {done ? <Check className="size-[13px]" strokeWidth={3} /> : s.n}
+                {done ? <Check className="size-[13px]" strokeWidth={3} /> : i + 1}
               </span>
               {s.label}
             </button>

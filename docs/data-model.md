@@ -33,6 +33,7 @@ dalam transaksi, lalu `user_version` dinaikkan.
 | 5 | `projects.video_resolution` |
 | 6 | `clips.video_camera`, `video_strength`, `transition_ms`, `voice_gain_db` |
 | 7 | `clips.media_in_ms`, `voice_in_ms`, `voice_out_ms`, `voice_start_ms` |
+| 8 | `projects.kind`, `template_id`, `theme_json`; `clips.scene_json` (video penjelasan) |
 
 **Aturan:** tambahkan migrasi baru di akhir. Jangan mengubah migrasi yang sudah ada, karena pengguna lama sudah
 menjalankannya.
@@ -49,6 +50,12 @@ menjalankannya.
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
 | `coverAssetId` | gambar sampul kartu proyek |
 | `editor` | `EditorSettings` (JSON), lihat di bawah |
+| `kind` | `story` (bawaan, semua proyek lama) atau `explainer` (video penjelasan); tidak berubah setelah dibuat |
+| `templateId` | template video penjelasan: `tutorial`, `tips`, `facts`, `quote` (null untuk cerita) |
+| `theme` | `ExplainerTheme` (JSON `theme_json`): `paletteId`, `accent`, `fontId`, `logoAssetId`, `captions`; kosong = bawaan template |
+
+Untuk video penjelasan, langkahnya 1 Ide & template, 2 Adegan, 4 Editor (langkah 3 tidak dipakai, jadi `step === 4`
+tetap berarti editor di semua jenis proyek).
 
 ## Klip (`Clip`)
 
@@ -71,6 +78,11 @@ Satu klip = satu adegan: gambar atau video, suara narasinya, dan geraknya.
 | `mediaInMs` | titik mulai video di dalam filenya (tepi kiri klip video yang ditarik) |
 | `voiceInMs`, `voiceOutMs`, `voiceStartMs` | potongan suara: bagian file yang dipakai (`out` null = sampai akhir) dan posisinya dari awal klip |
 | `imageAssetId`, `videoAssetId`, `audioAssetId` | aset aktif (dimiliki proses utama, tidak ikut snapshot) |
+| `scene` | adegan video penjelasan (`ExplainerScene` di `shared/explainer.ts`, JSON `scene_json`); `null` untuk klip cerita |
+
+Klip video penjelasan memakai `narration`, `audioAssetId`, `imageAssetId`, `sort`, dan `durationMs` (perkiraan sebelum
+ada suara); panjang adegan di video dihitung `sceneDurationMs` dari panjang suaranya. Kolom gerak kamera, transisi,
+dan potongan suara tidak dipakai.
 
 Aturan potongan suara ada di `voiceSpan()` (`src/shared/timeline.ts`): suara yang melewati akhir klip dipotong.
 

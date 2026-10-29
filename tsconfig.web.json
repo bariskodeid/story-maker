@@ -14,7 +14,8 @@
     "types": [],
     "paths": {
       "@renderer/*": ["./src/renderer/src/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@video/*": ["./src/remotion/*"]
     }
   },
   "include": ["src/renderer/src/**/*", "src/remotion/**/*", "src/shared/**/*", "src/preload/index.d.ts"]

@@ -12,6 +12,7 @@ Mulai dari [AGENTS.md](../AGENTS.md): ringkasan proyek, perintah, peta kode, dan
 | [data-model.md](data-model.md) | Skema SQLite, migrasi, arti setiap kolom klip dan pengaturan editor, cara menambah kolom |
 | [alur-produksi.md](alur-produksi.md) | Ide → naskah → visual → gambar/video → narasi → caption, termasuk prompt AI |
 | [editor-dan-ekspor.md](editor-dan-ekspor.md) | Model timeline, pratinjau, transisi, gerak kamera, caption, dan susunan render FFmpeg |
+| [remotion.md](remotion.md) | Video penjelasan: template, komposisi Remotion, bundle, paket installer, Chrome Headless Shell, server aset, cara menambah template |
 | [layanan-ai.md](layanan-ai.md) | LLM, TTS, Higgsfield, 9Router, Whisper, kunci API, cara menambah penyedia/model |
 | [pengembangan.md](pengembangan.md) | Setup, perintah, dev harness, cara menguji, debugging, build installer, rilis |
 | [konvensi.md](konvensi.md) | Gaya kode, bahasa, design token, komponen, aturan UI |

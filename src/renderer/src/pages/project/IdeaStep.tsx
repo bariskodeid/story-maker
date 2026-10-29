@@ -74,7 +74,7 @@ function NineRouterVoicePicker({
   )
 }
 
-function VoicePicker({ provider, language, value, onChange }: { provider: TtsProvider; language: string; value: string; onChange: (v: string) => void }) {
+export function VoicePicker({ provider, language, value, onChange }: { provider: TtsProvider; language: string; value: string; onChange: (v: string) => void }) {
   const [voices, setVoices] = useState<VoiceOption[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const player = usePreviewPlayer()

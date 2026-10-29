@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { emptyScene, getTemplate } from '@shared/explainer'
 import type { Asset, Character, Clip, Job, Project, ProjectBundle, ProjectSnapshot } from '@shared/types'
 import { errorText } from '../lib/format'
 
@@ -140,7 +141,9 @@ export const useProject = create<ProjectState>((set, get) => {
         voiceStartMs: 0,
         imageAssetId: null,
         videoAssetId: null,
-        audioAssetId: null
+        audioAssetId: null,
+        // An explainer's new scene starts as the template's main scene type (a step, a tip, a fact, a quote).
+        scene: p.kind === 'explainer' ? emptyScene(getTemplate(p.templateId).mainType) : null
       }
       clips.splice(at, 0, clip)
       set({ clips: resort(clips), selectedClipId: clip.id })
