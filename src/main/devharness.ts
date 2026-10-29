@@ -11,6 +11,7 @@ import { assetAbsPath, binPath } from './paths'
 import { probeDurationMs } from './services/audio'
 import { clipsOf, createProject, getBundle, insertAsset, listProjects, patchClip, replaceScenes, replaceStory, saveSnapshot, touchProject } from './repo'
 import { recordCheck, setSecret } from './secrets'
+import { createEpisode, episodesOf, listSeries } from './series'
 import type { ApiProvider } from '@shared/types'
 
 /**
@@ -228,7 +229,9 @@ export function attachDevHarness(win: BrowserWindow): void {
   const planPath = process.env.STUDIO_CAPTURE_PLAN
   if (!planPath) return
   let plan: {
-    main?: 'seed' | 'seedExplainer' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos'
+    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos'
+    /** For main "seedEpisode": the series that gets a new episode (default: the most recently changed one). */
+    seriesId?: string
     /** For main "sceneImage": put this image file on scene `clipIndex` of `projectId` (default: the latest project). */
     file?: string
     clipIndex?: number
@@ -265,6 +268,14 @@ export function attachDevHarness(win: BrowserWindow): void {
       try {
         if (step.main === 'seed') demoId = seedDemo()
         if (step.main === 'seedExplainer') demoId = seedExplainer(step.template ?? 'tutorial')
+        if (step.main === 'seedEpisode') {
+          // The LLM plans real episodes; this one only checks what a new episode takes over from its series.
+          const seriesId = step.seriesId ?? listSeries()[0]?.id
+          if (seriesId) {
+            const no = episodesOf(seriesId).length + 1
+            demoId = await createEpisode(seriesId, { no, title: `Episode uji ${no}`, synopsis: 'Episode dari dev harness' })
+          }
+        }
         if (step.main === 'sceneImage' && step.file) {
           // A file dialog cannot be driven from the harness, so the picked file is handed over directly.
           const clip = clipsOf(step.projectId ?? listProjects()[0].id)[step.clipIndex ?? 0]

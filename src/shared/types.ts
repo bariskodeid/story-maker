@@ -418,6 +418,8 @@ export interface Series {
   ttsVoice: string
   imageModel: string | null
   videoModel: string | null
+  /** Story series: video resolution for new episodes; null keeps the video model's recommended one. */
+  videoResolution: string | null
   /** Explainer series: the template every new episode starts with; null for story series. */
   templateId: ExplainerTemplateId | null
   /** Explainer series: palette, font, accent and captions for new episodes (never a logo, which is a project file). */
@@ -493,7 +495,10 @@ export type SeriesPatch = Partial<Pick<Series, 'title' | 'premise'> & Pick<Serie
 
 /** Settings episodes start with. A change also reaches the episodes that have no scenes yet, never the others. */
 export type SeriesSettingsPatch = Partial<
-  Pick<Series, 'durationSec' | 'language' | 'aspectRatio' | 'styleId' | 'ttsProvider' | 'ttsVoice' | 'imageModel' | 'templateId' | 'theme'>
+  Pick<
+    Series,
+    'durationSec' | 'language' | 'aspectRatio' | 'styleId' | 'ttsProvider' | 'ttsVoice' | 'imageModel' | 'videoModel' | 'videoResolution' | 'templateId' | 'theme'
+  >
 >
 
 export interface SeriesSettingsResult {

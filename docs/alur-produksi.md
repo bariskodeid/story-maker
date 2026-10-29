@@ -106,7 +106,10 @@ proyek), dan setiap episode dibuat sebagai proyek `kind = 'explainer'` dengan te
 ### Pengaturan seri (`updateSeriesSettings`, `SeriesSettings.tsx`)
 
 Tombol **Pengaturan seri** di header halaman seri membuka panel untuk gaya visual (cerita) atau template dan palet
-(penjelasan), suara narator, format, bahasa, durasi per episode, dan model gambar. Setiap perubahan langsung disimpan
+(penjelasan), suara narator, format, bahasa, durasi per episode, model gambar, serta model dan resolusi **video AI**
+(hanya seri cerita; pemilihnya sama dengan langkah Ide, `ModelSection`, dan pilihan resolusinya mengikuti katalog
+model di `shared/higgsfield.ts`). Resolusi yang tidak ditawarkan model video baru kembali ke bawaan model. Episode
+baru (`createEpisode`) mendapat model dan resolusi video seri. Setiap perubahan langsung disimpan
 (`series:updateSettings`) ke baris seri dan **hanya ke episode yang belum punya klip**; episode yang sudah punya
 naskah/adegan tetap memakai pengaturannya sendiri karena gambar dan suaranya dibuat dengan pengaturan itu. Panel
 menyebut berapa episode yang terkena dan berapa yang tidak. Hanya kolom yang diubah yang ditulis ke episode, jadi
