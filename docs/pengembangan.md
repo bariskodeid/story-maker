@@ -85,6 +85,7 @@ node_modules\electron\dist\electron.exe .
 |---|---|
 | `main: "seed"` | membuat proyek demo 4 klip dari gambar dan suara sintetis (tanpa API) |
 | `main: "seedExplainer"` + `template` | proyek video penjelasan dari contoh adegan template dengan suara sintetis (tanpa API) |
+| `main: "seedEpisode"` + `seriesId` | menambah satu episode kosong ke seri (bawaan: seri yang terakhir diubah) lewat `createEpisode`, tanpa LLM |
 | `main: "sceneImage"` + `file`, `clipIndex`, `projectId` | memasang file gambar ke adegan (pengganti dialog pilih file) |
 | `main: "speech"` | mengganti suara demo dengan ucapan sungguhan (Windows SAPI) + waktu kata perkiraan |
 | `main: "videos"` | memberi semua klip video uji 6 detik (klip 1 diberi zoom kuat) |

@@ -183,6 +183,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE series ADD COLUMN theme_json TEXT NOT NULL DEFAULT '{}';
   ALTER TABLE series ADD COLUMN cast_removed_json TEXT NOT NULL DEFAULT '[]';
   ALTER TABLE projects ADD COLUMN cast_removed_json TEXT NOT NULL DEFAULT '[]';
+  `,
+  // Video resolution new episodes of a story series start with (null keeps the video model's recommended one).
+  `
+  ALTER TABLE series ADD COLUMN video_resolution TEXT;
   `
 ]
 

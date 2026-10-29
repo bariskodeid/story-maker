@@ -38,6 +38,7 @@ dalam transaksi, lalu `user_version` dinaikkan.
 | 8 | Tabel `series` dan `series_characters`; `projects.series_id`, `episode_no`, `episode_summary` |
 | 9 | `projects.kind`, `template_id`, `theme_json`; `clips.scene_json` (video penjelasan) |
 | 10 | `series.template_id`, `series.theme_json` (seri video penjelasan); `series.cast_removed_json` dan `projects.cast_removed_json` (pemeran yang dihapus manual) |
+| 11 | `series.video_resolution` (resolusi video AI untuk episode baru seri cerita; null = bawaan model) |
 
 **Aturan:** tambahkan migrasi baru di akhir. Jangan mengubah migrasi yang sudah ada, karena pengguna lama sudah
 menjalankannya.
@@ -74,7 +75,8 @@ proyek biasa (`series_id` null), supaya satu episode tetap satu proyek.
 Proyek di luar seri tidak dicatat, dan salinan `duplicateProject` mulai dengan daftar kosong.
 
 `updateSeriesSettings` juga menulis kolom pengaturan (`duration_sec`, `language`, `aspect_ratio`, `style_id`,
-`tts_provider`, `tts_voice`, `image_model`, `template_id`, `theme_json`) ke episode yang **belum punya klip**. Halaman
+`tts_provider`, `tts_voice`, `image_model`, `video_model`, `video_resolution`, `template_id`, `theme_json`) ke
+episode yang **belum punya klip**. Halaman
 seri tidak pernah tampil bersamaan dengan proyek yang terbuka, dan panelnya terkunci selama Sekali klik berjalan, jadi
 snapshot renderer yang lama tidak menimpanya.
 
@@ -87,7 +89,7 @@ snapshot renderer yang lama tidak menimpanya.
 | `continuity` | `serial` (bersambung) atau `anthology` (cerita lepas, dunia dan pemeran sama) |
 | `bible` | `{ world, tone, rules, hooks[{no, hook}] }` di `bible_json`; bisa diedit di halaman seri. Untuk seri penjelasan `world` berisi penonton & cakupan dan `tone` gaya bicara |
 | `episodeCount` | jumlah episode yang direncanakan |
-| `durationSec`, `language`, `aspectRatio`, `styleId`, `ttsProvider`, `ttsVoice`, `imageModel`, `videoModel` | pengaturan awal setiap episode baru; semua kecuali `videoModel` bisa diubah di **Pengaturan seri** (`SeriesSettingsPatch`) |
+| `durationSec`, `language`, `aspectRatio`, `styleId`, `ttsProvider`, `ttsVoice`, `imageModel`, `videoModel`, `videoResolution` | pengaturan awal setiap episode baru (`createEpisode` menyalin semuanya), bisa diubah di **Pengaturan seri** (`SeriesSettingsPatch`). `videoModel` dan `videoResolution` hanya untuk seri cerita (video penjelasan tidak memakai video AI); `videoResolution` null = resolusi bawaan model, dan kembali null kalau model video baru tidak menawarkan resolusi yang tersimpan |
 | `templateId`, `theme` | seri penjelasan: template dan tema (`ExplainerTheme` tanpa `logoAssetId`) untuk episode baru; `null`/`{}` untuk seri cerita |
 
 `SeriesCharacter`: `name`, `description` (bahasa Inggris, seperti pemeran proyek), `sheetPath` (relatif ke

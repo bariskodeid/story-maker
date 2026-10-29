@@ -138,11 +138,19 @@ kunci aplikasi tidak memberi `licenseKey` sama sekali (bukan `'free-license'`), 
 mengirim apa pun dan render tidak tertahan saat offline. Kunci yang salah hanya dicatat Remotion di log; ekspor tetap
 berhasil. Detail: [remotion.md](remotion.md#kunci-lisensi-remotion).
 
-### Chrome Headless Shell diunduh ke folder data, dari working directory sementara
+### Chrome Headless Shell diunduh ke folder data, dari utility process
 Remotion memilih folder unduhan browser dari `process.cwd()`. Aplikasi terpasang bisa berjalan dengan working
 directory `C:\Program Files\...` (tidak bisa ditulis), dan kalau ada `package.json` di folder induk, browser bisa
-terunduh ke tempat yang tidak terduga. `ensureRenderBrowser` menjalankan `ensureBrowser` dari
-`<folder data>/render-browser` (berisi `package.json` kecil) lalu memberi `browserExecutable` ke setiap render.
+terunduh ke tempat yang tidak terduga. `ensureRenderBrowser` menjalankan `ensureBrowser` di Electron utility process
+(`renderBrowserWorker.ts`) dengan working directory `<folder data>/render-browser` (berisi `package.json` kecil), lalu
+memberi `browserExecutable` ke setiap render.
+
+Prosesnya terpisah karena `ensureBrowser` tidak bisa dibatalkan (sinyal unduhannya tidak pernah dibatalkan), jadi
+**Batalkan** mematikan proses itu; dan karena Remotion merangkai setiap panggilan `ensureBrowser` dengan `.then`, satu
+panggilan yang gagal di proses utama membuat semua render berikutnya ikut gagal sampai aplikasi dibuka ulang. Utility
+process dipilih ketimbang `child_process.fork` + `ELECTRON_RUN_AS_NODE` (bergantung pada fuse `runAsNode`) dan worker
+thread (tidak bisa `chdir`). Penanda `download-incomplete` membuat unduhan yang terputus selalu dibersihkan. Detail:
+[remotion.md](remotion.md#unduhan-yang-bisa-dibatalkan-utility-process).
 
 ### Bundle Remotion tanpa source map
 Kalau `bundle.js` menyebut `bundle.js.map`, `@remotion/renderer` membaca file itu secara sinkron sebelum render.

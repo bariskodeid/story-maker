@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
 import { explainerTotalMs, getTemplate, type ExplainerTheme } from '@shared/explainer'
+import { HF_VIDEO_MODELS, getVideoModel, resolutionOptions } from '@shared/higgsfield'
 import { LANGUAGES } from '@shared/models'
 import { castKey, episodeProjectTitle, parseCastNames } from '@shared/series'
 import { getStyle } from '@shared/styles'
@@ -74,6 +75,7 @@ function toSeries(r: Row): Series {
     ttsVoice: r.tts_voice,
     imageModel: r.image_model,
     videoModel: r.video_model,
+    videoResolution: r.video_resolution ?? null,
     templateId: kind === 'explainer' ? getTemplate(r.template_id).id : null,
     theme: kind === 'explainer' ? parseTheme(r.theme_json) : {},
     createdAt: r.created_at,
@@ -272,6 +274,8 @@ const SETTING_COLUMNS: Record<keyof SeriesSettingsPatch, string> = {
   ttsProvider: 'tts_provider',
   ttsVoice: 'tts_voice',
   imageModel: 'image_model',
+  videoModel: 'video_model',
+  videoResolution: 'video_resolution',
   templateId: 'template_id',
   theme: 'theme_json'
 }
@@ -286,6 +290,15 @@ function cleanSettings(s: Series, patch: SeriesSettingsPatch): SeriesSettingsPat
   if (patch.ttsProvider && TTS.includes(patch.ttsProvider)) out.ttsProvider = patch.ttsProvider
   if (typeof patch.ttsVoice === 'string' && patch.ttsVoice.trim()) out.ttsVoice = patch.ttsVoice.trim()
   if (typeof patch.imageModel === 'string' && patch.imageModel.trim()) out.imageModel = patch.imageModel.trim()
+  // Explainer scenes never use AI video, so only a story series has a video model and resolution.
+  if (s.kind === 'story') {
+    if (typeof patch.videoModel === 'string' && HF_VIDEO_MODELS.some((m) => m.id === patch.videoModel)) out.videoModel = patch.videoModel
+    const video = getVideoModel(out.videoModel ?? s.videoModel)
+    if (patch.videoResolution === null) out.videoResolution = null
+    else if (typeof patch.videoResolution === 'string' && resolutionOptions(video).includes(patch.videoResolution)) out.videoResolution = patch.videoResolution
+    // A resolution the new model does not offer goes back to that model's recommended one.
+    else if (out.videoModel && s.videoResolution && !resolutionOptions(video).includes(s.videoResolution)) out.videoResolution = null
+  }
   if (s.kind === 'explainer') {
     if (typeof patch.templateId === 'string') out.templateId = getTemplate(patch.templateId).id
     if (patch.theme && typeof patch.theme === 'object') out.theme = parseTheme(JSON.stringify(patch.theme))
@@ -440,8 +453,8 @@ export async function createEpisode(seriesId: string, ep: { no: number; title: s
       templateId: s.templateId ?? undefined
     })
     db.prepare(
-      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, theme_json = ?, series_id = ?, episode_no = ? WHERE id = ?'
-    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, JSON.stringify(s.theme), seriesId, ep.no, p.id)
+      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, video_resolution = ?, theme_json = ?, series_id = ?, episode_no = ? WHERE id = ?'
+    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, s.videoResolution, JSON.stringify(s.theme), seriesId, ep.no, p.id)
     return p.id
   })()
   if (s.kind === 'story') await syncCastIn(id, { addMissing: true })

@@ -175,13 +175,20 @@ export function SeriesSettingsModal({ bundle, onClose, onChange }: { bundle: Ser
         </div>
       </Row>
 
+      {/* Explainer scenes never use AI video, so only a story series picks a video model and resolution. */}
       <ModelSection
-        imageOnly
-        project={{ imageModel: series.imageModel, videoModel: series.videoModel, videoResolution: null, aspectRatio: series.aspectRatio }}
+        imageOnly={explainer}
+        project={{ imageModel: series.imageModel, videoModel: series.videoModel, videoResolution: series.videoResolution, aspectRatio: series.aspectRatio }}
         clipCount={explainer ? Math.max(1, Math.round(perEpisode / 3)) : perEpisode}
         perClip={7}
-        note={explainer ? 'Untuk adegan yang memakai gambar AI' : 'Untuk gambar klip dan lembar karakter'}
-        onChange={(patch) => patch.imageModel && patch.imageModel !== series.imageModel && save({ imageModel: patch.imageModel })}
+        note={explainer ? 'Untuk adegan yang memakai gambar AI' : 'Untuk gambar klip, lembar karakter, dan klip Video AI'}
+        onChange={(patch) => {
+          const changed: SeriesSettingsPatch = {}
+          if (patch.imageModel && patch.imageModel !== series.imageModel) changed.imageModel = patch.imageModel
+          if (patch.videoModel && patch.videoModel !== series.videoModel) changed.videoModel = patch.videoModel
+          if (patch.videoResolution !== undefined && patch.videoResolution !== series.videoResolution) changed.videoResolution = patch.videoResolution
+          if (Object.keys(changed).length) save(changed)
+        }}
       />
 
       <div className="flex items-center gap-3 border-t border-line pt-4">
