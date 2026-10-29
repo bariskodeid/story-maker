@@ -21,7 +21,8 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 | `higgsfield` | gambar, lembar karakter, video |
 | `gemini` | LLM (naskah/visual) dan Gemini TTS |
 | `elevenlabs` | TTS |
-| `openrouter`, `groq`, `ninerouter`, `custom` | LLM lewat API kompatibel OpenAI |
+| `openrouter`, `groq`, `custom` | LLM lewat API kompatibel OpenAI |
+| `ninerouter` | LLM dan TTS lewat gateway 9Router (satu base URL + kunci opsional untuk keduanya) |
 
 ## LLM (`services/llm.ts`, `services/gemini.ts`)
 
@@ -45,6 +46,32 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 |---|---|---|
 | Gemini TTS | `services/gemini.ts` | PCM 24 kHz → WAV; daftar suara dari Voice Library (`listVoices`, cache 24 jam) dengan cadangan statis di `shared/models.ts`; contoh suara bawaan di `renderer/src/assets/voices` |
 | ElevenLabs | `services/elevenlabs.ts` | memakai endpoint with-timestamps untuk waktu per kata; tag `<...>` diubah ke `[tag]` untuk model v3, atau ke `<break>` untuk model lama (`toElevenLabsText`) |
+| 9Router | `services/ninerouterTts.ts` | `POST /v1/audio/speech`, ID suara = `model`; audio tanpa waktu kata (MP3, atau WAV untuk suara Gemini); daftar suara Edge live dengan cadangan statis di `shared/voices.ts` |
+
+### 9Router TTS
+
+Sumber: [`src/app/api/v1/audio/speech/route.js`](https://github.com/decolua/9router/blob/master/src/app/api/v1/audio/speech/route.js)
+→ `src/sse/handlers/tts.js` → `open-sse/handlers/ttsCore.js` di repo 9Router.
+
+- **Permintaan**: `POST {nineRouterBaseUrl}/audio/speech`, header `Authorization: Bearer <kunci>` (kalau ada) dan
+  `User-Agent: Bang Story/<versi>`, body `{ "model": "<suara>", "input": "<teks>", "language": "Indonesian" }`.
+  `model` adalah suara sekaligus model: `edge-tts/id-ID-ArdiNeural`, `openai/tts-1` atau `openai/tts-1/nova`,
+  `el/<voice_id>`, `gemini/<model>/<suara>`, atau nama combo. `language` hanya dipakai suara Gemini
+  ("Say in Indonesian: ..."), jadi dikirim sebagai nama bahasa Inggris.
+- **Balasan**: byte audio mentah, `Content-Type: audio/<format>`. Edge TTS dan OpenAI mengirim MP3 (Edge: 16 kHz
+  mono 32 kbps), suara Gemini WAV. `?response_format=json` (tidak dipakai) memberi `{ audio: base64, format }`.
+  Tidak ada waktu per kata.
+- **Error**: JSON gaya OpenAI `{ error: { message, type, code } }`, misalnya 400 `Missing model`, 400
+  `No credentials for provider: x` (penyedia belum dihubungkan di dashboard 9Router), 401 (kunci wajib/salah),
+  502/503 (penyedia hulu gagal atau dibatasi). Server di balik Cloudflare bisa membalas 403 HTML "Just a moment";
+  karena itu setiap permintaan memakai `User-Agent` sendiri (fetch bawaan mengirim `node`, yang ditantang).
+- **Daftar suara**: `GET /v1/audio/voices?provider=edge-tts` (`{ data: [{ id, name, lang, gender, model }] }`)
+  dan `GET /v1/models/tts` (model TTS dan combo yang terhubung). Daftar Edge di 9Router diambil lewat API
+  dashboard-nya sendiri, jadi sering gagal (401/502) kalau dashboard butuh login. Kalau gagal, aplikasi memakai
+  30 suara Edge bawaan (`NINEROUTER_VOICES`). Hasil dicache per base URL (24 jam, cadangan 1 jam). Di langkah
+  Ide cerita pengguna juga bisa mengetik ID suara apa pun.
+- **Teks**: tag suara `<...>` dibuang (`stripVoiceTags`). Untuk suara `edge-tts/`, `&`, `<`, `>` di-escape karena
+  9Router menaruh teks langsung ke dalam SSML tanpa escape.
 
 Narasi selalu dibuat satu rekaman utuh lalu dipotong. Lihat [alur-produksi.md](alur-produksi.md#4-narasi-srcmainnarrationts).
 

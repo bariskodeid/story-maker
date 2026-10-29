@@ -57,7 +57,7 @@ export function WhisperSection({ settings, onSettings }: { settings: AppSettings
         </div>
 
         <p className="text-[13px] leading-relaxed text-ink-2">
-          Dipakai untuk suara Gemini TTS, yang tidak mengirim waktu per kata. Suara ElevenLabs sudah membawa waktu kata yang presisi. Setelah diunduh,
+          Dipakai untuk suara Gemini TTS dan 9Router, yang tidak mengirim waktu per kata. Suara ElevenLabs sudah membawa waktu kata yang presisi. Setelah diunduh,
           Whisper berjalan tanpa internet dan tanpa biaya.
         </p>
 
@@ -96,7 +96,7 @@ export function WhisperSection({ settings, onSettings }: { settings: AppSettings
         <div className="flex items-center gap-3 border-t border-dashed border-line pt-4">
           <div className="flex-1">
             <p className="text-sm font-semibold">Sinkronkan otomatis</p>
-            <p className="text-[13px] text-muted">Setiap kali suara narasi Gemini dibuat, caption langsung disamakan dengan suaranya.</p>
+            <p className="text-[13px] text-muted">Setiap kali suara narasi Gemini atau 9Router dibuat, caption langsung disamakan dengan suaranya.</p>
           </div>
           <Switch on={settings.whisperAuto} onChange={async (v) => onSettings(await window.api.settings.set({ whisperAuto: v }))} label="Sinkronkan caption otomatis" />
         </div>

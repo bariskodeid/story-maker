@@ -85,3 +85,11 @@ startup (`warmUpEncryption`) mencegah kunci API tidak terbaca setelah aplikasi d
 ### YouTube embed diberi Referer berisi ID aplikasi
 Halaman dari `file://` tidak mengirim Referer, dan YouTube menolak embed tanpa identitas (Error 153). Header
 ditambahkan hanya untuk `https://www.youtube.com/embed/*`.
+
+### Narasi 9Router: satu rekaman per bagian 1.000 karakter, tanpa waktu kata
+9Router meneruskan ke banyak mesin suara (Edge TTS, OpenAI, Gemini, ElevenLabs), dan endpoint-nya tidak mengirim
+waktu per kata. Narasinya ikut jalur Gemini (`untimedTake`): satu rekaman per bagian, lalu dipotong dengan Whisper
+atau `chooseCuts`. Bagiannya dibatasi 1.000 karakter karena Edge TTS (lewat Bing) dan OpenAI TTS menolak teks
+panjang. Setiap adegan diakhiri tanda titik supaya ada jeda di batas adegan. Teks untuk suara `edge-tts/` di-escape
+(`&`, `<`, `>`) karena 9Router memasukkannya ke SSML tanpa escape. Semua permintaan memakai `User-Agent` sendiri:
+9Router yang dipasang di balik Cloudflare menantang user agent bawaan fetch (`node`) dengan halaman 403.

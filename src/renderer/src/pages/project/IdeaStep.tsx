@@ -4,12 +4,14 @@ import { getImageModel } from '@shared/higgsfield'
 import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
 import { getStyle } from '@shared/styles'
 import type { KeyStatus, LlmProvider, TtsProvider, VoiceOption } from '@shared/types'
+import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
+import { ModelPicker } from '../../components/ModelPicker'
 import { Select } from '../../components/Select'
 import { StylePicker } from '../../components/StylePicker'
 import { Button, Chip, Field, Segmented, confirmDialog, cx } from '../../components/ui'
 import { errorText } from '../../lib/format'
 import { geminiPreview } from '../../lib/voicePreviews'
-import { TTS_NAMES, ttsReadiness, usableTts } from '../../lib/keys'
+import { TTS_NAMES, TTS_PROVIDERS, ttsReadiness, usableTts } from '../../lib/keys'
 import { useApp } from '../../store/app'
 import { useProject } from '../../store/project'
 import { ModelSection } from './ModelSection'
@@ -33,24 +35,74 @@ function usePreviewPlayer(): { playing: string | null; toggle: (id: string, url:
   }
 }
 
-function VoicePicker({ provider, value, onChange }: { provider: TtsProvider; value: string; onChange: (v: string) => void }) {
+/**
+ * 9Router voices: a long list (every Edge TTS voice, plus models connected in 9Router) where any other
+ * `provider/voice` id can be typed, so it uses the searchable model picker instead of a plain dropdown.
+ */
+function NineRouterVoicePicker({
+  voices,
+  language,
+  value,
+  error,
+  onChange,
+  onRefresh
+}: {
+  voices: VoiceOption[] | null
+  language: string
+  value: string
+  error: string | null
+  onChange: (v: string) => void
+  onRefresh: () => void
+}) {
+  const languageTag = LANGUAGES.find((l) => l.code === language)?.label
+  return (
+    <div className="min-w-0 flex-1">
+      <ModelPicker
+        value={value}
+        models={(voices ?? []).map((v) => ({ id: v.id, name: v.name, description: v.description, tags: v.tags ?? [] }))}
+        loading={!voices}
+        error={error}
+        onChange={onChange}
+        onRefresh={onRefresh}
+        allowCustom
+        noun="suara"
+        placeholder="Pilih suara"
+        tagFilters={[...(languageTag ? [languageTag] : []), 'Pria', 'Wanita']}
+        footerNote="ketik ID lain, misalnya openai/tts-1"
+      />
+    </div>
+  )
+}
+
+function VoicePicker({ provider, language, value, onChange }: { provider: TtsProvider; language: string; value: string; onChange: (v: string) => void }) {
   const [voices, setVoices] = useState<VoiceOption[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const player = usePreviewPlayer()
 
-  useEffect(() => {
+  const load = (refresh: boolean): void => {
     setVoices(null)
     setError(null)
     window.api.settings
-      .voices(provider)
+      .voices(provider, refresh)
       .then((list) => {
         // Gemini samples ship with the app; ElevenLabs sends its own preview links.
-        const v = provider === 'gemini' ? list.map((x) => ({ ...x, previewUrl: x.previewUrl ?? geminiPreview(x.id, x.name) })) : list
+        const v =
+          provider === 'gemini'
+            ? list.map((x) => ({ ...x, previewUrl: x.previewUrl ?? geminiPreview(x.id, x.name) }))
+            : provider === 'ninerouter'
+              ? // Voices in the project's language first; the rest keep their order.
+                [...list].sort((a, b) => Number(b.language === language) - Number(a.language === language))
+              : list
         setVoices(v)
-        if (!v.some((x) => x.id === value) && v[0]) onChange(v[0].id)
+        // 9Router also takes voice ids typed by hand, so only an empty choice gets replaced there.
+        if ((provider === 'ninerouter' ? !value : !v.some((x) => x.id === value)) && v[0]) onChange(v[0].id)
       })
       .catch((e) => setError(errorText(e)))
-  }, [provider])
+  }
+  useEffect(() => load(false), [provider])
+
+  if (provider === 'ninerouter')
+    return <NineRouterVoicePicker voices={voices} language={language} value={value} error={error} onChange={onChange} onRefresh={() => load(true)} />
 
   const urlOf = (id: string): string | null => voices?.find((v) => v.id === id)?.previewUrl ?? null
   const current = voices?.find((v) => v.id === value)
@@ -119,12 +171,12 @@ export function IdeaStep() {
   useEffect(() => {
     if (!project || !keys.length || hasVoice) return
     const use = usableTts(project.ttsProvider, keys)
-    if (use !== project.ttsProvider) updateProject({ ttsProvider: use, ttsVoice: use === 'gemini' ? 'Charon' : '' })
+    if (use !== project.ttsProvider) updateProject({ ttsProvider: use, ttsVoice: defaultTtsVoice(use, project.language) })
   }, [keys, project?.id])
 
   if (!project) return null
   const ready = ttsReadiness(keys)
-  const blocked = keys.length ? (['gemini', 'elevenlabs'] as const).filter((p) => !ready[p].ok) : []
+  const blocked = keys.length ? TTS_PROVIDERS.filter((p) => !ready[p].ok) : []
   const openSettings = async (): Promise<void> => {
     await flush()
     go({ name: 'settings', back: { name: 'project', id: project.id } })
@@ -212,7 +264,11 @@ export function IdeaStep() {
                   label="Bahasa naskah dan suara"
                   size="lg"
                   value={project.language}
-                  onChange={(v) => updateProject({ language: v })}
+                  onChange={(v) => {
+                    // Edge voices speak one language, so a bundled default follows the language; a picked voice stays.
+                    const followVoice = project.ttsProvider === 'ninerouter' && (!project.ttsVoice || NINEROUTER_VOICES.some((x) => x.id === project.ttsVoice))
+                    updateProject(followVoice ? { language: v, ttsVoice: defaultTtsVoice('ninerouter', v) } : { language: v })
+                  }}
                   options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
                 />
               </Field>
@@ -256,21 +312,32 @@ export function IdeaStep() {
               <div className="flex items-center gap-2">
                 <Segmented
                   value={project.ttsProvider}
-                  onChange={(v) => updateProject({ ttsProvider: v, ttsVoice: v === 'gemini' ? 'Charon' : '' })}
-                  options={(['gemini', 'elevenlabs'] as const).map((p) => ({
+                  onChange={(v) => updateProject({ ttsProvider: v, ttsVoice: defaultTtsVoice(v, project.language) })}
+                  options={TTS_PROVIDERS.map((p) => ({
                     id: p,
                     label: TTS_NAMES[p],
                     disabled: blocked.includes(p),
                     title: ready[p].reason ?? undefined
                   }))}
                 />
-                <VoicePicker provider={project.ttsProvider} value={project.ttsVoice} onChange={(v) => updateProject({ ttsVoice: v })} />
+                <VoicePicker
+                  key={project.ttsProvider === 'ninerouter' ? `ninerouter:${project.language}` : project.ttsProvider}
+                  provider={project.ttsProvider}
+                  language={project.language}
+                  value={project.ttsVoice}
+                  onChange={(v) => updateProject({ ttsVoice: v })}
+                />
               </div>
               {blocked.length > 0 && (
                 <span className="text-[13px] text-muted">
-                  {blocked.length === 2
+                  {blocked.length === TTS_PROVIDERS.length
                     ? 'Belum ada kunci suara narator yang valid, jadi suara belum bisa dibuat.'
-                    : `${ready[blocked[0]].reason}, jadi ${TTS_NAMES[blocked[0]]} belum bisa dipilih.`}{' '}
+                    : `${blocked
+                        .map((p, i) => {
+                          const r = ready[p].reason ?? ''
+                          return i ? r.charAt(0).toLowerCase() + r.slice(1) : r
+                        })
+                        .join(' dan ')}, jadi ${blocked.map((p) => TTS_NAMES[p]).join(' dan ')} belum bisa dipilih.`}{' '}
                   <button type="button" onClick={() => void openSettings()} className="font-semibold text-accent-dark hover:underline">
                     Atur di Pengaturan
                   </button>

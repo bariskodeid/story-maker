@@ -23,6 +23,7 @@ import { CAMERA_PRESETS, MOTION_STRENGTHS, cameraAt, cameraCss } from '@shared/m
 import { needsVisual } from '@shared/script'
 import { geminiVoiceName, geminiVoiceTone } from '@shared/models'
 import type { Asset, Clip } from '@shared/types'
+import { defaultTtsVoice, nineRouterVoiceName } from '@shared/voices'
 import { AutoTextarea } from '../../components/AutoTextarea'
 import { CharacterAvatar } from '../../components/CharacterAvatar'
 import { ClipVisual } from '../../components/ClipVisual'
@@ -123,7 +124,9 @@ function ClipPanel({ clip, index, total }: { clip: Clip; index: number; total: n
   const voiceName =
     project.ttsProvider === 'gemini'
       ? `${geminiVoiceName(project.ttsVoice)} · ${geminiVoiceTone(project.ttsVoice) ?? 'Gemini'}`
-      : 'ElevenLabs'
+      : project.ttsProvider === 'ninerouter'
+        ? `${nineRouterVoiceName(project.ttsVoice || defaultTtsVoice('ninerouter', project.language))} · 9Router`
+        : 'ElevenLabs'
 
   const run = async (fn: () => Promise<unknown>): Promise<void> => {
     try {

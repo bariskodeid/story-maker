@@ -6,6 +6,7 @@ import { stripVoiceTags } from '@shared/speech'
 import { getImageModel, getVideoModel, imageBody, maxRefs, promptLimit, videoBody, type HfModel } from '@shared/higgsfield'
 import { getStyle } from '@shared/styles'
 import type { AspectRatio, Asset, Character, Clip, CreditEstimate, Job, Project, WordTiming } from '@shared/types'
+import { defaultTtsVoice } from '@shared/voices'
 import { getDb } from './db'
 import { emit } from './events'
 import { runJob, type TaskCtx } from './jobs'
@@ -34,6 +35,7 @@ import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
 import * as hf from './services/higgsfield'
 import { downloadTo, sleep } from './services/http'
+import * as ninerouter from './services/ninerouterTts'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -317,12 +319,15 @@ export function generateClipTts(clipId: string): Job {
     let rel: string
     let words: WordTiming[] | undefined
     let estimated = false
-    const voice = p.ttsVoice || (p.ttsProvider === 'gemini' ? 'Charon' : '')
+    const voice = p.ttsVoice || defaultTtsVoice(p.ttsProvider, p.language)
     if (p.ttsProvider === 'elevenlabs') {
       if (!voice) throw new Error('Pilih suara ElevenLabs dulu di langkah Ide cerita.')
       const out = await eleven.speak(text, voice, p.language, ctx.signal)
       rel = saveFile(p.id, 'audio', '.mp3', out.audio)
       words = out.words
+    } else if (p.ttsProvider === 'ninerouter') {
+      const out = await ninerouter.speak(stripVoiceTags(text), voice, p.language, ctx.signal)
+      rel = saveFile(p.id, 'audio', out.ext, out.audio)
     } else {
       const wav = await gemini.speak(text, voice, p.language, ctx.signal)
       rel = saveFile(p.id, 'audio', '.wav', wav)
@@ -338,7 +343,7 @@ export function generateClipTts(clipId: string): Job {
       clipId,
       kind: 'audio',
       provider: p.ttsProvider,
-      model: p.ttsProvider === 'gemini' ? getSettings().geminiTtsModel : getSettings().elevenModel,
+      model: p.ttsProvider === 'gemini' ? getSettings().geminiTtsModel : p.ttsProvider === 'ninerouter' ? voice : getSettings().elevenModel,
       prompt: text,
       localPath: rel,
       durationMs: audioMs,

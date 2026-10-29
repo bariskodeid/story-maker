@@ -12,6 +12,7 @@ import {
 } from '@shared/captions'
 import { CAMERA_PRESETS, MOTION_STRENGTHS } from '@shared/motion'
 import { geminiVoiceName } from '@shared/models'
+import { nineRouterVoiceName } from '@shared/voices'
 import { voiceSpan } from '@shared/timeline'
 import type { Asset, Clip, WordTiming } from '@shared/types'
 import { Select } from '../../../components/Select'
@@ -247,7 +248,8 @@ function VoiceTab({ clip, index }: { clip: Clip; index: number }) {
   const voice = clip.audioAssetId ? assets[clip.audioAssetId] : null
   const stale = !!voice && (voice.prompt ?? '').trim() !== clip.narration.trim()
   const voiceId = typeof voice?.meta.voice === 'string' ? voice.meta.voice : ''
-  const voiceName = voiceId && voice?.provider === 'gemini' ? geminiVoiceName(voiceId) : voiceId
+  const voiceName =
+    voiceId && voice?.provider === 'gemini' ? geminiVoiceName(voiceId) : voiceId && voice?.provider === 'ninerouter' ? nineRouterVoiceName(voiceId) : voiceId
   return (
     <>
       <ClipHeader clip={clip} index={index} />
