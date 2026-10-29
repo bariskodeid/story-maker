@@ -58,6 +58,14 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
   ulang di semua episode supaya wajah pemerannya konsisten.
 - **Buat semua episode sekali klik**: episode dibuat satu per satu, bisa dihentikan dan dilanjutkan, dan opsional
   diekspor ke satu folder seri (`E01-….mp4`, `E02-….mp4`, …). Episode baru bisa ditambah kapan saja.
+- **Seri video penjelasan**: pilih **Video penjelasan** lalu **Seri** untuk kursus berurutan (setiap pelajaran
+  melanjutkan pelajaran sebelumnya dan ditutup dengan bocoran pelajaran berikutnya) atau acara lepas dengan tema yang
+  sama (misalnya tips berbeda di tiap episode). Semua episode memakai template dan palet yang sama.
+- **Pengaturan seri** bisa diubah kapan saja (gaya atau template, suara narator, format, bahasa, durasi, model
+  gambar). Perubahan berlaku untuk episode yang belum dibuat; episode yang sudah dibuat tidak berubah.
+- Ringkasan setiap episode bisa disunting di halaman seri, karena episode berikutnya ditulis dari ringkasan itu.
+- Pemeran yang kamu hapus dari satu episode tidak muncul lagi di episode itu. **Ambil pemeran seri** di Storyboard
+  mengembalikannya.
 
 **Video penjelasan**
 - Pilih **Video penjelasan** di Beranda, tulis topiknya, lalu pilih template: **Tutorial langkah demi langkah**,

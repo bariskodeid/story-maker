@@ -1,9 +1,10 @@
+import { explainerSceneCount, getTemplate } from '@shared/explainer'
 import { CAMERA_PRESETS, MOTION_STRENGTHS, TRANSITIONS } from '@shared/motion'
 import { LANGUAGES, clipCountFor } from '@shared/models'
 import { estimateNarrationMs, needsVisual } from '@shared/script'
 import { MAX_EPISODES, MIN_EPISODES, stripEpisodeTag } from '@shared/series'
 import { getStyle } from '@shared/styles'
-import type { CameraPresetId, Clip, MotionStrength, MusicPrompt, Project, ProjectBundle, SeriesBundle, TransitionId } from '@shared/types'
+import type { CameraPresetId, Clip, MotionStrength, MusicPrompt, Project, ProjectBundle, Series, SeriesBundle, TransitionId } from '@shared/types'
 import { applyVisuals, charactersOf, clipsOf, getBundle, getProject, removeProject, replaceScript, type SceneVisual } from './repo'
 import {
   addSeriesCast,
@@ -499,7 +500,9 @@ const OUTLINE_PROPS = {
   },
   hook: {
     type: 'string',
-    description: 'One sentence in the target language that teases this episode; the episode before it ends by leading into this hook.'
+    // Models read "hook" as the cliffhanger at the end of the episode; said plainly, it stays about this episode.
+    description:
+      'One sentence in the target language that teases what happens in THIS episode, so viewers want to watch it; the episode before it ends by leading into this hook. Never tease the episode after it here.'
   }
 }
 
@@ -558,13 +561,170 @@ function continuityRule(serial: boolean): string {
     : 'The series is an anthology: every episode is a complete standalone story with its own beginning and ending, set in the same world and starring the same cast. Episodes can be watched in any order and never depend on each other.'
 }
 
+// ---------- explainer series: a course of lessons or a recurring show, without a cast ----------
+
+const EXPLAINER_OUTLINE_PROPS = {
+  title: { type: 'string', description: 'Short episode title in the target language, max 50 characters.' },
+  synopsis: {
+    type: 'string',
+    description:
+      'What this episode teaches or covers, 2 to 4 sentences in the target language, written as the brief for its scenes: the one subject, the key points in order and the takeaway.'
+  },
+  hook: {
+    type: 'string',
+    description:
+      'One sentence in the target language that teases what THIS episode covers, so viewers want to watch it; in a course, the lesson before it ends by leading into this hook. Never tease the episode after it here.'
+  }
+}
+
+/** The same bible shape as a story series; `world` holds the audience and scope, which the series page labels so. */
+const EXPLAINER_SERIES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    title: { type: 'string', description: 'Short catchy series title in the target language, max 50 characters.' },
+    world: {
+      type: 'string',
+      description:
+        'Audience and scope of the series in the target language, 2 to 3 sentences: who it is for, what they already know, and what the whole series covers and leaves out.'
+    },
+    tone: { type: 'string', description: 'How the series talks to the viewer, one or two sentences in the target language.' },
+    rules: {
+      type: 'string',
+      description:
+        'Rules every episode follows, in the target language: 3 to 6 short lines separated by newlines (recurring format, terms used the same way everywhere, tools or versions, what never to do).'
+    },
+    episodes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: { no: { type: 'integer', description: 'Episode number, starting at 1.' }, ...EXPLAINER_OUTLINE_PROPS },
+        required: ['no', 'title', 'synopsis', 'hook']
+      }
+    }
+  },
+  required: ['title', 'world', 'tone', 'rules', 'episodes']
+}
+
+function explainerContinuityRule(serial: boolean): string {
+  return serial
+    ? 'The series is a progressive course: the episodes are lessons in order. Each lesson builds on what the earlier lessons taught and never teaches it again; lesson 1 starts from what the audience already knows and the last lesson is the most advanced or most practical one. Every lesson ends with a one-line teaser of the next lesson, taken from that lesson\'s hook.'
+    : 'The series is a set of standalone episodes on one theme: each episode covers a different, self-contained subject (for example different tips, facts or quotes), so viewers can watch them in any order, and no two episodes overlap in content.'
+}
+
+function explainerFormatLine(s: Series): string {
+  const t = getTemplate(s.templateId)
+  return `Every episode is a video of about ${s.durationSec} seconds made with the "${t.name}" template (${t.blurb}): about ${explainerSceneCount(s.durationSec)} scenes of one short screen and one voice-over line each, so give every episode one focused subject that fits that length.`
+}
+
+/**
+ * What an explainer episode's scenes must agree with: the series bible (audience and scope, tone, rules), its place
+ * in the series and, for a course, what the earlier lessons taught and what the next one is about. Null for a
+ * standalone explainer project. Used by `generateExplainerScenes`.
+ */
+export function explainerEpisodeBrief(project: Project): { system: string[]; prompt: string[] } | null {
+  if (!project.seriesId || project.episodeNo == null) return null
+  const s = getSeries(project.seriesId)
+  const episodes = episodesOf(s.id)
+  const no = project.episodeNo
+  const serial = s.continuity === 'serial'
+  const previous = serial ? episodes.filter((e) => e.episodeNo != null && e.episodeNo < no) : []
+  // Standalone episodes get only the other titles, enough to keep them from covering the same subject.
+  const others = serial ? [] : episodes.filter((e) => e.episodeNo != null && e.episodeNo !== no)
+  const nextHook = serial ? str(s.bible.hooks.find((h) => h.no === no + 1)?.hook) : ''
+  const isLast = !episodes.some((e) => (e.episodeNo ?? 0) > no)
+  const system = [
+    'This video is one episode of an explainer series. Stay true to the series bible: its audience and scope, its tone and its rules, and use the same terms the series uses.',
+    serial
+      ? 'The series is a progressive course and this video is one lesson. Build on what the previous lessons taught: do not teach it again (at most one short recap line in the title scene), and do not cover what the later lessons are for.'
+      : 'The series is a set of standalone episodes on one theme: this video stands on its own. Do not refer to other episodes and do not repeat their content.',
+    serial && nextHook ? 'In the outro, tease the next lesson (its hook) in one line instead of a generic call to action.' : '',
+    serial && isLast ? 'This is the final lesson of the course: the outro wraps up the whole course in one line.' : ''
+  ].filter(Boolean)
+  const prompt = [
+    `Series: ${s.title}`,
+    s.premise.trim() ? `Series topic:\n${s.premise.trim()}` : '',
+    s.bible.world.trim() ? `Audience and scope of the series:\n${s.bible.world.trim()}` : '',
+    s.bible.tone.trim() ? `Tone:\n${s.bible.tone.trim()}` : '',
+    s.bible.rules.trim() ? `Rules every episode follows:\n${s.bible.rules.trim()}` : '',
+    `This is ${serial ? 'lesson' : 'episode'} ${no} of ${episodes.length}.`,
+    previous.length
+      ? `Previous lessons, in order:\n${previous
+          .map((e) => `Lesson ${e.episodeNo} "${stripEpisodeTag(e.title)}": ${e.episodeSummary.trim() || `(planned) ${e.synopsis.trim()}`}`)
+          .join('\n')}`
+      : '',
+    others.length ? `Other episodes of the series (cover something different):\n${others.map((e) => `- Episode ${e.episodeNo} "${stripEpisodeTag(e.title)}"`).join('\n')}` : '',
+    nextHook ? `Next lesson's hook (tease it at the end): ${nextHook}` : ''
+  ].filter(Boolean)
+  return { system, prompt }
+}
+
+/**
+ * The explainer scenes schema for an episode: the same scenes plus a summary that later episodes are written from.
+ * A separate schema keeps the request for standalone explainers exactly as it was.
+ */
+export function withEpisodeSummary(schema: object): object {
+  const s = schema as { properties: Record<string, unknown>; required: string[] }
+  return {
+    ...s,
+    properties: {
+      ...s.properties,
+      summary: {
+        type: 'string',
+        description:
+          'Two or three sentences in the target language summarizing what this episode taught or covered (its key points and terms), for the writers of the next episodes.'
+      }
+    },
+    required: [...s.required.filter((k) => k !== 'scenes'), 'summary', 'scenes']
+  }
+}
+
+/** The plan request: a storytelling series with its cast, or an explainer series without one. */
+function seriesPlanRequest(s: Series, count: number): { system: string; prompt: string; schema: object; name: string } {
+  const lang = languageOf(s.language)
+  const serial = s.continuity === 'serial'
+  if (s.kind === 'explainer')
+    return {
+      system: [
+        'You are the producer of a faceless YouTube explainer series: a course of lessons, or a recurring show of tips, facts or quotes. You plan the whole series before any episode is written.',
+        'You write a short series bible (audience and scope, tone, rules) and an outline for every episode. The series has no recurring characters.',
+        explainerContinuityRule(serial),
+        explainerFormatLine(s),
+        'Be accurate: only plan content that is correct and current.',
+        `Write the title, the audience and scope, tone, rules and the episode titles, synopses and hooks in ${lang}.`
+      ].join(' '),
+      prompt: [`Series topic / premise:\n${s.premise}`, `Write exactly ${count} episodes, numbered 1 to ${count}.`].join('\n\n'),
+      schema: EXPLAINER_SERIES_SCHEMA,
+      name: 'explainer_series_plan'
+    }
+  return {
+    system: [
+      'You are the showrunner of a faceless YouTube storytelling series. You plan the whole series before any script is written.',
+      'You write a series bible (world, tone, rules), a fixed cast of recurring characters, and a short outline for every episode.',
+      continuityRule(serial),
+      `Each episode is a short video of about ${s.durationSec} seconds (about ${clipCountFor(s.durationSec)} scenes of one voice-over line each), so give every episode one clear plot that fits that length.`,
+      'Keep facts accurate for history and science topics, and use the same character names everywhere.',
+      `Write the title, world, tone, rules and the episode titles, synopses and hooks in ${lang}. Write the cast "identity" and "outfit" in English.`
+    ].join(' '),
+    prompt: [
+      `Series premise:\n${s.premise}`,
+      `Visual style of the videos (for your choices only; the image model adds it, so never repeat it in the cast descriptions): ${getStyle(s.styleId).name}.`,
+      `Write exactly ${count} episodes, numbered 1 to ${count}.`
+    ].join('\n\n'),
+    schema: SERIES_SCHEMA,
+    name: 'series_plan'
+  }
+}
+
 /** Series being planned right now; a second request would create a second set of episodes. */
 const planning = new Set<string>()
 
 /**
  * Plans a whole series from its premise: bible (world, tone, rules), the recurring cast (no sheets yet) and one
  * outline per episode, then creates an episode project for each outline with the series settings and the cast
- * copied in. Planning again is only allowed while no episode has a script, and replaces those drafts.
+ * copied in. An explainer series gets the same bible shape (audience and scope instead of a world) and no cast.
+ * Planning again is only allowed while no episode has a script, and replaces those drafts.
  */
 export async function generateSeriesPlan(seriesId: string): Promise<SeriesBundle> {
   if (planning.has(seriesId)) throw new Error('Rencana seri ini sedang disusun. Tunggu sebentar.')
@@ -576,24 +736,7 @@ export async function generateSeriesPlan(seriesId: string): Promise<SeriesBundle
     if (existing.some((e) => clipsOf(e.id).length))
       throw new Error('Episode seri ini sudah mulai dibuat, jadi rencananya tidak bisa disusun ulang. Tambahkan episode baru saja.')
     const count = Math.max(MIN_EPISODES, Math.min(MAX_EPISODES, s.episodeCount || MIN_EPISODES))
-    const lang = languageOf(s.language)
-    const serial = s.continuity === 'serial'
-
-    const system = [
-      'You are the showrunner of a faceless YouTube storytelling series. You plan the whole series before any script is written.',
-      'You write a series bible (world, tone, rules), a fixed cast of recurring characters, and a short outline for every episode.',
-      continuityRule(serial),
-      `Each episode is a short video of about ${s.durationSec} seconds (about ${clipCountFor(s.durationSec)} scenes of one voice-over line each), so give every episode one clear plot that fits that length.`,
-      'Keep facts accurate for history and science topics, and use the same character names everywhere.',
-      `Write the title, world, tone, rules and the episode titles, synopses and hooks in ${lang}. Write the cast "identity" and "outfit" in English.`
-    ].join(' ')
-    const prompt = [
-      `Series premise:\n${s.premise}`,
-      `Visual style of the videos (for your choices only; the image model adds it, so never repeat it in the cast descriptions): ${getStyle(s.styleId).name}.`,
-      `Write exactly ${count} episodes, numbered 1 to ${count}.`
-    ].join('\n\n')
-
-    const plan = await generateJson<SeriesPlan>({ system, prompt, schema: SERIES_SCHEMA, name: 'series_plan' })
+    const plan = await generateJson<SeriesPlan>(seriesPlanRequest(s, count))
     const episodes = (plan.episodes ?? [])
       .filter((e) => str(e.title) || str(e.synopsis))
       .sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0))
@@ -602,11 +745,13 @@ export async function generateSeriesPlan(seriesId: string): Promise<SeriesBundle
     if (!episodes.length) throw new Error('Model tidak menghasilkan episode. Coba lagi atau pilih model lain di Pengaturan.')
 
     for (const e of existing) removeProject(e.id)
-    dropUnsheetedCast(seriesId)
-    addSeriesCast(
-      seriesId,
-      (plan.cast ?? []).filter((c) => str(c.name)).map((c) => ({ name: str(c.name), description: characterLook(c) }))
-    )
+    if (s.kind === 'story') {
+      dropUnsheetedCast(seriesId)
+      addSeriesCast(
+        seriesId,
+        (plan.cast ?? []).filter((c) => str(c.name)).map((c) => ({ name: str(c.name), description: characterLook(c) }))
+      )
+    }
     setSeriesBible(
       seriesId,
       str(plan.title) || s.title,
@@ -631,21 +776,34 @@ export async function generateNextEpisode(seriesId: string): Promise<SeriesBundl
     if (episodes.length >= MAX_EPISODES) throw new Error(`Satu seri paling banyak ${MAX_EPISODES} episode.`)
     const no = Math.max(...episodes.map((e) => e.episodeNo ?? 0)) + 1
     const serial = s.continuity === 'serial'
-    const cast = seriesCast(seriesId)
+    const explainer = s.kind === 'explainer'
+    const cast = explainer ? [] : seriesCast(seriesId)
 
-    const system = [
-      'You are the showrunner of a faceless YouTube storytelling series. Write the outline of the next episode.',
-      continuityRule(serial),
-      serial
-        ? 'Continue the arc from where the last episode ends. If the arc is already resolved, open a new chapter with the same cast.'
-        : 'Give the new episode a fresh standalone story that does not repeat the plots of the earlier episodes.',
-      `The episode is a short video of about ${s.durationSec} seconds, so give it one clear plot that fits that length.`,
-      `Write the title, synopsis and hook in ${languageOf(s.language)}.`
-    ].join(' ')
+    const system = (
+      explainer
+        ? [
+            'You are the producer of a faceless YouTube explainer series. Write the outline of the next episode.',
+            explainerContinuityRule(serial),
+            serial
+              ? 'Continue the course with the next lesson, building on the earlier ones. If the planned scope is already covered, go one level deeper.'
+              : 'Choose a fresh subject on the same theme that the earlier episodes did not cover.',
+            explainerFormatLine(s)
+          ]
+        : [
+            'You are the showrunner of a faceless YouTube storytelling series. Write the outline of the next episode.',
+            continuityRule(serial),
+            serial
+              ? 'Continue the arc from where the last episode ends. If the arc is already resolved, open a new chapter with the same cast.'
+              : 'Give the new episode a fresh standalone story that does not repeat the plots of the earlier episodes.',
+            `The episode is a short video of about ${s.durationSec} seconds, so give it one clear plot that fits that length.`
+          ]
+    )
+      .concat(`Write the title, synopsis and hook in ${languageOf(s.language)}.`)
+      .join(' ')
     const prompt = [
       `Series: ${s.title}`,
-      `Premise:\n${s.premise}`,
-      s.bible.world.trim() ? `World:\n${s.bible.world.trim()}` : '',
+      `${explainer ? 'Topic' : 'Premise'}:\n${s.premise}`,
+      s.bible.world.trim() ? `${explainer ? 'Audience and scope' : 'World'}:\n${s.bible.world.trim()}` : '',
       s.bible.tone.trim() ? `Tone:\n${s.bible.tone.trim()}` : '',
       s.bible.rules.trim() ? `Rules:\n${s.bible.rules.trim()}` : '',
       cast.length ? `Cast:\n${cast.map((c) => `- ${c.name}: ${c.description}`).join('\n')}` : '',
@@ -657,7 +815,8 @@ export async function generateNextEpisode(seriesId: string): Promise<SeriesBundl
       .filter(Boolean)
       .join('\n\n')
 
-    const r = await generateJson<{ title?: string; synopsis?: string; hook?: string }>({ system, prompt, schema: NEXT_EPISODE_SCHEMA, name: 'next_episode' })
+    const schema = explainer ? { ...NEXT_EPISODE_SCHEMA, properties: EXPLAINER_OUTLINE_PROPS } : NEXT_EPISODE_SCHEMA
+    const r = await generateJson<{ title?: string; synopsis?: string; hook?: string }>({ system, prompt, schema, name: 'next_episode' })
     const title = str(r.title) || `Episode ${no}`
     const synopsis = str(r.synopsis)
     if (!synopsis) throw new Error('Model tidak menghasilkan episode. Coba lagi atau pilih model lain di Pengaturan.')

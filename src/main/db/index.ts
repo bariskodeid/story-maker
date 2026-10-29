@@ -175,6 +175,14 @@ const MIGRATIONS: string[] = [
   ALTER TABLE projects ADD COLUMN template_id TEXT;
   ALTER TABLE projects ADD COLUMN theme_json TEXT NOT NULL DEFAULT '{}';
   ALTER TABLE clips ADD COLUMN scene_json TEXT NOT NULL DEFAULT '{}';
+  `,
+  // Explainer series (the template and look new episodes start with), and the names of cast members removed by
+  // hand from a series or an episode, so copying the cast between them never brings those back.
+  `
+  ALTER TABLE series ADD COLUMN template_id TEXT;
+  ALTER TABLE series ADD COLUMN theme_json TEXT NOT NULL DEFAULT '{}';
+  ALTER TABLE series ADD COLUMN cast_removed_json TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE projects ADD COLUMN cast_removed_json TEXT NOT NULL DEFAULT '[]';
   `
 ]
 

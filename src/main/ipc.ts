@@ -6,6 +6,7 @@ import type {
   ApiProvider,
   AppSettings,
   AspectRatio,
+  CastSyncOptions,
   EndpointProvider,
   ExportOptions,
   KeyTestResult,
@@ -14,6 +15,7 @@ import type {
   NewSeriesInput,
   ProjectSnapshot,
   SeriesPatch,
+  SeriesSettingsPatch,
   TtsProvider,
   VoiceOption,
   WordTiming
@@ -70,7 +72,8 @@ import {
   syncCastOut,
   updateEpisode,
   updateSeries,
-  updateSeriesCharacter
+  updateSeriesCharacter,
+  updateSeriesSettings
 } from './series'
 import { generateNextEpisode, generateScript, generateSeriesPlan, generateVisuals, generateMusicPrompt } from './story'
 
@@ -110,6 +113,7 @@ export function registerIpc(): void {
   handle('series:create', (input: NewSeriesInput) => createSeries(input))
   handle('series:get', (id: string) => getSeriesBundle(id))
   handle('series:update', (id: string, patch: SeriesPatch) => updateSeries(id, patch ?? {}))
+  handle('series:updateSettings', (id: string, patch: SeriesSettingsPatch) => updateSeriesSettings(id, patch ?? {}))
   handle('series:remove', (id: string) => removeSeries(id))
   handle('series:plan', (id: string) => generateSeriesPlan(id))
   handle('series:addEpisode', (id: string) => generateNextEpisode(id))
@@ -119,7 +123,7 @@ export function registerIpc(): void {
   handle('series:removeEpisode', (projectId: string) => removeEpisode(projectId))
   handle('series:updateCharacter', (id: string, patch: { name?: string; description?: string }) => updateSeriesCharacter(id, patch ?? {}))
   handle('series:removeCharacter', (id: string) => removeSeriesCharacter(id))
-  handle('series:syncCastIn', (projectId: string) => syncCastIn(projectId))
+  handle('series:syncCastIn', (projectId: string, opts?: CastSyncOptions) => syncCastIn(projectId, opts ?? {}))
   handle('series:syncCastOut', (projectId: string) => syncCastOut(projectId))
 
   handle('story:script', (projectId: string) => generateScript(projectId))

@@ -28,6 +28,7 @@ import { dismissSeriesAutopilot, planSeries, startSeriesAutopilot, useSeriesAuto
 import { errorText, joinList, mmss, relativeTime } from '../lib/format'
 import { TTS_NAMES, TTS_PROVIDERS, missingServices, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
+import { episodeWord } from '../lib/seriesWords'
 
 const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'warn' | 'ok' }> = {
   draft: { label: 'Draf', tone: 'draft' },
@@ -46,15 +47,19 @@ const FILTERS: { id: 'all' | 'draft' | 'progress' | 'exported' | 'series'; label
   { id: 'series', label: 'Seri', match: () => false }
 ]
 
-const CONTINUITY: SelectOption<SeriesContinuity>[] = [
-  { value: 'serial', label: 'Bersambung', note: 'Satu alur cerita berlanjut dari episode ke episode' },
-  { value: 'anthology', label: 'Antologi', note: 'Cerita lepas dengan dunia dan pemeran yang sama' }
-]
+const CONTINUITY: Record<ProjectKind, SelectOption<SeriesContinuity>[]> = {
+  story: [
+    { value: 'serial', label: 'Bersambung', note: 'Satu alur cerita berlanjut dari episode ke episode' },
+    { value: 'anthology', label: 'Antologi', note: 'Cerita lepas dengan dunia dan pemeran yang sama' }
+  ],
+  explainer: [
+    { value: 'serial', label: 'Berurutan', note: 'Seperti kursus: tiap pelajaran melanjutkan pelajaran sebelumnya' },
+    { value: 'anthology', label: 'Lepas', note: 'Tiap episode berdiri sendiri dengan tema yang sama, misalnya tips yang berbeda' }
+  ]
+}
 
-const EPISODE_COUNTS: SelectOption<number>[] = Array.from({ length: MAX_EPISODES - MIN_EPISODES + 1 }, (_, i) => ({
-  value: MIN_EPISODES + i,
-  label: `${MIN_EPISODES + i} episode`
-}))
+const episodeCounts = (word: string): SelectOption<number>[] =>
+  Array.from({ length: MAX_EPISODES - MIN_EPISODES + 1 }, (_, i) => ({ value: MIN_EPISODES + i, label: `${MIN_EPISODES + i} ${word}` }))
 
 type Card = { kind: 'project'; p: ProjectSummary; at: number } | { kind: 'series'; s: SeriesSummary; at: number }
 
@@ -68,6 +73,12 @@ const EXPLAINER_SUGGESTIONS = [
   'Cara membuat repositori Git pertama untuk pemula',
   '5 trik supaya tetap fokus saat kerja dari rumah',
   'Fakta mengejutkan tentang matahari'
+]
+
+const EXPLAINER_SERIES_SUGGESTIONS = [
+  'Kursus Git untuk pemula: dari repositori pertama sampai branch',
+  'Tips Excel untuk kerja kantor, beda trik tiap episode',
+  'Fakta luar angkasa yang jarang diketahui'
 ]
 
 const ASPECTS: SelectOption<AspectRatio>[] = [
@@ -96,6 +107,7 @@ export function Home() {
   const [kind, setKind] = useState<ProjectKind>('story')
   const [templateId, setTemplateId] = useState<ExplainerTemplateId>('tutorial')
   const explainer = kind === 'explainer'
+  const word = episodeWord({ kind, continuity })
   const autopilots = useAutopilot((s) => s.runs)
   const seriesRuns = useSeriesAutopilot((s) => s.runs)
   const seriesPlanning = useSeriesAutopilot((s) => s.planning)
@@ -231,7 +243,9 @@ export function Home() {
         language,
         aspectRatio,
         styleId,
-        ttsProvider: tts
+        ttsProvider: tts,
+        kind,
+        templateId
       })
       if (auto) startSeriesAutopilot(series.id, { exportAfter })
       else void planSeries(series.id).catch((e) => toast('error', errorText(e)))
@@ -245,18 +259,25 @@ export function Home() {
   const startSeriesAuto = async (): Promise<void> => {
     const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
     let exportAfter = appSettings?.autoExport ?? false
+    const imagesReady = !!appSettings && missingServices(appSettings, keys, { story: false, imageModel: appSettings.imageModel, tts: null }).length === 0
     const ok = await confirmDialog({
-      title: `Buat ${episodeCount} episode sekali klik?`,
-      body:
-        `AI menyusun bible seri, pemeran tetap, dan rencana ${episodeCount} episode, lalu membuat episodenya satu per satu: naskah, ` +
-        `rencana visual, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption per episode. Lembar karakter dibuat sekali dan ` +
-        'dipakai ulang di semua episode. ' +
-        (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
-        'Video AI tidak dibuat.',
-      confirm: 'Buat semua episode',
+      title: `Buat ${episodeCount} ${word.one} sekali klik?`,
+      body: explainer
+        ? `AI menyusun bible seri dan rencana ${episodeCount} ${word.one}, lalu membuat ${word.one}nya satu per satu: sekitar ` +
+          `${explainerSceneCount(durationSec)} adegan ${getTemplate(templateId).name.toLowerCase()} dan narasinya per ${word.one}. ` +
+          (imagesReady
+            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+            : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. ') +
+          'Screenshot untuk tutorial bisa kamu tambahkan sendiri di langkah Adegan.'
+        : `AI menyusun bible seri, pemeran tetap, dan rencana ${episodeCount} episode, lalu membuat episodenya satu per satu: naskah, ` +
+          `rencana visual, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption per episode. Lembar karakter dibuat sekali dan ` +
+          'dipakai ulang di semua episode. ' +
+          (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+          'Video AI tidak dibuat.',
+      confirm: `Buat semua ${word.one}`,
       option: {
         ...exportOption(exportAfter, (on) => (exportAfter = on)),
-        hint: 'Satu file per episode (E01-….mp4) di subfolder seri, di folder ekspor bawaan.'
+        hint: `Satu file per ${word.one} (E01-….mp4) di subfolder seri, di folder ekspor bawaan.`
       }
     })
     if (!ok) return
@@ -282,7 +303,7 @@ export function Home() {
     refresh()
   }
 
-  const suggestions = explainer ? EXPLAINER_SUGGESTIONS : SUGGESTIONS
+  const suggestions = explainer ? (mode === 'series' ? EXPLAINER_SERIES_SUGGESTIONS : EXPLAINER_SUGGESTIONS) : SUGGESTIONS
 
   const remove = async (p: ProjectSummary): Promise<void> => {
     const ok = await confirmDialog({
@@ -350,32 +371,38 @@ export function Home() {
           <div className="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-ink bg-surface py-5 pl-6 pr-5 shadow-ink-lg">
             <div className="flex items-center gap-3">
               <label htmlFor="ide" className="flex-1 text-[13px] font-semibold text-ink-2">
-                {explainer ? 'Topik video penjelasan' : mode === 'series' ? 'Premis seri' : 'Ide cerita atau sinopsis'}
+                {explainer
+                  ? mode === 'series'
+                    ? 'Topik seri video penjelasan'
+                    : 'Topik video penjelasan'
+                  : mode === 'series'
+                    ? 'Premis seri'
+                    : 'Ide cerita atau sinopsis'}
               </label>
               <Segmented<ProjectKind>
                 size="sm"
                 value={kind}
-                onChange={(k) => {
-                  setKind(k)
-                  // Series are made of story episodes for now.
-                  if (k === 'explainer') setMode('single')
-                }}
+                onChange={setKind}
                 options={[
                   { id: 'story', label: 'Cerita' },
                   { id: 'explainer', label: 'Video penjelasan' }
                 ]}
               />
-              {!explainer && (
-                <Segmented
-                  size="sm"
-                  value={mode}
-                  onChange={setMode}
-                  options={[
-                    { id: 'single', label: 'Satu video' },
-                    { id: 'series', label: 'Seri', title: 'Beberapa episode dengan dunia dan pemeran yang sama' }
-                  ]}
-                />
-              )}
+              <Segmented
+                size="sm"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { id: 'single', label: 'Satu video' },
+                  {
+                    id: 'series',
+                    label: 'Seri',
+                    title: explainer
+                      ? 'Beberapa video dengan template yang sama, misalnya kursus berurutan atau acara tips rutin'
+                      : 'Beberapa episode dengan dunia dan pemeran yang sama'
+                  }
+                ]}
+              />
             </div>
             <textarea
               id="ide"
@@ -384,7 +411,9 @@ export function Home() {
               onChange={(e) => setSynopsis(e.target.value)}
               placeholder={
                 explainer
-                  ? 'Contoh: cara membuat repositori Git pertama dan menyimpan perubahan kode, untuk pemula…'
+                  ? mode === 'series'
+                    ? 'Contoh: kursus Git untuk pemula, dari membuat repositori pertama sampai bekerja dengan branch dan pull request…'
+                    : 'Contoh: cara membuat repositori Git pertama dan menyimpan perubahan kode, untuk pemula…'
                   : mode === 'series'
                     ? 'Contoh: Si Kancil yang cerdik tinggal di hutan Jawa. Setiap kali hewan lain dalam bahaya, dia memakai akalnya, tapi suatu hari dia bertemu lawan yang sama cerdiknya…'
                   : 'Contoh: Gajah Mada bersumpah tidak akan menikmati palapa sebelum Nusantara bersatu. Para menteri menertawakannya, tapi dia membuktikannya…'
@@ -394,16 +423,23 @@ export function Home() {
             <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-line pt-3.5">
               {mode === 'series' && (
                 <>
-                  <Select variant="pill" label="Jumlah episode" value={episodeCount} onChange={setEpisodeCount} options={EPISODE_COUNTS} menuWidth={180} />
-                  <Select variant="pill" label="Alur seri" value={continuity} onChange={setContinuity} options={CONTINUITY} menuWidth={300} />
+                  <Select
+                    variant="pill"
+                    label={`Jumlah ${word.one}`}
+                    value={episodeCount}
+                    onChange={setEpisodeCount}
+                    options={episodeCounts(word.one)}
+                    menuWidth={180}
+                  />
+                  <Select variant="pill" label="Alur seri" value={continuity} onChange={setContinuity} options={CONTINUITY[kind]} menuWidth={320} />
                 </>
               )}
               <Select
                 variant="pill"
-                label={mode === 'series' ? 'Durasi per episode' : 'Durasi'}
+                label={mode === 'series' ? `Durasi per ${word.one}` : 'Durasi'}
                 value={durationSec}
                 onChange={setDurationSec}
-                options={DURATIONS.map((d) => ({ value: d.sec, label: mode === 'series' ? `${d.label} / episode` : d.label }))}
+                options={DURATIONS.map((d) => ({ value: d.sec, label: mode === 'series' ? `${d.label} / ${word.one}` : d.label }))}
               />
               <Select
                 variant="pill"
@@ -487,7 +523,6 @@ export function Home() {
                 type="button"
                 onClick={() => {
                   // A series needs a premise first, so this goes to the composer instead of creating anything.
-                  setKind('story')
                   setMode('series')
                   const field = document.getElementById('ide')
                   field?.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -499,7 +534,7 @@ export function Home() {
                   <Layers className="size-6" strokeWidth={2.2} />
                 </span>
                 <span className="text-base font-semibold text-ink">Seri baru</span>
-                <span className="text-[13px]">Beberapa episode, pemeran yang sama</span>
+                <span className="text-[13px]">Beberapa episode, cerita atau penjelasan</span>
               </button>
             ) : (
               <button
@@ -519,6 +554,7 @@ export function Home() {
               if (card.kind === 'series') {
                 const s = card.s
                 const run = seriesRuns[s.id]
+                const sw = episodeWord(s)
                 return (
                   <article key={s.id} data-series-card={s.title} className="relative flex flex-col pt-3">
                     {/* Two sheets behind the card make a series read as a stack of episodes. */}
@@ -529,12 +565,14 @@ export function Home() {
                         <div className="relative aspect-video w-full overflow-hidden border-b border-line">
                           {s.coverUrl ? (
                             <img src={s.coverUrl} alt="" className="size-full object-cover" />
+                          ) : s.kind === 'explainer' ? (
+                            <TemplateSwatch templateId={s.templateId} className="size-full" />
                           ) : (
                             <StyleSwatch styleId={s.styleId} className="size-full" iconSize={40} />
                           )}
                           <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full border border-ink bg-sun px-2.5 py-[3px] text-xs font-semibold">
                             <Layers className="size-3" />
-                            Seri · {s.episodeCount} episode
+                            Seri · {s.episodeCount} {sw.one}
                           </span>
                         </div>
                         <div className="line-clamp-2 min-h-[46px] px-4 pb-0.5 pt-3.5 text-base font-semibold leading-snug">{s.title}</div>
@@ -544,7 +582,7 @@ export function Home() {
                           <Badge tone="info">Dibuat otomatis…</Badge>
                         ) : (
                           <Badge tone={s.episodeCount > 0 && s.readyCount === s.episodeCount ? 'ok' : s.readyCount > 0 ? 'warn' : 'draft'}>
-                            {s.readyCount}/{s.episodeCount} episode siap
+                            {s.readyCount}/{s.episodeCount} {sw.one} siap
                           </Badge>
                         )}
                         <span className="truncate text-[13px] text-muted">{relativeTime(s.updatedAt)}</span>

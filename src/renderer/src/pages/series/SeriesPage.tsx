@@ -9,20 +9,24 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Settings2,
   SlidersHorizontal,
   Trash2,
   Wand2
 } from 'lucide-react'
+import { explainerSceneCount, getTemplate } from '@shared/explainer'
 import { isNineRouterImage } from '@shared/imageModels'
 import { DURATIONS, clipCountFor } from '@shared/models'
 import { MAX_EPISODES, episodeTag, stripEpisodeTag } from '@shared/series'
 import { getStyle } from '@shared/styles'
-import type { ProjectStatus, Series, SeriesBundle, SeriesEpisode } from '@shared/types'
+import type { ProjectKind, ProjectStatus, Series, SeriesBundle, SeriesEpisode } from '@shared/types'
+import { TemplateSwatch } from '../../components/ExplainerPreview'
 import { StyleSwatch } from '../../components/StyleArt'
 import { Badge, Button, IconButton, Menu, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
 import { exportOption, useAutopilot, type AutopilotStage } from '../../lib/autopilot'
 import { errorText, joinList, mmss } from '../../lib/format'
 import { missingServices } from '../../lib/keys'
+import { continuityLabel, episodeWord } from '../../lib/seriesWords'
 import {
   dismissSeriesAutopilot,
   planSeries,
@@ -37,6 +41,7 @@ import {
 import { useApp } from '../../store/app'
 import { AutosaveText } from './AutosaveText'
 import { BiblePanel, CastPanel } from './SeriesBible'
+import { SeriesSettingsModal } from './SeriesSettings'
 
 const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'warn' | 'ok' }> = {
   draft: { label: 'Draf', tone: 'draft' },
@@ -46,59 +51,96 @@ const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'w
   exported: { label: 'Diekspor', tone: 'ok' }
 }
 
-const STAGE_LABEL: Record<AutopilotStage, string> = {
-  script: 'menulis naskah',
-  visuals: 'menyusun rencana visual',
-  media: 'membuat gambar dan narasi',
-  finish: 'memindahkan ke editor',
-  export: 'mengekspor MP4'
+const STAGE_LABEL: Record<ProjectKind, Record<AutopilotStage, string>> = {
+  story: {
+    script: 'menulis naskah',
+    visuals: 'menyusun rencana visual',
+    media: 'membuat gambar dan narasi',
+    finish: 'memindahkan ke editor',
+    export: 'mengekspor MP4'
+  },
+  explainer: {
+    script: 'menyusun adegan',
+    visuals: 'menyusun adegan',
+    media: 'membuat gambar AI dan narasi',
+    finish: 'memindahkan ke editor',
+    export: 'merender MP4'
+  }
 }
 
 const isReady = (e: SeriesEpisode): boolean => e.status === 'editing' || e.status === 'exported'
 
-/** Checks the services a one-click run will call; shows what is missing and returns false. */
-async function servicesReady(series: Series, back: () => void): Promise<{ autoExport: boolean; viaNineRouter: boolean } | null> {
+/**
+ * Checks the services a one-click run will call; shows what is missing and returns null. Explainer scenes work
+ * without pictures, so an explainer series only needs the writer and the narrator.
+ */
+async function servicesReady(
+  series: Series,
+  back: () => void
+): Promise<{ autoExport: boolean; viaNineRouter: boolean; imagesReady: boolean } | null> {
   const [settings, keys] = await Promise.all([window.api.settings.get(), window.api.settings.keys()])
   const imageModel = series.imageModel ?? settings.imageModel
-  const missing = missingServices(settings, keys, { story: true, imageModel, tts: series.ttsProvider })
+  const explainer = series.kind === 'explainer'
+  const missing = missingServices(settings, keys, { story: true, imageModel: explainer ? null : imageModel, tts: series.ttsProvider })
   if (missing.length) {
     useApp.getState().toast('error', `Atur dulu ${joinList(missing)} di Pengaturan.`, { label: 'Buka Pengaturan', run: back })
     return null
   }
-  return { autoExport: settings.autoExport, viaNineRouter: isNineRouterImage(imageModel) }
+  const imagesReady = missingServices(settings, keys, { story: false, imageModel, tts: null }).length === 0
+  return { autoExport: settings.autoExport, viaNineRouter: isNineRouterImage(imageModel), imagesReady }
+}
+
+/** How the AI pictures of an explainer run are made, for the start dialogs. */
+function explainerImageText(ready: { viaNineRouter: boolean; imagesReady: boolean }): string {
+  return ready.imagesReady
+    ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${ready.viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+    : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. '
 }
 
 function SeriesHeader({
   series,
   episodes,
   running,
+  busy,
   onRename,
   onRemove,
   onStart,
   onStop,
+  onSettings,
   stopping
 }: {
   series: Series
   episodes: number
   running: boolean
+  /** A plan or a run is working on the series, so its settings stay as they are. */
+  busy: boolean
   stopping: boolean
   onRename: (title: string) => void
   onRemove: () => void
   onStart: () => void
   onStop: () => void
+  onSettings: () => void
 }) {
   const { go } = useApp()
   const [editing, setEditing] = useState(false)
   const duration = DURATIONS.find((d) => d.sec === series.durationSec)?.label ?? `${series.durationSec} detik`
+  const word = episodeWord(series)
+  const explainer = series.kind === 'explainer'
   return (
     <header className="grid h-[68px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-line bg-surface px-6">
       <div className="flex min-w-0 items-center gap-3">
         <IconButton label="Kembali ke beranda" onClick={() => go({ name: 'home' })}>
           <ArrowLeft className="size-[18px]" />
         </IconButton>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border-[1.5px] border-ink bg-sun text-ink">
-          <Layers className="size-5" />
-        </span>
+        {explainer ? (
+          <span className="size-10 shrink-0 overflow-hidden rounded-xl border-[1.5px] border-ink" title={getTemplate(series.templateId).name}>
+            <TemplateSwatch templateId={series.templateId} className="size-full [&_svg]:size-5" />
+          </span>
+        ) : (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border-[1.5px] border-ink bg-sun text-ink">
+            <Layers className="size-5" />
+          </span>
+        )}
         <div className="flex min-w-0 flex-col gap-px">
           <div className="flex min-w-0 items-center gap-1">
             {editing ? (
@@ -130,14 +172,19 @@ function SeriesHeader({
               </>
             )}
           </div>
-          <span className="truncate text-xs text-ink-2">
-            Seri {series.continuity === 'serial' ? 'bersambung' : 'antologi'} · {episodes} episode · {duration} per episode ·{' '}
-            {getStyle(series.styleId).name} · {series.aspectRatio}
+          <span className="truncate text-xs text-ink-2" data-series-subtitle>
+            {continuityLabel(series)} · {episodes} {word.one} · {duration} per {word.one} ·{' '}
+            {explainer ? getTemplate(series.templateId).name : getStyle(series.styleId).name} · {series.aspectRatio}
           </span>
         </div>
       </div>
       <div className="flex items-center gap-2.5">
-        <IconButton label="Pengaturan" onClick={() => go({ name: 'settings', back: { name: 'series', id: series.id } })}>
+        <span title={busy ? 'Hentikan dulu pembuatan otomatis untuk mengubah pengaturan seri.' : undefined}>
+          <Button icon={<Settings2 className="size-[17px]" />} disabled={busy} onClick={onSettings}>
+            Pengaturan seri
+          </Button>
+        </span>
+        <IconButton label="Pengaturan aplikasi" onClick={() => go({ name: 'settings', back: { name: 'series', id: series.id } })}>
           <SlidersHorizontal className="size-[18px]" />
         </IconButton>
         <Menu
@@ -154,7 +201,7 @@ function SeriesHeader({
           </Button>
         ) : (
           <Button variant="primary" icon={<Wand2 className="size-[17px]" />} onClick={onStart}>
-            Buat semua episode sekali klik
+            Buat semua {word.one} sekali klik
           </Button>
         )}
       </div>
@@ -168,14 +215,18 @@ function RunCard({ run, bundle }: { run: SeriesRun; bundle: SeriesBundle }) {
   const episodeRun = useAutopilot((s) => (run.current ? s.runs[run.current.id] : undefined))
   const total = run.total || bundle.episodes.length
   const ready = bundle.episodes.filter(isReady).length
+  const word = episodeWord(bundle.series)
+  const kind = bundle.series.kind
   const title =
-    run.state === 'running' ? 'Membuat semua episode otomatis' : run.state === 'stopped' ? 'Pembuatan seri dihentikan' : 'Pembuatan seri terhenti'
+    run.state === 'running' ? `Membuat semua ${word.one} otomatis` : run.state === 'stopped' ? 'Pembuatan seri dihentikan' : 'Pembuatan seri terhenti'
   const detail =
     run.stage === 'plan'
-      ? 'Menyusun bible, pemeran, dan rencana tiap episode…'
+      ? kind === 'explainer'
+        ? `Menyusun bible dan rencana tiap ${word.one}…`
+        : 'Menyusun bible, pemeran, dan rencana tiap episode…'
       : run.current
-        ? `Episode ${run.current.no} dari ${total}: ${run.current.title}${run.state === 'running' && episodeRun?.state === 'running' ? ` · ${STAGE_LABEL[episodeRun.stage]}` : ''}`
-        : 'Menyiapkan episode…'
+        ? `${word.title} ${run.current.no} dari ${total}: ${run.current.title}${run.state === 'running' && episodeRun?.state === 'running' ? ` · ${STAGE_LABEL[kind][episodeRun.stage]}` : ''}`
+        : `Menyiapkan ${word.one}…`
   return (
     <section className="flex flex-col gap-4 rounded-2xl border-[1.5px] border-ink bg-surface p-5 shadow-ink" data-series-run={run.state}>
       <div className="flex items-start gap-3">
@@ -229,19 +280,21 @@ function RunCard({ run, bundle }: { run: SeriesRun; bundle: SeriesBundle }) {
         <div className="flex items-center gap-3 rounded-xl border border-line bg-paper px-3.5 py-2.5">
           <Switch on={run.exportAfter} label="Ekspor MP4 otomatis" onChange={(on) => setSeriesAutoExport(run.seriesId, on)} />
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold text-ink">Ekspor MP4 tiap episode setelah selesai</span>
-            <span className="text-[13px] text-ink-2">Satu file per episode di subfolder seri, di folder ekspor bawaan.</span>
+            <span className="text-sm font-semibold text-ink">Ekspor MP4 tiap {word.one} setelah selesai</span>
+            <span className="text-[13px] text-ink-2">Satu file per {word.one} di subfolder seri, di folder ekspor bawaan.</span>
           </span>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2.5">
         {run.current && (
           <Button size="sm" onClick={() => go({ name: 'project', id: run.current!.id })}>
-            Lihat episode {run.current.no}
+            Lihat {word.one} {run.current.no}
           </Button>
         )}
         {run.state === 'running' ? (
-          <span className="text-[13px] text-muted">Episode dibuat satu per satu. Kamu boleh pindah halaman, prosesnya tetap berjalan selama aplikasi terbuka.</span>
+          <span className="text-[13px] text-muted">
+            {word.title} dibuat satu per satu. Kamu boleh pindah halaman, prosesnya tetap berjalan selama aplikasi terbuka.
+          </span>
         ) : (
           <>
             <Button size="sm" variant="primary" icon={<Wand2 className="size-4" />} onClick={() => startSeriesAutopilot(run.seriesId)}>
@@ -250,7 +303,7 @@ function RunCard({ run, bundle }: { run: SeriesRun; bundle: SeriesBundle }) {
             <Button size="sm" onClick={() => dismissSeriesAutopilot(run.seriesId)}>
               Tutup
             </Button>
-            <span className="text-[13px] text-muted">Episode yang sudah selesai tidak diulang.</span>
+            <span className="text-[13px] text-muted">{word.title} yang sudah selesai tidak diulang.</span>
           </>
         )}
       </div>
@@ -278,7 +331,9 @@ function EpisodeRow({
   const { go, toast } = useApp()
   const auto = useAutopilot((s) => s.runs[ep.id])
   const portrait = series.aspectRatio === '9:16'
-  const save = (patch: { title?: string; synopsis?: string }): void => {
+  const word = episodeWord(series)
+  const explainer = series.kind === 'explainer'
+  const save = (patch: { title?: string; synopsis?: string; summary?: string }): void => {
     window.api.series
       .updateEpisode(ep.id, patch)
       .then(onChanged)
@@ -305,20 +360,26 @@ function EpisodeRow({
       <button
         type="button"
         onClick={() => go({ name: 'project', id: ep.id })}
-        aria-label={`Buka episode ${ep.no}`}
+        aria-label={`Buka ${word.one} ${ep.no}`}
         className={cx(
           'relative shrink-0 self-start overflow-hidden rounded-xl border border-line bg-sand',
           portrait ? 'aspect-[9/16] w-[96px]' : 'aspect-video w-[176px]'
         )}
       >
-        {ep.coverUrl ? <img src={ep.coverUrl} alt="" className="size-full object-cover" /> : <StyleSwatch styleId={series.styleId} className="size-full" iconSize={28} />}
+        {ep.coverUrl ? (
+          <img src={ep.coverUrl} alt="" className="size-full object-cover" />
+        ) : explainer ? (
+          <TemplateSwatch templateId={series.templateId} className="size-full" />
+        ) : (
+          <StyleSwatch styleId={series.styleId} className="size-full" iconSize={28} />
+        )}
         <span className="absolute left-2 top-2 rounded-md bg-ink px-1.5 py-0.5 font-mono text-xs text-paper">{episodeTag(ep.no)}</span>
         {ep.totalMs > 0 && <span className="absolute bottom-2 right-2 rounded-md bg-ink/80 px-1.5 py-0.5 font-mono text-[11px] text-paper">{mmss(ep.totalMs)}</span>}
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-2">
           <AutosaveText
-            label={`Judul episode ${ep.no}`}
+            label={`Judul ${word.one} ${ep.no}`}
             value={stripEpisodeTag(ep.title)}
             onSave={(title) => save({ title })}
             className="-ml-1 min-w-0 flex-1 rounded-md bg-transparent px-1 font-display text-lg font-bold outline-none hover:bg-sand focus:bg-sand"
@@ -326,13 +387,13 @@ function EpisodeRow({
           {badge}
           <Menu
             trigger={(open) => (
-              <IconButton label={`Opsi episode ${ep.no}`} size={34} className="border-transparent" onClick={open}>
+              <IconButton label={`Opsi ${word.one} ${ep.no}`} size={34} className="border-transparent" onClick={open}>
                 <MoreHorizontal className="size-4" />
               </IconButton>
             )}
             items={[
               { label: 'Buka', icon: <FolderOpen className="size-4" />, run: () => go({ name: 'project', id: ep.id }) },
-              ...(locked ? [] : [{ label: 'Hapus episode', icon: <Trash2 className="size-4" />, danger: true, run: onRemove }])
+              ...(locked ? [] : [{ label: `Hapus ${word.one}`, icon: <Trash2 className="size-4" />, danger: true, run: onRemove }])
             ]}
           />
         </div>
@@ -340,17 +401,30 @@ function EpisodeRow({
           multiline
           minRows={2}
           maxHeight={320}
-          label={`Sinopsis episode ${ep.no}`}
+          label={`Sinopsis ${word.one} ${ep.no}`}
           value={ep.synopsis}
           onSave={(synopsis) => save({ synopsis })}
-          placeholder="Apa yang terjadi di episode ini?"
+          placeholder={explainer ? `Apa yang dibahas di ${word.one} ini?` : 'Apa yang terjadi di episode ini?'}
           className="w-full rounded-lg border border-transparent bg-transparent px-1 text-sm leading-relaxed text-ink-2 outline-none hover:border-line focus:border-ink focus:bg-surface"
         />
-        {ep.summary.trim() && (
-          <p className="rounded-lg bg-sand px-3 py-2 text-[13px] leading-relaxed text-ink-2">
-            <span className="font-semibold text-ink">Ringkasan · </span>
-            {ep.summary}
-          </p>
+        {/* Later episodes are written from this summary, so it can be corrected here (saved as you type). */}
+        {(ep.summary.trim() || ep.clipCount > 0) && (
+          <div className="flex flex-col gap-1 rounded-lg bg-sand px-3 pb-2 pt-2" data-episode-summary={ep.no}>
+            <span className="flex items-baseline gap-1.5 text-[13px]">
+              <span className="font-semibold text-ink">Ringkasan</span>
+              <span className="text-xs text-muted">dibaca AI saat menulis {word.one} berikutnya</span>
+            </span>
+            <AutosaveText
+              multiline
+              minRows={2}
+              maxHeight={240}
+              label={`Ringkasan ${word.one} ${ep.no}`}
+              value={ep.summary}
+              onSave={(summary) => save({ summary })}
+              placeholder={explainer ? 'Apa saja yang sudah dibahas di sini?' : 'Apa yang terjadi di episode ini dan bagaimana akhirnya?'}
+              className="w-full rounded-md border border-transparent bg-transparent px-1 text-[13px] leading-relaxed text-ink-2 outline-none hover:border-line-2 focus:border-ink focus:bg-surface"
+            />
+          </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" onClick={() => go({ name: 'project', id: ep.id })}>
@@ -359,7 +433,7 @@ function EpisodeRow({
           <Button size="sm" icon={<Wand2 className="size-4" />} disabled={locked || auto?.state === 'running'} onClick={onRunOne}>
             Sekali klik
           </Button>
-          <span className="text-[13px] text-muted">{ep.clipCount ? `${ep.clipCount} adegan · ${mmss(ep.totalMs)}` : 'Belum ada naskah'}</span>
+          <span className="text-[13px] text-muted">{ep.clipCount ? `${ep.clipCount} adegan · ${mmss(ep.totalMs)}` : explainer ? 'Belum ada adegan' : 'Belum ada naskah'}</span>
         </div>
       </div>
     </article>
@@ -370,6 +444,7 @@ export function SeriesPage({ id }: { id: string }) {
   const { go, toast } = useApp()
   const [bundle, setBundle] = useState<SeriesBundle | null>(null)
   const [adding, setAdding] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const run = useSeriesAutopilot((s) => s.runs[id])
   const planning = useSeriesAutopilot((s) => !!s.planning[id])
   const episodeRunning = useAutopilot((s) => !!bundle?.episodes.some((e) => s.runs[e.id]?.state === 'running'))
@@ -417,23 +492,30 @@ export function SeriesPage({ id }: { id: string }) {
   const back = (): void => go({ name: 'settings', back: { name: 'series', id } })
   const started = episodes.some((e) => e.clipCount > 0)
   const busy = running || planning || adding
+  const explainer = series.kind === 'explainer'
+  const word = episodeWord(series)
 
   const startAll = async (): Promise<void> => {
     const ready = await servicesReady(series, back)
     if (!ready) return
     let exportAfter = ready.autoExport
+    const count = episodes.length ? `${episodes.length} ${word.one}` : `Semua ${word.one}`
     const ok = await confirmDialog({
-      title: 'Buat semua episode sekali klik?',
-      body:
-        `${episodes.length ? `${episodes.length} episode` : 'Semua episode'} dibuat satu per satu: naskah, rencana visual, lembar karakter, ` +
-        `sekitar ${clipCountFor(series.durationSec)} gambar klip, narasi, dan caption per episode, lalu tiap episode terbuka di editor. ` +
-        'Lembar karakter dari episode sebelumnya dipakai ulang. ' +
-        (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
-        'Episode yang sudah selesai dilewati.',
-      confirm: 'Buat semua episode',
+      title: `Buat semua ${word.one} sekali klik?`,
+      body: explainer
+        ? `${count} dibuat satu per satu: sekitar ${explainerSceneCount(series.durationSec)} adegan ${getTemplate(series.templateId).name.toLowerCase()} ` +
+          `dan narasinya per ${word.one}, lalu tiap ${word.one} terbuka di editor. ` +
+          explainerImageText(ready) +
+          `${word.title} yang sudah selesai dilewati.`
+        : `${count} dibuat satu per satu: naskah, rencana visual, lembar karakter, ` +
+          `sekitar ${clipCountFor(series.durationSec)} gambar klip, narasi, dan caption per episode, lalu tiap episode terbuka di editor. ` +
+          'Lembar karakter dari episode sebelumnya dipakai ulang. ' +
+          (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+          'Episode yang sudah selesai dilewati.',
+      confirm: `Buat semua ${word.one}`,
       option: {
         ...exportOption(exportAfter, (on) => (exportAfter = on)),
-        hint: 'Satu file per episode (E01-….mp4) di subfolder seri, di folder ekspor bawaan.'
+        hint: `Satu file per ${word.one} (E01-….mp4) di subfolder seri, di folder ekspor bawaan.`
       }
     })
     if (!ok) return
@@ -447,18 +529,21 @@ export function SeriesPage({ id }: { id: string }) {
     let exportAfter = ready.autoExport
     const earlier = series.continuity === 'serial' && episodes.some((e) => e.no < ep.no && !e.summary.trim())
     const ok = await confirmDialog({
-      title: `Buat episode ${ep.no} sekali klik?`,
-      body:
-        'Naskah, rencana visual, gambar klip, narasi, dan caption episode ini dibuat otomatis memakai pemeran seri, lalu episodenya terbuka di editor. ' +
-        (earlier ? 'Ada episode sebelumnya yang belum punya naskah, jadi naskah ini ditulis dari rencananya saja. ' : '') +
-        (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router.' : 'Gambar dibuat lewat Higgsfield dan memakai kredit.'),
+      title: `Buat ${word.one} ${ep.no} sekali klik?`,
+      body: explainer
+        ? `Adegan dan narasi ${word.one} ini dibuat otomatis dengan template seri, lalu ${word.one}nya terbuka di editor. ` +
+          (earlier ? `Ada ${word.one} sebelumnya yang belum punya adegan, jadi ${word.one} ini disusun dari rencananya saja. ` : '') +
+          explainerImageText(ready).trim()
+        : 'Naskah, rencana visual, gambar klip, narasi, dan caption episode ini dibuat otomatis memakai pemeran seri, lalu episodenya terbuka di editor. ' +
+          (earlier ? 'Ada episode sebelumnya yang belum punya naskah, jadi naskah ini ditulis dari rencananya saja. ' : '') +
+          (ready.viaNineRouter ? 'Gambar dibuat lewat 9Router.' : 'Gambar dibuat lewat Higgsfield dan memakai kredit.'),
       confirm: 'Buat otomatis',
       option: { ...exportOption(exportAfter, (on) => (exportAfter = on)), hint: 'Ke subfolder seri di folder ekspor bawaan.' }
     })
     if (!ok) return
     void window.api.settings.set({ autoExport: exportAfter })
     const folder = await seriesExportFolder(series.title)
-    void runEpisode(ep, { exportAfter, folder, quiet: false }).catch((e) => toast('error', errorText(e)))
+    void runEpisode(ep, { kind: series.kind, exportAfter, folder, quiet: false }).catch((e) => toast('error', errorText(e)))
     go({ name: 'project', id: ep.id })
   }
 
@@ -466,7 +551,9 @@ export function SeriesPage({ id }: { id: string }) {
     if (again) {
       const ok = await confirmDialog({
         title: 'Susun ulang rencana seri?',
-        body: 'Bible, judul, dan semua rencana episode diganti dengan yang baru. Pemeran yang sudah punya lembar karakter tetap disimpan.',
+        body: explainer
+          ? `Bible, judul, dan semua rencana ${word.one} diganti dengan yang baru.`
+          : 'Bible, judul, dan semua rencana episode diganti dengan yang baru. Pemeran yang sudah punya lembar karakter tetap disimpan.',
         confirm: 'Susun ulang'
       })
       if (!ok) return
@@ -493,7 +580,7 @@ export function SeriesPage({ id }: { id: string }) {
     if (running || episodeRunning) return toast('error', 'Hentikan dulu pembuatan otomatis di seri ini.')
     const ok = await confirmDialog({
       title: 'Hapus seri?',
-      body: `“${series.title}” beserta ${episodes.length} episode, semua gambar, video, suara, dan lembar karakternya akan dihapus dari komputer ini. Tindakan ini tidak bisa dibatalkan.`,
+      body: `“${series.title}” beserta ${episodes.length} ${word.one}, semua gambar, video, suara${explainer ? '' : ', dan lembar karakternya'} akan dihapus dari komputer ini. Tindakan ini tidak bisa dibatalkan.`,
       confirm: 'Hapus seri',
       danger: true
     })
@@ -508,11 +595,11 @@ export function SeriesPage({ id }: { id: string }) {
   }
 
   const removeEpisode = async (ep: SeriesEpisode): Promise<void> => {
-    if (useAutopilot.getState().runs[ep.id]?.state === 'running') return toast('error', 'Hentikan dulu pembuatan otomatis episode ini.')
+    if (useAutopilot.getState().runs[ep.id]?.state === 'running') return toast('error', `Hentikan dulu pembuatan otomatis ${word.one} ini.`)
     const ok = await confirmDialog({
-      title: `Hapus episode ${ep.no}?`,
-      body: `“${stripEpisodeTag(ep.title)}” beserta gambar, video, dan suaranya dihapus. Episode sesudahnya maju satu nomor.`,
-      confirm: 'Hapus episode',
+      title: `Hapus ${word.one} ${ep.no}?`,
+      body: `“${stripEpisodeTag(ep.title)}” beserta gambar, video, dan suaranya dihapus. ${word.title} sesudahnya maju satu nomor.`,
+      confirm: `Hapus ${word.one}`,
       danger: true
     })
     if (!ok) return
@@ -530,12 +617,15 @@ export function SeriesPage({ id }: { id: string }) {
         series={series}
         episodes={episodes.length}
         running={running}
+        busy={busy || episodeRunning}
         stopping={!!run?.stopping}
         onRename={(title) => void window.api.series.update(id, { title }).then(() => refresh())}
         onRemove={() => void removeSeries()}
         onStart={() => void startAll()}
         onStop={() => void stopSeriesAutopilot(id)}
+        onSettings={() => setSettingsOpen(true)}
       />
+      {settingsOpen && <SeriesSettingsModal bundle={bundle} onClose={() => setSettingsOpen(false)} onChange={setBundle} />}
       <main className="scroll-thin min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid max-w-[1240px] grid-cols-[minmax(0,1fr)_minmax(0,380px)] items-start gap-6 px-8 py-8">
           <section className="flex min-w-0 flex-col gap-4">
@@ -543,11 +633,15 @@ export function SeriesPage({ id }: { id: string }) {
 
             <div className="flex items-end gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="font-display text-[27px] font-bold tracking-[-0.015em]">Episode</h2>
+                <h2 className="font-display text-[27px] font-bold tracking-[-0.015em]">{word.title}</h2>
                 <p className="mt-1 text-[13px] text-ink-2">
-                  {series.continuity === 'serial'
-                    ? 'Bersambung: setiap episode melanjutkan cerita sebelumnya, jadi naskahnya ditulis berurutan.'
-                    : 'Antologi: setiap episode cerita lepas dengan dunia dan pemeran yang sama.'}
+                  {explainer
+                    ? series.continuity === 'serial'
+                      ? 'Berurutan seperti kursus: setiap pelajaran melanjutkan pelajaran sebelumnya, jadi adegannya disusun berurutan.'
+                      : 'Lepas: setiap episode membahas hal berbeda dengan tema dan template yang sama.'
+                    : series.continuity === 'serial'
+                      ? 'Bersambung: setiap episode melanjutkan cerita sebelumnya, jadi naskahnya ditulis berurutan.'
+                      : 'Antologi: setiap episode cerita lepas dengan dunia dan pemeran yang sama.'}
                 </p>
               </div>
               {episodes.length > 0 && !started && (
@@ -560,14 +654,18 @@ export function SeriesPage({ id }: { id: string }) {
             {planning && !run && (
               <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-ink-2" data-series-planning>
                 <Spinner className="size-5" />
-                Menyusun bible, pemeran, dan rencana tiap episode…
+                {explainer ? `Menyusun bible dan rencana tiap ${word.one}…` : 'Menyusun bible, pemeran, dan rencana tiap episode…'}
               </div>
             )}
 
             {!episodes.length && !planning && !running && (
               <div className="flex flex-col items-start gap-3 rounded-2xl border-[1.5px] border-dashed border-line-3 px-6 py-6">
                 <p className="text-[15px] font-semibold">Rencana seri belum ada</p>
-                <p className="text-sm text-ink-2">AI menyusun bible, pemeran tetap, dan rencana {series.episodeCount} episode dari premismu.</p>
+                <p className="text-sm text-ink-2">
+                  {explainer
+                    ? `AI menyusun bible dan rencana ${series.episodeCount} ${word.one} dari topikmu.`
+                    : `AI menyusun bible, pemeran tetap, dan rencana ${series.episodeCount} episode dari premismu.`}
+                </p>
                 <Button variant="primary" icon={<Layers className="size-4" />} onClick={() => void plan(false)}>
                   Susun seri
                 </Button>
@@ -595,14 +693,19 @@ export function SeriesPage({ id }: { id: string }) {
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-3 text-sm font-medium text-ink-2 enabled:hover:border-ink-2 enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {adding ? <Spinner /> : <Plus className="size-4" />}
-                {adding ? 'Menyusun episode berikutnya…' : episodes.length >= MAX_EPISODES ? `Maksimal ${MAX_EPISODES} episode` : 'Tambah episode'}
+                {adding
+                  ? `Menyusun ${word.one} berikutnya…`
+                  : episodes.length >= MAX_EPISODES
+                    ? `Maksimal ${MAX_EPISODES} ${word.one}`
+                    : `Tambah ${word.one}`}
               </button>
             )}
           </section>
 
           <aside className="flex min-w-0 flex-col gap-4">
             <BiblePanel series={series} onChange={(s) => setBundle((b) => (b ? { ...b, series: s } : b))} />
-            <CastPanel characters={characters} onChange={() => void refresh()} />
+            {/* An explainer series has no recurring characters. */}
+            {!explainer && <CastPanel characters={characters} onChange={() => void refresh()} />}
           </aside>
         </div>
       </main>

@@ -24,6 +24,25 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   **Uji render**.
 - Catatan lisensi Remotion di halaman Tentang dan README: gratis untuk perorangan dan perusahaan sampai 3 karyawan;
   perusahaan yang lebih besar perlu Remotion Company License sendiri.
+- **Seri video penjelasan**: di Beranda, **Video penjelasan** sekarang juga bisa dibuat sebagai **Seri**. Alur
+  **Berurutan** menjadi kursus (setiap pelajaran membangun dari pelajaran sebelumnya, membaca ringkasannya, dan
+  ditutup dengan bocoran pelajaran berikutnya); alur **Lepas** membuat episode berdiri sendiri dengan tema yang sama
+  dan isi yang tidak tumpang tindih. Bible seri berisi penonton & cakupan, gaya bicara, dan aturan; tidak ada
+  pemeran. Semua episode memakai template dan palet seri, dan **Sekali klik semua** merender setiap pelajaran ke
+  folder seri.
+- **Pengaturan seri** di halaman seri: gaya visual (cerita) atau template dan palet (penjelasan), suara narator,
+  format, bahasa, durasi per episode, dan model gambar bisa diubah setelah seri dibuat. Perubahan berlaku untuk
+  episode yang belum punya naskah/adegan; episode yang sudah dibuat tetap memakai pengaturannya sendiri.
+- Ringkasan episode di halaman seri bisa disunting (tersimpan otomatis); episode berikutnya ditulis dari teks itu.
+- Tombol **Ambil pemeran seri** di Storyboard episode untuk mengembalikan pemeran seri yang pernah dihapus dari
+  episode itu.
+
+### Diperbaiki
+- Pemeran yang dihapus dari satu episode tidak lagi ditambahkan kembali setiap kali episode itu dibuka. Membuka
+  episode sekarang hanya menyalin lembar karakter; pemeran seri ditambahkan saat episode dibuat dan sebelum Sekali
+  klik menulis naskah atau rencana visualnya, kecuali yang pernah kamu hapus. Pemeran yang dihapus atau diganti
+  namanya di halaman seri juga tidak lagi dikembalikan dari episode.
+- Sekali klik seri menganggap episode video penjelasan selesai walaupun adegannya tidak memakai gambar AI.
 
 ### Diubah
 - Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi

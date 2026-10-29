@@ -142,3 +142,21 @@ butuh gestur pengguna untuk memutar media, jadi Player memakai `numberOfSharedAu
 Browser render tidak mengenal `studio://`. Membuka akses `file://` ke seluruh disk lebih berisiko, jadi setiap
 render mendapat server HTTP di `127.0.0.1` dengan port dan prefix acak yang hanya menyajikan folder proyek dan
 font, lalu ditutup.
+
+### Pemeran yang dihapus dari episode dicatat, bukan disalin ulang
+Dulu `syncCastIn` menambahkan setiap pemeran seri yang tidak ada di episode, juga setiap kali halaman episode dibuka.
+Pemeran yang sengaja dihapus pengguna dari satu episode jadi muncul lagi diam-diam. Sekarang membuka episode hanya
+menyalin lembar karakter untuk pemeran yang sudah ada; pemeran seri ditambahkan saat episode dibuat dan sebelum
+Sekali klik menulis naskah atau rencana visualnya (saat itulah pemeran memengaruhi hasil). Supaya penambahan itu juga
+tidak membatalkan hapusan, `saveSnapshot` mencatat nama yang hilang dari episode di `projects.cast_removed_json`.
+Catatan dibuat di proses utama, di satu tempat yang dilewati semua perubahan pemeran dari renderer, dan nama yang
+kembali ada di episode dihapus dari catatan, jadi snapshot lama yang sempat menghapus pemeran lalu dimuat ulang tidak
+meninggalkan catatan yang salah. Arah sebaliknya sama: pemeran yang dihapus atau diganti namanya di halaman seri
+dicatat di `series.cast_removed_json` supaya `syncCastOut` tidak mengembalikannya dari episode lama. Pengembalian
+yang disengaja lewat tombol **Ambil pemeran seri**.
+
+### Pengaturan seri hanya diterapkan ke episode tanpa klip
+Gambar, lembar karakter, dan suara episode yang sudah dibuat bergantung pada gaya, model, suara, format, dan bahasa
+saat itu. Mengubahnya di episode tersebut membuat episode setengah lama setengah baru (misalnya narasi baru dengan
+suara lain sementara gambar tetap). Karena itu `updateSeriesSettings` hanya menulis ke episode yang belum punya klip,
+dan hanya kolom yang diubah, lalu UI menyebut berapa episode yang tidak ikut berubah.

@@ -75,28 +75,82 @@ menampilkan kartu seri bertumpuk dengan progres "3/5 episode siap", dan chip fil
 4. **Tambah episode** (`generateNextEpisode`): LLM menulis satu rencana episode lagi dari bible, pemeran, dan
    ringkasan episode yang sudah ada.
 
+Ringkasan episode tampil di kartu episode di halaman seri dan **bisa disunting** (tersimpan otomatis lewat
+`series:updateEpisode`), karena naskah episode berikutnya dan **Tambah episode** membaca teks itu, bukan naskahnya.
+
+### Seri video penjelasan (`series.kind = 'explainer'`)
+
+Di Beranda, **Video penjelasan** juga bisa dipakai dengan sakelar **Seri** (pemilih template tetap tampil). Seri
+menyimpan `template_id` dan `theme_json` (palet, aksen, font, caption; tanpa logo karena logo adalah file satu
+proyek), dan setiap episode dibuat sebagai proyek `kind = 'explainer'` dengan template dan tema itu. Alurnya:
+
+- **Berurutan** (`serial`) = kursus: tiap episode disebut *pelajaran* di UI, membangun dari pelajaran sebelumnya,
+  dan ditutup dengan bocoran pelajaran berikutnya.
+- **Lepas** (`anthology`) = episode berdiri sendiri dengan tema yang sama (misalnya "Tips Excel" dengan tips berbeda
+  tiap episode) dan isi yang tidak boleh tumpang tindih.
+
+1. **Rencana** (`seriesPlanRequest` di `story.ts`, skema `EXPLAINER_SERIES_SCHEMA`): dari topik, alur, jumlah
+   episode, durasi, dan template, LLM menulis `{ title, world, tone, rules, episodes[{no, title, synopsis, hook}] }`
+   tanpa pemeran. Bentuk bible sama dengan seri cerita, tapi `world` berisi **penonton & cakupan** (label di halaman
+   seri), `tone` = gaya bicara. Semua teks dalam bahasa seri.
+2. **Adegan episode** (`generateExplainerScenes` + `explainerEpisodeBrief`): prompt biasa ditambah judul dan topik
+   seri, penonton & cakupan, gaya bicara, aturan, "lesson/episode N of M", dan untuk kursus ringkasan pelajaran
+   sebelumnya serta hook pelajaran berikutnya (outro menggoda pelajaran itu; pelajaran terakhir menutup kursus). Seri
+   lepas hanya mendapat judul episode lain supaya isinya tidak diulang. Skemanya varian `withEpisodeSummary` dengan
+   `summary` yang disimpan ke `episode_summary` (kalau model tidak mengirimnya, judul-judul adegan dipakai);
+   video penjelasan biasa tetap memakai skema lama. Judul `E01 · …` tidak diganti.
+3. Tidak ada pemeran: `syncCastIn`/`syncCastOut` langsung kembali untuk seri penjelasan, dan panel Pemeran tidak
+   ditampilkan. Sekali klik seri memakai `explainerMedia` di `autopilot.ts` untuk tiap episode dan mengekspor lewat
+   Remotion.
+
+### Pengaturan seri (`updateSeriesSettings`, `SeriesSettings.tsx`)
+
+Tombol **Pengaturan seri** di header halaman seri membuka panel untuk gaya visual (cerita) atau template dan palet
+(penjelasan), suara narator, format, bahasa, durasi per episode, dan model gambar. Setiap perubahan langsung disimpan
+(`series:updateSettings`) ke baris seri dan **hanya ke episode yang belum punya klip**; episode yang sudah punya
+naskah/adegan tetap memakai pengaturannya sendiri karena gambar dan suaranya dibuat dengan pengaturan itu. Panel
+menyebut berapa episode yang terkena dan berapa yang tidak. Hanya kolom yang diubah yang ditulis ke episode, jadi
+pengaturan yang disetel sendiri di satu episode tidak tertimpa kolom lain. Tombolnya dinonaktifkan selama rencana
+atau Sekali klik berjalan di seri itu (episode yang sedang dibuat sudah membaca pengaturannya).
+
 ### Pemeran bersama (`syncCastIn` / `syncCastOut`)
 
 Aset tidak bisa dipakai lintas proyek (ekspor dan pratinjau mencari setiap file di folder proyek pemiliknya), jadi
 lembar karakter **disalin**:
 
-- **Masuk ke episode** (`series:syncCastIn`): saat episode dibuat, saat halaman episode dibuka, dan sebelum episode
-  dijalankan Sekali klik. Pemeran yang belum ada (dicocokkan dari nama, huruf kecil, tanpa spasi tepi) ditambahkan;
-  lembar karakter seri disalin ke `images/` proyek sebagai aset `image` (`provider = 'series'`, `character_id`
-  terisi) lalu dijadikan `sheet_asset_id`. Karena pemerannya sudah punya lembar, `generateMissingImages` tidak membuat
-  lembar baru. Pemeran yang sudah punya lembar sendiri di episode itu tidak diubah.
+- **Masuk ke episode** (`series:syncCastIn`). Pemeran dicocokkan dari nama (huruf kecil, tanpa spasi tepi,
+  `castKey`). Lembar karakter seri disalin ke `images/` proyek sebagai aset `image` (`provider = 'series'`,
+  `character_id` terisi) lalu dijadikan `sheet_asset_id` pemeran episode dengan nama itu. Karena pemerannya sudah
+  punya lembar, `generateMissingImages` tidak membuat lembar baru. Pemeran yang sudah punya lembar sendiri di episode
+  itu tidak diubah. Kapan pemeran **ditambahkan** diatur sendiri:
+
+  | Saat | Lembar disalin | Pemeran seri yang belum ada ditambahkan |
+  |---|---|---|
+  | Episode dibuat (`createEpisode`) | ya | ya, semuanya |
+  | Halaman episode dibuka | ya, untuk pemeran yang sudah ada | **tidak** |
+  | Sebelum Sekali klik (`runEpisode`) | ya | hanya kalau naskah atau rencana visual masih perlu ditulis (`addMissing`) |
+  | Tombol **Ambil pemeran seri** di Storyboard (`restore`) | ya | ya, termasuk yang pernah dihapus |
+
+  **Pemeran yang dihapus tetap terhapus.** `saveSnapshot` mencatat nama pemeran yang hilang dari episode (dihapus,
+  atau diganti nama) di `projects.cast_removed_json` (`noteRemovedCast`), dan `addMissing` tidak pernah menambahkan
+  nama di daftar itu. Nama yang muncul lagi di episode (ditambah sendiri dengan nama yang sama) dihapus dari daftar.
+  Hanya **Ambil pemeran seri** yang mengosongkan daftar itu.
 - **Kembali ke seri** (`series:syncCastOut`): setelah tiap episode selesai di Sekali klik seri, dan saat halaman
   episode ditutup. Pemeran baru (dengan lembarnya kalau ada) ditambahkan ke `series_characters`, dan pemeran seri yang
-  belum punya lembar mendapat salinan lembar dari episode. Lembar seri yang sudah ada tidak pernah ditimpa.
+  belum punya lembar mendapat salinan lembar dari episode. Lembar seri yang sudah ada tidak pernah ditimpa. Pemeran
+  yang dihapus dari seri di halaman seri, atau nama lama pemeran yang diganti namanya di sana, dicatat di
+  `series.cast_removed_json` dan tidak ditambahkan kembali dari episode; rencana seri yang menyebut nama itu lagi
+  menghapusnya dari daftar.
 
 File lembar seri ada di `<userData>/series/<id>/sheets/` dan ditampilkan lewat `studio://series/<id>/…`.
 
 ### Sekali klik seri (`src/renderer/src/lib/seriesAutopilot.ts`)
 
 `startSeriesAutopilot` menyusun rencana kalau seri belum punya episode, lalu menjalankan episode **satu per satu**
-sesuai nomor. Episode yang sudah selesai (ada adegan, `remainingWork` kosong, sudah di Editor, dan sudah diekspor
-kalau ekspor diminta) dilewati. Untuk setiap episode lain: `syncCastIn` → `runAutopilot` (versi `startAutopilot` yang
-mengembalikan `'done' | 'failed' | 'stopped'`) → `syncCastOut`. Kalau satu episode gagal, run berhenti dan kartu
+sesuai nomor. Episode yang sudah selesai (ada adegan, `remainingWork` untuk jenis proyeknya kosong, sudah di Editor,
+dan sudah diekspor kalau ekspor diminta) dilewati. Untuk setiap episode lain: `syncCastIn` → `runAutopilot` (versi
+`startAutopilot` yang mengembalikan `'done' | 'failed' | 'stopped'`) → `syncCastOut`; seri penjelasan hanya
+`runAutopilot`. Kalau satu episode gagal, run berhenti dan kartu
 progres di halaman seri menyebut episode mana yang gagal beserta tombol **Coba lagi**; **Hentikan** menghentikan
 episode yang sedang berjalan, dan **Lanjutkan** meneruskan dari episode itu.
 

@@ -103,15 +103,19 @@ export function ModelSection({
   perClip,
   onChange,
   onOpenSettings,
-  imageOnly = false
+  imageOnly = false,
+  note
 }: {
-  project: Project
+  /** A project, or anything with its model fields (a series' settings for new episodes). */
+  project: Pick<Project, 'imageModel' | 'videoModel' | 'videoResolution' | 'aspectRatio'>
   clipCount: number
   perClip: number
   onChange: (patch: { imageModel?: string; videoModel?: string; videoResolution?: string | null }) => void
   onOpenSettings?: () => void
   /** Explainer projects: only the image model, for the scenes that ask for an AI picture. */
   imageOnly?: boolean
+  /** Replaces the line next to the "Model AI" heading. */
+  note?: string
 }) {
   const image = getImageModel(project.imageModel)
   const viaNineRouter = isNineRouterImage(project.imageModel)
@@ -158,7 +162,9 @@ export function ModelSection({
       <div className="flex items-baseline gap-2">
         <span className="text-sm font-semibold">Model AI</span>
         <span className="text-[13px] text-muted">
-          {imageOnly
+          {note
+            ? note
+            : imageOnly
             ? 'Untuk adegan yang memakai gambar AI'
             : source === 'ninerouter'
             ? `Gambar lewat 9Router, ${VIDEO_OPTIONS.length} model video dari Higgsfield`

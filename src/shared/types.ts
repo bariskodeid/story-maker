@@ -387,8 +387,8 @@ export interface CharacterPatchEvent {
 
 /** serial: the episodes tell one continuing story; anthology: standalone stories with the same cast and world. */
 export type SeriesContinuity = 'serial' | 'anthology'
-/** Only story series exist for now; the column leaves room for other project kinds. */
-export type SeriesKind = 'story'
+/** Story series share a cast; explainer series (a course of lessons, a recurring tips or facts show) share a template. */
+export type SeriesKind = ProjectKind
 
 /** The series bible: what every episode script must agree with. */
 export interface SeriesBible {
@@ -417,6 +417,10 @@ export interface Series {
   ttsVoice: string
   imageModel: string | null
   videoModel: string | null
+  /** Explainer series: the template every new episode starts with; null for story series. */
+  templateId: ExplainerTemplateId | null
+  /** Explainer series: palette, font, accent and captions for new episodes (never a logo, which is a project file). */
+  theme: ExplainerTheme
   createdAt: number
   updatedAt: number
 }
@@ -457,8 +461,10 @@ export interface SeriesBundle {
 export interface SeriesSummary {
   id: string
   title: string
+  kind: SeriesKind
   continuity: SeriesContinuity
   styleId: string
+  templateId: ExplainerTemplateId | null
   episodeCount: number
   /** Episodes that reached the editor (status editing or exported). */
   readyCount: number
@@ -476,6 +482,29 @@ export interface NewSeriesInput {
   aspectRatio: AspectRatio
   styleId: string
   ttsProvider: TtsProvider
+  kind?: SeriesKind
+  templateId?: ExplainerTemplateId
 }
 
 export type SeriesPatch = Partial<Pick<Series, 'title' | 'premise'> & Pick<SeriesBible, 'world' | 'tone' | 'rules'>>
+
+/** Settings episodes start with. A change also reaches the episodes that have no scenes yet, never the others. */
+export type SeriesSettingsPatch = Partial<
+  Pick<Series, 'durationSec' | 'language' | 'aspectRatio' | 'styleId' | 'ttsProvider' | 'ttsVoice' | 'imageModel' | 'templateId' | 'theme'>
+>
+
+export interface SeriesSettingsResult {
+  bundle: SeriesBundle
+  /** Episodes without scenes that took the new settings. */
+  applied: number
+  /** Episodes that already have scenes and keep their own settings. */
+  kept: number
+}
+
+/** When the series cast is copied into an episode (see syncCastIn in src/main/series.ts). */
+export interface CastSyncOptions {
+  /** Also add series characters the episode does not have, except ones removed from it by hand. */
+  addMissing?: boolean
+  /** "Ambil pemeran seri": forget what was removed by hand and add the whole series cast. */
+  restore?: boolean
+}

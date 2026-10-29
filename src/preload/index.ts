@@ -28,6 +28,7 @@ const api: StudioApi = {
     create: call('series:create'),
     get: call('series:get'),
     update: call('series:update'),
+    updateSettings: call('series:updateSettings'),
     remove: call('series:remove'),
     plan: call('series:plan'),
     addEpisode: call('series:addEpisode'),

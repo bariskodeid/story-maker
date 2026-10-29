@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
+  Users,
   Volume2
 } from 'lucide-react'
 import { effectiveResolution, fitDuration, getVideoModel } from '@shared/higgsfield'
@@ -556,6 +557,20 @@ export function StoryboardStep() {
     }
   }
 
+  // Opening an episode never re-adds characters deleted from it; this is the deliberate way to get the cast back.
+  const takeSeriesCast = async (): Promise<void> => {
+    try {
+      await flush()
+      const before = characters.length
+      const b = await window.api.series.syncCastIn(project.id, { restore: true })
+      load(b)
+      const added = b.characters.length - before
+      toast('success', added > 0 ? `${added} pemeran seri ditambahkan ke episode ini.` : 'Semua pemeran seri sudah ada di episode ini.')
+    } catch (e) {
+      toast('error', errorText(e))
+    }
+  }
+
   if (!clips.length)
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
@@ -599,6 +614,17 @@ export function StoryboardStep() {
             <Plus className="size-[15px]" />
             Tambah pemeran
           </button>
+          {project.seriesId && (
+            <button
+              type="button"
+              onClick={() => void takeSeriesCast()}
+              title="Tambahkan pemeran seri yang tidak ada di episode ini, termasuk yang pernah kamu hapus dari sini."
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line-3 px-3.5 text-[13px] font-medium text-ink-2 hover:border-ink-2"
+            >
+              <Users className="size-[15px]" />
+              Ambil pemeran seri
+            </button>
+          )}
         </div>
         <div className="flex-1" />
         <Button
