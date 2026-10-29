@@ -18,6 +18,7 @@ import {
   setSeriesBible
 } from './series'
 import { generateJson } from './services/llm'
+import { getSettings } from './settings'
 
 const CAMERA_IDS = CAMERA_PRESETS.map((c) => c.id)
 const STRENGTH_IDS = MOTION_STRENGTHS.map((m) => m.id)
@@ -126,6 +127,15 @@ function episodeBrief(project: Project): { system: string[]; prompt: string[] } 
 }
 
 /** Writes the scene-by-scene script (story and voice-over) that the user reviews before any visuals exist. */
+/** The end of a story script as set in Settings › Umum; a serial episode's cliffhanger rule overrides it. */
+function closingLine(lang: string): string {
+  const { closingCta, closingCtaText } = getSettings()
+  const own = closingCtaText.trim()
+  if (closingCta === 'none') return 'End on the story itself: no call to action, and no request to subscribe, like, share or comment.'
+  if (closingCta === 'custom' && own) return `The last scene ends with this call to action, said naturally in ${lang}: "${own}".`
+  return 'The last scene can invite viewers to subscribe.'
+}
+
 export async function generateScript(projectId: string): Promise<ProjectBundle> {
   const project = getProject(projectId)
   if (!project.synopsis.trim()) throw new Error('Tulis ide cerita atau sinopsis dulu.')
@@ -136,7 +146,8 @@ export async function generateScript(projectId: string): Promise<ProjectBundle> 
   const system = [
     'You are a scriptwriter for faceless YouTube storytelling and explainer videos.',
     'You turn an idea into a sequence of short scenes. Each scene has one line of voice-over.',
-    'The first scene is a strong hook. The story has a clear beginning, rising tension and a satisfying ending. The last scene can invite viewers to subscribe.',
+    'The first scene is a strong hook. The story has a clear beginning, rising tension and a satisfying ending.',
+    closingLine(lang),
     'Keep facts accurate for history and science topics, and always call each character by the same name.',
     'The narration is voiced by an expressive text-to-speech model. Where it helps the delivery, add a few English vocal tags in angle brackets inside the narration, such as <short pause>, <long pause>, <chuckles>, <sigh>, <gasp> or <whispers>. Use them sparingly, at most one or two per scene, and never other markup.',
     ...(episode?.system ?? []),

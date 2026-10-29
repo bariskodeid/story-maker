@@ -323,6 +323,9 @@ export interface AppSettings {
   whisperAuto: boolean
   /** One-click generate also exports an MP4 once the editor is ready; the last choice made when starting a run. */
   autoExport: boolean
+  /** How a story script ends: a subscribe line, no call to action, or the user's own line (`closingCtaText`). */
+  closingCta: 'subscribe' | 'none' | 'custom'
+  closingCtaText: string
 }
 
 /** What one Higgsfield request would cost, from the API's estimate endpoint. */

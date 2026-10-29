@@ -16,7 +16,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   imageModel: DEFAULT_IMAGE_MODEL,
   videoModel: DEFAULT_VIDEO_MODEL,
   whisperAuto: true,
-  autoExport: false
+  autoExport: false,
+  closingCta: 'subscribe',
+  closingCtaText: ''
 }
 
 export function getSettings(): AppSettings {

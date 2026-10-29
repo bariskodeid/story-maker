@@ -9,6 +9,9 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- **Penutup naskah cerita** di Pengaturan › Umum: ajak subscribe (bawaan), tanpa ajakan, atau ajakan sendiri.
+- Contoh ide di Beranda mengikuti template video penjelasan yang dipilih, termasuk Perbandingan dan Berita (contoh
+  Berita memakai teks berita yang kamu tempel atau peristiwa yang sudah pasti, karena AI tidak punya berita terkini).
 - **Gaya visual baru untuk cerita** (total 28): Fabel kartun hewan (semua pemeran digambar sebagai hewan
   antropomorfik), Anime lukisan tangan, Chibi lucu, Manga hitam putih, Wayang & batik, Lukisan Kamasan Bali, Ukiyo-e
   Jepang, Komik pop art, Kartun retro 90-an, Ilustrasi horor, Stop-motion kertas 3D, dan Lukisan cat minyak, lengkap
@@ -59,6 +62,9 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   episode itu.
 
 ### Diperbaiki
+- Kartu video penjelasan di Beranda kini menampilkan durasi video yang sebenarnya (termasuk jeda masuk dan tahan tiap
+  adegan), sama dengan halaman seri.
+- Sekali klik: narasi yang gagal langsung dicoba lagi tanpa menunggu semua gambar putaran pertama selesai.
 - Di langkah Editor, tombol Lanjutkan otomatis kini tampil sebagai ikon, supaya header tidak menimpa tab langkah saat
   tombol Ekspor video juga tampil.
 - Pemeran yang dihapus dari satu episode tidak lagi ditambahkan kembali setiap kali episode itu dibuka. Membuka

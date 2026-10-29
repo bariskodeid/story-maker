@@ -84,7 +84,7 @@ export function exportOption(initial: boolean, onChange: (on: boolean) => void) 
   }
 }
 
-/** Failed images and narration get one more round before the run gives up. */
+/** Failed images and narration each get one more round before the run gives up. */
 const MEDIA_ROUNDS = 2
 const TERMINAL: Job['status'][] = ['done', 'failed', 'canceled']
 
@@ -136,6 +136,40 @@ function waitFor(id: string, jobIds: string[]): Promise<void> {
       if (++polls % 20 === 0) void window.api.projects.get(id).then((b) => track(id, b.jobs.filter((j) => jobIds.includes(j.id))))
     }, 500)
   })
+}
+
+const needsVoice = (c: Clip): boolean => !!c.narration.trim() && !c.audioAssetId
+
+/**
+ * Pictures and narration run side by side (they use separate queues), each with its own rounds: a narration that
+ * fails fast is tried again at once instead of after every picture of the first round.
+ */
+async function makeMedia(id: string, wantsImage: (c: Clip) => boolean): Promise<void> {
+  const lane = async (start: () => Promise<Job[]>, missing: (b: ProjectBundle) => boolean): Promise<void> => {
+    for (let round = 0; round < MEDIA_ROUNDS; round++) {
+      checkStop(id)
+      await flushIfOpen(id)
+      if (!missing(await window.api.projects.get(id))) return
+      const jobs = await start()
+      if (!jobs.length) return
+      track(id, jobs)
+      await waitFor(
+        id,
+        jobs.map((j) => j.id)
+      )
+      checkStop(id)
+    }
+  }
+  await Promise.all([
+    lane(
+      () => window.api.generate.missingImages(id),
+      (b) => b.clips.some(wantsImage)
+    ),
+    lane(
+      async () => [await window.api.generate.narration(id, 'missing')],
+      (b) => b.clips.some(needsVoice)
+    )
+  ])
 }
 
 async function openEditor(id: string): Promise<void> {
@@ -195,23 +229,10 @@ async function explainerMedia(id: string, start: ProjectBundle): Promise<Project
   const [settings, keys] = await Promise.all([window.api.settings.get(), window.api.settings.keys()])
   const images = missingServices(settings, keys, { story: false, imageModel: b.project.imageModel ?? settings.imageModel, tts: null }).length === 0
   const wantsImage = (c: Clip): boolean => images && wantsAiImage(c.scene) && !c.imageAssetId
-  for (let round = 0; round < MEDIA_ROUNDS; round++) {
-    await flushIfOpen(id)
-    b = await window.api.projects.get(id)
-    const started: Job[] = []
-    if (b.clips.some(wantsImage)) started.push(...(await window.api.generate.missingImages(id)))
-    if (b.clips.some((c) => c.narration.trim() && !c.audioAssetId)) started.push(await window.api.generate.narration(id, 'missing'))
-    if (!started.length) break
-    track(id, started)
-    await waitFor(
-      id,
-      started.map((j) => j.id)
-    )
-    checkStop(id)
-  }
+  await makeMedia(id, wantsImage)
   b = await window.api.projects.get(id)
   const missingImages = b.clips.filter(wantsImage).length
-  const missingVoices = b.clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
+  const missingVoices = b.clips.filter(needsVoice).length
   if (missingImages || missingVoices) throw new Error(failureText(id, missingImages, missingVoices))
   return b
 }
@@ -261,25 +282,11 @@ async function pipeline(id: string): Promise<AutopilotResult> {
     checkStop(id)
 
     patch(id, { stage: 'media' })
-    for (let round = 0; round < MEDIA_ROUNDS; round++) {
-      await flushIfOpen(id)
-      b = await window.api.projects.get(id)
-      const started: Job[] = []
-      // Images and narration use separate queues, so both run at the same time.
-      if (b.clips.some((c) => !c.imageAssetId)) started.push(...(await window.api.generate.missingImages(id)))
-      if (b.clips.some((c) => c.narration.trim() && !c.audioAssetId)) started.push(await window.api.generate.narration(id, 'missing'))
-      if (!started.length) break
-      track(id, started)
-      await waitFor(
-        id,
-        started.map((j) => j.id)
-      )
-      checkStop(id)
-    }
+    await makeMedia(id, (c) => !c.imageAssetId)
 
     b = await window.api.projects.get(id)
     const missingImages = b.clips.filter((c) => !c.imageAssetId).length
-    const missingVoices = b.clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
+    const missingVoices = b.clips.filter(needsVoice).length
     if (missingImages || missingVoices) throw new Error(failureText(id, missingImages, missingVoices))
 
     return await finishRun(id, b)

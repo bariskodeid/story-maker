@@ -29,6 +29,9 @@ Tombol **Sekali klik** di Beranda membuat proyek lalu menjalankan langkah 1–4 
    yang gagal diulang satu putaran lagi (`MEDIA_ROUNDS`);
 4. proyek dipindah ke langkah 4 (Editor), status `editing`.
 
+Gambar dan narasi punya jalurnya sendiri (`makeMedia`): masing-masing mendapat `MEDIA_ROUNDS` percobaan, jadi narasi
+yang gagal cepat langsung dicoba lagi tanpa menunggu semua gambar putaran pertama selesai.
+
 Di dalam proyek, tombol **Lanjutkan otomatis** di header (`AutopilotButton`) menjalankan urutan yang sama dari
 posisi proyek saat itu, misalnya setelah naskah kamu sunting. Tombol ini hanya muncul kalau masih ada yang perlu
 dibuat (`remainingWork`), dan sebelum mulai memeriksa layanan yang akan dipanggil (`missingServices` di

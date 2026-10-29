@@ -26,7 +26,7 @@ import { Select } from '../components/Select'
 import { AboutSection } from './AboutSection'
 import { RenderEngineSection } from './RenderEngineSection'
 import { WhisperSection } from './WhisperSection'
-import { Badge, Button, Field, IconButton, confirmDialog, cx, inputCls } from '../components/ui'
+import { Badge, Button, Field, IconButton, Segmented, confirmDialog, cx, inputCls } from '../components/ui'
 import { errorText, relativeTime } from '../lib/format'
 import { useModels } from '../lib/useModels'
 import { useApp } from '../store/app'
@@ -767,6 +767,28 @@ export function Settings() {
                         Ganti folder
                       </Button>
                     </div>
+                  </Field>
+                  <Field label="Penutup naskah cerita" hint="Episode seri bersambung yang belum terakhir tetap ditutup dengan cliffhanger ke episode berikutnya.">
+                    <div className="max-w-[520px]">
+                      <Segmented<AppSettings['closingCta']>
+                        value={settings.closingCta}
+                        onChange={async (v) => setSettings(await window.api.settings.set({ closingCta: v }))}
+                        options={[
+                          { id: 'subscribe', label: 'Ajak subscribe' },
+                          { id: 'none', label: 'Tanpa ajakan' },
+                          { id: 'custom', label: 'Ajakan sendiri' }
+                        ]}
+                      />
+                    </div>
+                    {settings.closingCta === 'custom' && (
+                      <input
+                        defaultValue={settings.closingCtaText}
+                        onBlur={async (e) => setSettings(await window.api.settings.set({ closingCtaText: e.target.value.trim() }))}
+                        placeholder="Contoh: Follow supaya tidak ketinggalan part 2"
+                        maxLength={160}
+                        className={cx(inputCls, 'mt-2 h-11 max-w-[520px]')}
+                      />
+                    )}
                   </Field>
                 </section>
                 <RenderEngineSection

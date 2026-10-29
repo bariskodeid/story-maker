@@ -69,11 +69,16 @@ const SUGGESTIONS = [
   'Kenapa kucing suka masuk ke dalam kotak?'
 ]
 
-const EXPLAINER_SUGGESTIONS = [
-  'Cara membuat repositori Git pertama untuk pemula',
-  '5 trik supaya tetap fokus saat kerja dari rumah',
-  'Fakta mengejutkan tentang matahari'
-]
+// Each template wants a different kind of topic, so the examples follow the chosen template.
+const EXPLAINER_SUGGESTIONS: Record<ExplainerTemplateId, string[]> = {
+  tutorial: ['Cara membuat repositori Git pertama untuk pemula', 'Cara membuat rumus VLOOKUP di Excel', 'Cara mengatur tabungan bulanan pakai aturan 50/30/20'],
+  tips: ['5 trik supaya tetap fokus saat kerja dari rumah', '7 kebiasaan kecil yang bikin tidur lebih nyenyak', '5 tips foto produk pakai HP'],
+  facts: ['Fakta mengejutkan tentang matahari', '5 fakta unik hewan endemik Indonesia', 'Hal yang terjadi pada tubuh saat kamu begadang'],
+  quote: ['Kutipan tentang tidak menyerah untuk memulai pagi', 'Kata-kata bijak tentang kesabaran', 'Motivasi untuk mahasiswa tingkat akhir'],
+  compare: ['Kereta atau pesawat untuk mudik Jakarta–Surabaya?', 'Laptop atau tablet untuk kuliah?', 'Menabung emas atau reksa dana untuk pemula?'],
+  // The writer has no live news, so news examples bring their own facts or look back at settled events.
+  news: ['Rangkum berita ini jadi tiga poin: (tempel isi beritanya di sini)', 'Kilas balik: tiga penemuan sains yang mengubah dunia', 'Rangkuman sejarah singkat internet di Indonesia']
+}
 
 const EXPLAINER_SERIES_SUGGESTIONS = [
   'Kursus Git untuk pemula: dari repositori pertama sampai branch',
@@ -303,7 +308,7 @@ export function Home() {
     refresh()
   }
 
-  const suggestions = explainer ? (mode === 'series' ? EXPLAINER_SERIES_SUGGESTIONS : EXPLAINER_SUGGESTIONS) : SUGGESTIONS
+  const suggestions = explainer ? (mode === 'series' ? EXPLAINER_SERIES_SUGGESTIONS : EXPLAINER_SUGGESTIONS[templateId]) : SUGGESTIONS
 
   const remove = async (p: ProjectSummary): Promise<void> => {
     const ok = await confirmDialog({

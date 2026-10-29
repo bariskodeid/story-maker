@@ -183,7 +183,7 @@ Properti opsional baru di `EditorSettings` tidak butuh migrasi; berikan nilai ba
 `defaultTtsProvider`, `defaultLanguage`, `exportFolder`, `llmProvider`, `llmModels` (model per penyedia LLM),
 `customBaseUrl`, `nineRouterBaseUrl`, `geminiTtsModel`, `elevenModel`, `imageModel`, `videoModel` (bawaan untuk proyek baru),
 `whisperAuto` (sinkron caption otomatis setelah narasi Gemini atau 9Router), `autoExport` (Sekali klik juga
-mengekspor MP4). Narasi 9Router memakai `nineRouterBaseUrl`
+mengekspor MP4), `closingCta` + `closingCtaText` (penutup naskah cerita: ajak subscribe, tanpa ajakan, atau ajakan sendiri). Narasi 9Router memakai `nineRouterBaseUrl`
 dan kunci `ninerouter` yang sama dengan penyusun cerita 9Router; tidak ada pengaturan model TTS terpisah.
 
 Kunci baru harus ada di `DEFAULT_SETTINGS` (`src/main/settings.ts`); kunci yang tidak dikenal diabaikan saat

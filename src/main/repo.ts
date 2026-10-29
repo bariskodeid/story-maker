@@ -17,7 +17,7 @@ import type {
   ProjectSnapshot,
   ProjectSummary
 } from '@shared/types'
-import { normalizeScene, parseScene, type ExplainerScene } from '@shared/explainer'
+import { explainerTotalMs, normalizeScene, parseScene, type ExplainerScene } from '@shared/explainer'
 import { visualSourceOf } from '@shared/script'
 import { castKey, parseCastNames } from '@shared/series'
 import { defaultTtsVoice } from '@shared/voices'
@@ -157,6 +157,11 @@ export function listProjects(): ProjectSummary[] {
        FROM projects p WHERE p.series_id IS NULL ORDER BY p.updated_at DESC`
     )
     .all() as Row[]
+  // An explainer scene lasts longer than its voice (lead-in and hold), so its length comes from the shared rule.
+  const explainerMs = (projectId: string): number => {
+    const b = getBundle(projectId)
+    return explainerTotalMs(b.clips, Object.fromEntries(b.assets.map((a) => [a.id, a])))
+  }
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -164,7 +169,7 @@ export function listProjects(): ProjectSummary[] {
     status: r.status,
     step: r.step,
     clipCount: r.clip_count,
-    totalMs: r.total_ms,
+    totalMs: r.kind === 'explainer' && r.clip_count > 0 ? explainerMs(r.id) : r.total_ms,
     coverUrl: r.cover_path ? assetUrl(r.id, r.cover_path) : null,
     updatedAt: r.updated_at,
     kind: r.kind === 'explainer' ? 'explainer' : 'story',
