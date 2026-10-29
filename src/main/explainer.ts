@@ -23,8 +23,10 @@ import { runJob, type TaskCtx } from './jobs'
 import { assetAbsPath, dataDir } from './paths'
 import { renderVideo, startAssetServer } from './remotion'
 import { getBundle, getClip, getProject, insertAsset, insertJob, patchClip, replaceScenes, touchProject } from './repo'
+import { setEpisodeSummary } from './series'
 import { probeSize } from './services/audio'
 import { generateJson } from './services/llm'
+import { explainerEpisodeBrief, withEpisodeSummary } from './story'
 
 // ---------- writing the scenes ----------
 
@@ -96,6 +98,8 @@ function scenesSchema(types: string[]): object {
 
 interface ScenesPlan {
   title?: string
+  /** Episodes of a series only. */
+  summary?: string
   scenes?: (Record<string, unknown> & { narration?: string })[]
 }
 
@@ -110,6 +114,8 @@ export async function generateExplainerScenes(projectId: string): Promise<Projec
   const typeNames = SCENE_TYPES.filter((t) => template.sceneTypes.includes(t.id))
     .map((t) => t.id)
     .join(', ')
+  // An episode of a series also gets the series bible and the lessons around it (prompt in story.ts).
+  const episode = explainerEpisodeBrief(project)
 
   const system = [
     'You write short faceless explainer videos for YouTube and Shorts. Each scene is one designed screen: a few words on screen and one line of voice-over.',
@@ -119,15 +125,23 @@ export async function generateExplainerScenes(projectId: string): Promise<Projec
     `Template "${template.name}". Allowed scene types: ${typeNames}.`,
     template.guidance,
     // News needs today's date to tell recent from old; the model must not guess it.
-    ...(template.id === 'news' ? [`Today is ${new Date().toISOString().slice(0, 10)}. Write dates the way ${lang} speakers write them.`] : [])
+    ...(template.id === 'news' ? [`Today is ${new Date().toISOString().slice(0, 10)}. Write dates the way ${lang} speakers write them.`] : []),
+    ...(episode?.system ?? [])
   ].join('\n\n')
   const prompt = [
-    `Topic / idea:\n${project.synopsis}`,
+    ...(episode?.prompt ?? []),
+    `${episode ? 'Topic of this episode' : 'Topic / idea'}:\n${project.synopsis}`,
     `Target video length: about ${project.durationSec} seconds.`,
     `Write ${count} scenes (one more or fewer is fine if the content needs it).`
   ].join('\n\n')
 
-  const reply = await generateJson<ScenesPlan | ScenesPlan['scenes']>({ system, prompt, schema: scenesSchema(template.sceneTypes), name: 'explainer_scenes' })
+  const schema = scenesSchema(template.sceneTypes)
+  const reply = await generateJson<ScenesPlan | ScenesPlan['scenes']>({
+    system,
+    prompt,
+    schema: episode ? withEpisodeSummary(schema) : schema,
+    name: episode ? 'explainer_episode' : 'explainer_scenes'
+  })
   // Some models behind 9Router answer with the bare scene list instead of {title, scenes}.
   const plan: ScenesPlan = Array.isArray(reply) ? { scenes: reply } : (reply ?? {})
   const raw = (Array.isArray(plan.scenes) ? plan.scenes : []).filter((s) => s && (str(s.heading) || str(s.narration)))
@@ -148,7 +162,10 @@ export async function generateExplainerScenes(projectId: string): Promise<Projec
     return { scene, narration, durationMs: estimateNarrationMs(narration) + SCENE_LEAD_MS + SCENE_TAIL_MS }
   })
   const title = str(plan.title) || rows.find((r) => r.scene.type === 'title')?.scene.heading || project.title
-  replaceScenes(projectId, title.slice(0, 80), rows)
+  // An episode keeps its "E01 · " title from the series plan, so the series page and export names stay in order.
+  replaceScenes(projectId, episode ? project.title : title.slice(0, 80), rows)
+  // The next lessons are written from this; the headings stand in when the model left the summary out.
+  if (episode) setEpisodeSummary(projectId, str(plan.summary) || rows.map((r) => r.scene.heading).filter(Boolean).join('; '))
   return getBundle(projectId)
 }
 

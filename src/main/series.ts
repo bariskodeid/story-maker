@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
-import { episodeProjectTitle } from '@shared/series'
+import { explainerTotalMs, getTemplate, type ExplainerTheme } from '@shared/explainer'
+import { LANGUAGES } from '@shared/models'
+import { castKey, episodeProjectTitle, parseCastNames } from '@shared/series'
+import { getStyle } from '@shared/styles'
 import type {
+  CastSyncOptions,
   NewSeriesInput,
   Project,
   ProjectBundle,
@@ -11,8 +15,12 @@ import type {
   SeriesBundle,
   SeriesCharacter,
   SeriesEpisode,
+  SeriesKind,
   SeriesPatch,
-  SeriesSummary
+  SeriesSettingsPatch,
+  SeriesSettingsResult,
+  SeriesSummary,
+  TtsProvider
 } from '@shared/types'
 import { defaultTtsVoice } from '@shared/voices'
 import { getDb } from './db'
@@ -26,17 +34,33 @@ import { getSettings } from './settings'
  * one-click generate and export work on it unchanged. Assets never cross project folders (the exporter and the
  * preview resolve every path under the owning project), so the cast's character sheets are copied: into an
  * episode before it is generated, and back into the series folder once an episode has made new ones.
+ *
+ * Explainer series (a course of lessons, a recurring tips or facts show) have no cast: their episodes share a
+ * template and look instead, and the cast copying below skips them.
  */
 
 type Row = Record<string, any>
 
 const EMPTY_BIBLE: SeriesBible = { world: '', tone: '', rules: '', hooks: [] }
 
+/** A series' explainer look; the logo is a file of one project, so a series never carries one. */
+function parseTheme(json: unknown): ExplainerTheme {
+  try {
+    const v = JSON.parse(typeof json === 'string' && json ? json : '{}')
+    if (!v || typeof v !== 'object') return {}
+    const { logoAssetId: _logo, ...rest } = v as ExplainerTheme
+    return rest
+  } catch {
+    return {}
+  }
+}
+
 function toSeries(r: Row): Series {
   const bible = JSON.parse(r.bible_json || '{}') as Partial<SeriesBible>
+  const kind: SeriesKind = r.kind === 'explainer' ? 'explainer' : 'story'
   return {
     id: r.id,
-    kind: 'story',
+    kind,
     title: r.title,
     premise: r.premise,
     continuity: r.continuity === 'anthology' ? 'anthology' : 'serial',
@@ -50,6 +74,8 @@ function toSeries(r: Row): Series {
     ttsVoice: r.tts_voice,
     imageModel: r.image_model,
     videoModel: r.video_model,
+    templateId: kind === 'explainer' ? getTemplate(r.template_id).id : null,
+    theme: kind === 'explainer' ? parseTheme(r.theme_json) : {},
     createdAt: r.created_at,
     updatedAt: r.updated_at
   }
@@ -72,7 +98,27 @@ function toSeriesCharacter(r: Row): SeriesCharacter {
   }
 }
 
-const key = (name: string): string => name.trim().toLowerCase()
+const key = castKey
+
+/**
+ * Names of cast members removed by hand: from the series (`series`) or from one episode (`projects`). Copying the
+ * cast in either direction never adds those back; only "Ambil pemeran seri" (restore) clears an episode's list.
+ */
+type CastOwner = 'series' | 'projects'
+
+function removedCast(owner: CastOwner, id: string): Set<string> {
+  const r = getDb().prepare(`SELECT cast_removed_json FROM ${owner} WHERE id = ?`).get(id) as Row | undefined
+  return new Set(parseCastNames(r?.cast_removed_json))
+}
+
+function setRemovedCast(owner: CastOwner, id: string, names: Iterable<string>): void {
+  getDb()
+    .prepare(`UPDATE ${owner} SET cast_removed_json = ? WHERE id = ?`)
+    .run(JSON.stringify([...new Set(names)].sort()), id)
+}
+
+/** A series of stories shares a cast; an explainer series has none, so nothing is copied for it. */
+const sharesCast = (seriesId: string): boolean => getSeries(seriesId).kind === 'story'
 
 // ---------- series ----------
 
@@ -80,14 +126,16 @@ export function createSeries(input: NewSeriesInput): Series {
   const s = getSettings()
   const now = Date.now()
   const id = randomUUID()
+  const kind: SeriesKind = input.kind === 'explainer' ? 'explainer' : 'story'
   getDb()
     .prepare(
       `INSERT INTO series (id, kind, title, premise, continuity, bible_json, episode_count, duration_sec, language, aspect_ratio,
-         style_id, tts_provider, tts_voice, image_model, video_model, created_at, updated_at)
-       VALUES (?, 'story', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         style_id, tts_provider, tts_voice, image_model, video_model, template_id, theme_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)`
     )
     .run(
       id,
+      kind,
       'Seri tanpa judul',
       input.premise.trim(),
       input.continuity === 'anthology' ? 'anthology' : 'serial',
@@ -101,6 +149,7 @@ export function createSeries(input: NewSeriesInput): Series {
       defaultTtsVoice(input.ttsProvider, input.language),
       s.imageModel,
       s.videoModel,
+      kind === 'explainer' ? getTemplate(input.templateId).id : null,
       now,
       now
     )
@@ -125,15 +174,21 @@ export function seriesCast(seriesId: string): SeriesCharacter[] {
 }
 
 export function getSeriesBundle(id: string): SeriesBundle {
+  const series = getSeries(id)
   const rows = getDb()
     .prepare(
-      `SELECT p.id, p.title, p.synopsis, p.episode_no, p.episode_summary, p.status, p.step, p.updated_at,
+      `SELECT p.id, p.title, p.synopsis, p.episode_no, p.episode_summary, p.status, p.step, p.updated_at, p.kind, p.template_id,
         (SELECT COUNT(*) FROM clips c WHERE c.project_id = p.id) AS clip_count,
         (SELECT COALESCE(SUM(duration_ms), 0) FROM clips c WHERE c.project_id = p.id) AS total_ms,
         (SELECT a.local_path FROM assets a WHERE a.id = p.cover_asset_id) AS cover_path
        FROM projects p WHERE p.series_id = ? ORDER BY p.episode_no, p.created_at`
     )
     .all(id) as Row[]
+  // An explainer scene lasts longer than its voice (lead-in and hold), so its length comes from the shared rule.
+  const explainerMs = (projectId: string): number => {
+    const b = getBundle(projectId)
+    return explainerTotalMs(b.clips, Object.fromEntries(b.assets.map((a) => [a.id, a])))
+  }
   const episodes: SeriesEpisode[] = rows.map((r) => ({
     id: r.id,
     no: r.episode_no ?? 0,
@@ -143,11 +198,12 @@ export function getSeriesBundle(id: string): SeriesBundle {
     status: r.status,
     step: r.step,
     clipCount: r.clip_count,
-    totalMs: r.total_ms,
+    totalMs: series.kind === 'explainer' && r.clip_count > 0 ? explainerMs(r.id) : r.total_ms,
     coverUrl: r.cover_path ? assetUrl(r.id, r.cover_path) : null,
+    templateId: r.kind === 'explainer' ? getTemplate(r.template_id).id : null,
     updatedAt: r.updated_at
   }))
-  return { series: getSeries(id), characters: seriesCast(id), episodes }
+  return { series, characters: seriesCast(id), episodes }
 }
 
 export function listSeries(): SeriesSummary[] {
@@ -167,11 +223,14 @@ export function listSeries(): SeriesSummary[] {
     .map((r) => {
       const cover = typeof r.cover === 'string' ? (r.cover as string) : null
       const cut = cover ? cover.indexOf('|') : -1
+      const kind: SeriesKind = r.kind === 'explainer' ? 'explainer' : 'story'
       return {
         id: r.id,
         title: r.title,
+        kind,
         continuity: r.continuity === 'anthology' ? ('anthology' as const) : ('serial' as const),
         styleId: r.style_id,
+        templateId: kind === 'explainer' ? getTemplate(r.template_id).id : null,
         episodeCount: r.episodes,
         readyCount: r.ready,
         exportedCount: r.exported,
@@ -202,6 +261,83 @@ export function updateSeries(id: string, patch: SeriesPatch): Series {
   return getSeries(id)
 }
 
+const TTS: TtsProvider[] = ['gemini', 'elevenlabs', 'ninerouter']
+
+/** Project columns an episode setting is stored in (the series table uses the same names). */
+const SETTING_COLUMNS: Record<keyof SeriesSettingsPatch, string> = {
+  durationSec: 'duration_sec',
+  language: 'language',
+  aspectRatio: 'aspect_ratio',
+  styleId: 'style_id',
+  ttsProvider: 'tts_provider',
+  ttsVoice: 'tts_voice',
+  imageModel: 'image_model',
+  templateId: 'template_id',
+  theme: 'theme_json'
+}
+
+/** Only values the app can use; anything else in the patch is dropped. */
+function cleanSettings(s: Series, patch: SeriesSettingsPatch): SeriesSettingsPatch {
+  const out: SeriesSettingsPatch = {}
+  if (Number.isFinite(patch.durationSec) && Number(patch.durationSec) >= 10) out.durationSec = Math.round(Number(patch.durationSec))
+  if (patch.language && LANGUAGES.some((l) => l.code === patch.language)) out.language = patch.language
+  if (patch.aspectRatio === '16:9' || patch.aspectRatio === '9:16') out.aspectRatio = patch.aspectRatio
+  if (typeof patch.styleId === 'string' && s.kind === 'story') out.styleId = getStyle(patch.styleId).id
+  if (patch.ttsProvider && TTS.includes(patch.ttsProvider)) out.ttsProvider = patch.ttsProvider
+  if (typeof patch.ttsVoice === 'string' && patch.ttsVoice.trim()) out.ttsVoice = patch.ttsVoice.trim()
+  if (typeof patch.imageModel === 'string' && patch.imageModel.trim()) out.imageModel = patch.imageModel.trim()
+  if (s.kind === 'explainer') {
+    if (typeof patch.templateId === 'string') out.templateId = getTemplate(patch.templateId).id
+    if (patch.theme && typeof patch.theme === 'object') out.theme = parseTheme(JSON.stringify(patch.theme))
+    // Palettes belong to one template, so a new template starts on its own first palette.
+    else if (out.templateId && out.templateId !== s.templateId) out.theme = { ...s.theme, paletteId: undefined }
+  }
+  // A new provider needs a voice of its own when the caller did not pick one with it.
+  if (out.ttsProvider && out.ttsProvider !== s.ttsProvider && !out.ttsVoice) out.ttsVoice = defaultTtsVoice(out.ttsProvider, out.language ?? s.language)
+  return out
+}
+
+/**
+ * Changes the settings new episodes start with, and gives the changed ones to the episodes that have no scenes
+ * yet. Episodes that already have scenes keep their own settings: their pictures and voice were made with them.
+ */
+export function updateSeriesSettings(id: string, patch: SeriesSettingsPatch): SeriesSettingsResult {
+  const s = getSeries(id)
+  const clean = cleanSettings(s, patch ?? {})
+  const fields = Object.keys(clean) as (keyof SeriesSettingsPatch)[]
+  const db = getDb()
+  const sets = fields.map((k) => `${SETTING_COLUMNS[k]} = ?`).join(', ')
+  let applied = 0
+  let kept = 0
+  db.transaction(() => {
+    if (fields.length)
+      db.prepare(`UPDATE series SET ${sets}, updated_at = ? WHERE id = ?`).run(
+        ...fields.map((k) => (k === 'theme' ? JSON.stringify(clean.theme ?? {}) : clean[k])),
+        Date.now(),
+        id
+      )
+    const rows = db
+      .prepare('SELECT p.id, p.theme_json, (SELECT COUNT(*) FROM clips c WHERE c.project_id = p.id) AS clip_count FROM projects p WHERE p.series_id = ?')
+      .all(id) as Row[]
+    for (const r of rows) {
+      if (r.clip_count > 0) {
+        kept++
+        continue
+      }
+      applied++
+      if (!fields.length) continue
+      // The episode keeps its own logo; that is one of its files.
+      const logo = (JSON.parse(r.theme_json || '{}') as ExplainerTheme).logoAssetId
+      db.prepare(`UPDATE projects SET ${sets}, updated_at = ? WHERE id = ?`).run(
+        ...fields.map((k) => (k === 'theme' ? JSON.stringify({ ...clean.theme, ...(logo ? { logoAssetId: logo } : {}) }) : clean[k])),
+        Date.now(),
+        r.id
+      )
+    }
+  })()
+  return { bundle: getSeriesBundle(id), applied, kept }
+}
+
 /** Stores a bible written by the LLM. */
 export function setSeriesBible(id: string, title: string, bible: SeriesBible, episodeCount: number): void {
   getDb()
@@ -223,6 +359,11 @@ export function removeSeries(id: string): void {
 export function addSeriesCast(seriesId: string, cast: { name: string; description: string }[]): void {
   const db = getDb()
   db.transaction(() => {
+    // A plan that names someone removed earlier brings them back on purpose.
+    const removed = removedCast('series', seriesId)
+    const count = removed.size
+    for (const c of cast) removed.delete(key(c.name))
+    if (removed.size !== count) setRemovedCast('series', seriesId, removed)
     const existing = db.prepare('SELECT id, name, description FROM series_characters WHERE series_id = ?').all(seriesId) as Row[]
     const byName = new Map(existing.map((c) => [key(c.name), c]))
     let sort = existing.length
@@ -259,6 +400,13 @@ export function updateSeriesCharacter(id: string, patch: { name?: string; descri
   const name = patch.name !== undefined ? String(patch.name).trim() || r.name : r.name
   const description = patch.description !== undefined ? String(patch.description) : r.description
   getDb().prepare('UPDATE series_characters SET name = ?, description = ? WHERE id = ?').run(name, description, id)
+  if (key(name) !== key(r.name)) {
+    // Episodes still know the old name; without this the next copy back would add it as a second character.
+    const removed = removedCast('series', r.series_id)
+    removed.add(key(r.name))
+    removed.delete(key(name))
+    setRemovedCast('series', r.series_id, removed)
+  }
   return toSeriesCharacter({ ...r, name, description })
 }
 
@@ -266,12 +414,17 @@ export function removeSeriesCharacter(id: string): void {
   const r = getDb().prepare('SELECT * FROM series_characters WHERE id = ?').get(id) as Row | undefined
   if (!r) return
   getDb().prepare('DELETE FROM series_characters WHERE id = ?').run(id)
+  // Episodes that still have this character must not hand it back to the series.
+  setRemovedCast('series', r.series_id, [...removedCast('series', r.series_id), key(r.name)])
   if (r.sheet_path) rmSync(sheetAbs(r.series_id, r.sheet_path), { force: true })
 }
 
 // ---------- episodes ----------
 
-/** A new episode project with the series' settings. The cast is copied in right away. */
+/**
+ * A new episode project with the series' settings. A story episode gets the series cast right away; an explainer
+ * episode gets the series template and look.
+ */
 export async function createEpisode(seriesId: string, ep: { no: number; title: string; synopsis: string }): Promise<string> {
   const s = getSeries(seriesId)
   const db = getDb()
@@ -282,14 +435,16 @@ export async function createEpisode(seriesId: string, ep: { no: number; title: s
       language: s.language,
       aspectRatio: s.aspectRatio,
       styleId: s.styleId,
-      ttsProvider: s.ttsProvider
+      ttsProvider: s.ttsProvider,
+      kind: s.kind,
+      templateId: s.templateId ?? undefined
     })
     db.prepare(
-      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, series_id = ?, episode_no = ? WHERE id = ?'
-    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, seriesId, ep.no, p.id)
+      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, theme_json = ?, series_id = ?, episode_no = ? WHERE id = ?'
+    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, JSON.stringify(s.theme), seriesId, ep.no, p.id)
     return p.id
   })()
-  await syncCastIn(id)
+  if (s.kind === 'story') await syncCastIn(id, { addMissing: true })
   return id
 }
 
@@ -334,18 +489,26 @@ export function removeEpisode(projectId: string): void {
 // ---------- copying the cast between the series and its episodes ----------
 
 /**
- * Copies the series cast into an episode project: missing characters by name, and each series sheet into the
- * project as an image asset that becomes the character's sheet, so `generateMissingImages` reuses it instead of
+ * Copies the series cast into an episode project. Each series sheet goes into the project as an image asset that
+ * becomes the sheet of the episode's character with that name, so `generateMissingImages` reuses it instead of
  * drawing a new one. Characters the episode already has keep their description and their own sheet.
+ *
+ * Series characters the episode does not have are only added with `addMissing` (when the episode is created, and
+ * before a one-click run writes its script or visual plan), and never one that was removed from the episode by
+ * hand (`noteRemovedCast` in repo.ts). `restore` ("Ambil pemeran seri") forgets those removals and adds everyone.
+ * Opening an episode only copies sheets, so a character deleted there stays deleted.
  */
-export async function syncCastIn(projectId: string): Promise<ProjectBundle> {
+export async function syncCastIn(projectId: string, opts: CastSyncOptions = {}): Promise<ProjectBundle> {
   const project = getProject(projectId)
-  if (!project.seriesId) return getBundle(projectId)
-  const cast = seriesCast(project.seriesId)
+  if (!project.seriesId || !sharesCast(project.seriesId)) return getBundle(projectId)
+  if (opts.restore) setRemovedCast('projects', projectId, [])
+  const addMissing = !!opts.addMissing || !!opts.restore
+  const removed = removedCast('projects', projectId)
+  const before = new Map(charactersOf(projectId).map((c) => [key(c.name), c]))
+  const cast = seriesCast(project.seriesId).filter((sc) => before.has(key(sc.name)) || (addMissing && !removed.has(key(sc.name))))
   if (!cast.length) return getBundle(projectId)
 
   // Files first (probing is async); the rows then go in one transaction.
-  const before = new Map(charactersOf(projectId).map((c) => [key(c.name), c]))
   const sheets = new Map<string, { rel: string; width: number | null; height: number | null }>()
   for (const sc of cast) {
     if (!sc.sheetPath) continue
@@ -405,6 +568,8 @@ export function syncCastOut(projectId: string): SeriesBundle | null {
   const project = getProject(projectId)
   if (!project.seriesId) return null
   const seriesId = project.seriesId
+  if (!sharesCast(seriesId)) return getSeriesBundle(seriesId)
+  const removed = removedCast('series', seriesId)
   const db = getDb()
   const copySheet = (assetId: string | null): string | null => {
     const asset = getAsset(assetId)
@@ -426,6 +591,7 @@ export function syncCastOut(projectId: string): SeriesBundle | null {
       if (!k) continue
       const known = byName.get(k)
       if (!known) {
+        if (removed.has(k)) continue
         const id = randomUUID()
         db.prepare('INSERT INTO series_characters (id, series_id, name, description, sheet_path, sort) VALUES (?, ?, ?, ?, ?, ?)').run(
           id,

@@ -19,6 +19,7 @@ import type {
 } from '@shared/types'
 import { normalizeScene, parseScene, type ExplainerScene } from '@shared/explainer'
 import { visualSourceOf } from '@shared/script'
+import { castKey, parseCastNames } from '@shared/series'
 import { defaultTtsVoice } from '@shared/voices'
 import { getDb } from './db'
 import { assetUrl, projectDir, projectsRoot } from './paths'
@@ -236,6 +237,28 @@ export function touchProject(id: string, patch: Partial<Pick<Project, 'status' |
     .run({ ...patch, id, now: Date.now() })
 }
 
+/**
+ * An episode remembers the names of characters taken out of it by hand (deleted, or renamed to another name), so
+ * copying the series cast in later (`syncCastIn`) does not bring them back. A name that is in the episode again is
+ * forgotten. Called inside `saveSnapshot`'s transaction, before the removed rows are deleted.
+ */
+function noteRemovedCast(projectId: string, next: { id: string; name: string }[]): void {
+  const db = getDb()
+  const p = db.prepare('SELECT series_id, cast_removed_json FROM projects WHERE id = ?').get(projectId) as Row | undefined
+  if (!p?.series_id) return
+  const was = parseCastNames(p.cast_removed_json).sort()
+  const removed = new Set(was)
+  const nameOf = new Map(next.map((c) => [c.id, castKey(c.name)]))
+  const present = new Set(nameOf.values())
+  for (const c of db.prepare('SELECT id, name FROM characters WHERE project_id = ?').all(projectId) as Row[]) {
+    const k = castKey(String(c.name))
+    if (k && nameOf.get(c.id) !== k) removed.add(k)
+  }
+  for (const k of present) removed.delete(k)
+  const now = [...removed].sort()
+  if (now.join('\n') !== was.join('\n')) db.prepare('UPDATE projects SET cast_removed_json = ? WHERE id = ?').run(JSON.stringify(now), projectId)
+}
+
 /** Saves the editable parts of a project. Asset links and the series fields stay owned by the main process. */
 export function saveSnapshot(snap: ProjectSnapshot): number {
   const db = getDb()
@@ -251,6 +274,7 @@ export function saveSnapshot(snap: ProjectSnapshot): number {
     ).run({ ...p, editor: JSON.stringify(p.editor), templateId: p.templateId ?? null, theme: JSON.stringify(p.theme ?? {}), now })
 
     const charIds = snap.characters.map((c) => c.id)
+    noteRemovedCast(p.id, snap.characters)
     db.prepare(
       `DELETE FROM characters WHERE project_id = ? AND id NOT IN (${charIds.map(() => '?').join(',') || "''"})`
     ).run(p.id, ...charIds)

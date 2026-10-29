@@ -28,8 +28,9 @@ export function ProjectPage({ id }: { id: string }) {
     let alive = true
     window.api.projects
       .get(id)
-      // An episode takes the series cast (and its character sheets) before anything is generated in it.
-      .then((b) => (b.project.seriesId ? window.api.series.syncCastIn(id) : b))
+      // An episode takes the series' character sheets for the characters it has. Characters themselves are not added
+      // here, so one the user deleted from this episode stays deleted ("Ambil pemeran seri" brings the cast back).
+      .then((b) => (b.project.seriesId && b.project.kind === 'story' ? window.api.series.syncCastIn(id) : b))
       .then((b) => alive && load(b))
       .catch((e) => {
         toast('error', errorText(e))
@@ -37,7 +38,8 @@ export function ProjectPage({ id }: { id: string }) {
       })
     return () => {
       alive = false
-      const episode = !!useProject.getState().project?.seriesId
+      const open = useProject.getState().project
+      const episode = !!open?.seriesId && open.kind === 'story'
       void useProject
         .getState()
         .flush()

@@ -20,9 +20,30 @@ function Part({ label, hint, children }: { label: string; hint?: string; childre
   )
 }
 
-/** Premise and bible of a series; every episode script is written from them. */
+// An explainer series keeps the same bible fields; `world` holds who the series is for and what it covers.
+const LABELS = {
+  story: {
+    intro: 'AI membaca ini setiap menulis naskah episode. Perubahan tersimpan otomatis.',
+    premise: 'Premis',
+    world: 'Dunia',
+    worldHint: 'Tempat, zaman, dan aturan dunianya.',
+    tone: 'Nada',
+    rulesHint: 'Satu aturan per baris, misalnya hal yang tidak boleh terjadi.'
+  },
+  explainer: {
+    intro: 'AI membaca ini setiap menyusun adegan. Perubahan tersimpan otomatis.',
+    premise: 'Topik seri',
+    world: 'Penonton & cakupan',
+    worldHint: 'Untuk siapa seri ini, apa yang sudah mereka tahu, dan apa saja yang dibahas.',
+    tone: 'Gaya bicara',
+    rulesHint: 'Satu aturan per baris, misalnya istilah yang dipakai, versi aplikasi, atau hal yang tidak dibahas.'
+  }
+}
+
+/** Premise and bible of a series; every episode script (or explainer scene list) is written from them. */
 export function BiblePanel({ series, onChange }: { series: Series; onChange: (s: Series) => void }) {
   const { toast } = useApp()
+  const L = LABELS[series.kind]
   const save = (patch: SeriesPatch): void => {
     window.api.series
       .update(series.id, patch)
@@ -33,18 +54,18 @@ export function BiblePanel({ series, onChange }: { series: Series; onChange: (s:
     <section className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5">
       <div>
         <h2 className="font-display text-xl font-bold">Bible seri</h2>
-        <p className="mt-1 text-[13px] text-ink-2">AI membaca ini setiap menulis naskah episode. Perubahan tersimpan otomatis.</p>
+        <p className="mt-1 text-[13px] text-ink-2">{L.intro}</p>
       </div>
-      <Part label="Premis">
-        <AutosaveText multiline minRows={3} label="Premis seri" value={series.premise} onSave={(premise) => save({ premise })} className={areaCls} />
+      <Part label={L.premise}>
+        <AutosaveText multiline minRows={3} label={series.kind === 'explainer' ? 'Topik seri' : 'Premis seri'} value={series.premise} onSave={(premise) => save({ premise })} className={areaCls} />
       </Part>
-      <Part label="Dunia" hint="Tempat, zaman, dan aturan dunianya.">
-        <AutosaveText multiline minRows={3} label="Dunia seri" value={series.bible.world} onSave={(world) => save({ world })} className={areaCls} />
+      <Part label={L.world} hint={L.worldHint}>
+        <AutosaveText multiline minRows={3} label={`${L.world} seri`} value={series.bible.world} onSave={(world) => save({ world })} className={areaCls} />
       </Part>
-      <Part label="Nada">
-        <AutosaveText multiline minRows={2} label="Nada seri" value={series.bible.tone} onSave={(tone) => save({ tone })} className={areaCls} />
+      <Part label={L.tone}>
+        <AutosaveText multiline minRows={2} label={`${L.tone} seri`} value={series.bible.tone} onSave={(tone) => save({ tone })} className={areaCls} />
       </Part>
-      <Part label="Aturan" hint="Satu aturan per baris, misalnya hal yang tidak boleh terjadi.">
+      <Part label="Aturan" hint={L.rulesHint}>
         <AutosaveText multiline minRows={3} label="Aturan seri" value={series.bible.rules} onSave={(rules) => save({ rules })} className={areaCls} />
       </Part>
     </section>

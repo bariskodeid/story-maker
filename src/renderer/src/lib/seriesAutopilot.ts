@@ -1,11 +1,13 @@
 import { create } from 'zustand'
+import { needsVisual } from '@shared/script'
 import { episodeTag, stripEpisodeTag } from '@shared/series'
-import type { ProjectBundle, SeriesBundle, SeriesEpisode } from '@shared/types'
+import type { ProjectBundle, SeriesBundle, SeriesEpisode, SeriesKind } from '@shared/types'
 import { useApp } from '../store/app'
 import { useProject } from '../store/project'
 import { remainingWork, runAutopilot, setAutoExport, stopAutopilot, useAutopilot } from './autopilot'
 import { slug } from './exportOptions'
 import { errorText } from './format'
+import { episodeWord } from './seriesWords'
 
 /**
  * One-click generate for a whole series: plans it when it has no episodes yet, then runs one-click generate on
@@ -93,7 +95,7 @@ export function episodeFileName(ep: Pick<SeriesEpisode, 'no' | 'title'>): string
 export function episodeFinished(b: ProjectBundle, exportWanted: boolean): boolean {
   return (
     b.clips.length > 0 &&
-    remainingWork(b.clips).parts.length === 0 &&
+    remainingWork(b.clips, b.project.kind).parts.length === 0 &&
     b.project.step === 4 &&
     (!exportWanted || b.project.status === 'exported')
   )
@@ -102,17 +104,23 @@ export function episodeFinished(b: ProjectBundle, exportWanted: boolean): boolea
 const isOpen = (id: string): boolean => useProject.getState().project?.id === id
 
 /**
- * One episode through one-click generate: the series cast goes in first (so its sheets are reused, not drawn again),
- * and what the episode added comes back to the series afterwards.
+ * One episode through one-click generate. In a story series the series cast goes in first (so its sheets are reused,
+ * not drawn again), and what the episode added comes back to the series afterwards. Explainer series have no cast.
  */
 export async function runEpisode(
   ep: Pick<SeriesEpisode, 'id' | 'no' | 'title'>,
-  opts: { exportAfter: boolean; folder: string; quiet: boolean; stopped?: () => boolean }
+  opts: { kind: SeriesKind; exportAfter: boolean; folder: string; quiet: boolean; stopped?: () => boolean }
 ): Promise<'done' | 'failed' | 'stopped'> {
-  // Main reads the database, so unsaved edits of an open episode go first; the store then takes the copied cast.
-  if (isOpen(ep.id)) await useProject.getState().flush()
-  const fresh = await window.api.series.syncCastIn(ep.id)
-  if (isOpen(ep.id)) useProject.getState().load(fresh)
+  const cast = opts.kind === 'story'
+  if (cast) {
+    // Main reads the database, so unsaved edits of an open episode go first; the store then takes the copied cast.
+    if (isOpen(ep.id)) await useProject.getState().flush()
+    // Missing series characters only matter while the script or the visual plan is still to be written; later on
+    // only their sheets are copied. Characters removed from the episode by hand are never added back (main).
+    const b = await window.api.projects.get(ep.id)
+    const fresh = await window.api.series.syncCastIn(ep.id, { addMissing: !b.clips.length || b.clips.some(needsVisual) })
+    if (isOpen(ep.id)) useProject.getState().load(fresh)
+  }
   // A stop that came while the cast was copied has no episode run to cancel yet.
   if (opts.stopped?.()) return 'stopped'
   const result = await runAutopilot(ep.id, {
@@ -121,7 +129,7 @@ export async function runEpisode(
     quiet: opts.quiet
   })
   // Sheets made before a stop or failure are worth keeping for the other episodes too.
-  await window.api.series.syncCastOut(ep.id).catch(() => null)
+  if (cast) await window.api.series.syncCastOut(ep.id).catch(() => null)
   return result
 }
 
@@ -146,16 +154,23 @@ async function pipeline(seriesId: string): Promise<void> {
         continue
       }
       patch(seriesId, { current: { id: ep.id, no: ep.no, title: stripEpisodeTag(ep.title) } })
-      const result = await runEpisode(ep, { exportAfter, folder, quiet: true, stopped: () => !!runOf(seriesId)?.stopping })
+      const result = await runEpisode(ep, {
+        kind: bundle.series.kind,
+        exportAfter,
+        folder,
+        quiet: true,
+        stopped: () => !!runOf(seriesId)?.stopping
+      })
       if (result === 'stopped') throw new Stopped()
       if (result === 'failed') {
         const why = useAutopilot.getState().runs[ep.id]?.error
-        throw new Error(`Episode ${ep.no} gagal dibuat.${why ? ` ${why}` : ''}`)
+        throw new Error(`${episodeWord(bundle.series).title} ${ep.no} gagal dibuat.${why ? ` ${why}` : ''}`)
       }
       patch(seriesId, { done: ++done })
     }
 
     const exported = runOf(seriesId)?.exportAfter ?? false
+    const word = episodeWord(bundle.series).one
     useSeriesAutopilot.setState((s) => {
       const { [seriesId]: _done, ...rest } = s.runs
       return { runs: rest }
@@ -165,8 +180,8 @@ async function pipeline(seriesId: string): Promise<void> {
       .toast(
         'success',
         exported
-          ? `Semua episode “${bundle.series.title}” sudah diekspor ke folder seri.`
-          : `Semua episode “${bundle.series.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`,
+          ? `Semua ${word} “${bundle.series.title}” sudah diekspor ke folder seri.`
+          : `Semua ${word} “${bundle.series.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`,
         exported ? { label: 'Buka folder', run: () => void window.api.exporter.reveal(folder) } : undefined
       )
   } catch (e) {

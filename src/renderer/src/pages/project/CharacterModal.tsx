@@ -81,7 +81,7 @@ function NewCharacter({ onClose, onCreated }: { onClose: () => void; onCreated?:
 }
 
 function EditCharacter({ characterId, onClose }: { characterId: string | null; onClose: () => void }) {
-  const { characters, assets, jobs, updateCharacter, removeCharacter, flush, clips } = useProject()
+  const { project, characters, assets, jobs, updateCharacter, removeCharacter, flush, clips } = useProject()
   const { toast } = useApp()
   const c = characters.find((x) => x.id === characterId)
   if (!c) return null
@@ -102,7 +102,9 @@ function EditCharacter({ characterId, onClose }: { characterId: string | null; o
   const remove = async (): Promise<void> => {
     const ok = await confirmDialog({
       title: `Hapus pemeran ${c.name}?`,
-      body: `Pemeran ini dipakai di ${usedIn} klip. Klip tetap ada, hanya tautan pemerannya yang dilepas.`,
+      body:
+        `Pemeran ini dipakai di ${usedIn} klip. Klip tetap ada, hanya tautan pemerannya yang dilepas.` +
+        (project?.seriesId ? ' Pemeran seri yang kamu hapus tidak ditambahkan lagi ke episode ini, kecuali lewat Ambil pemeran seri.' : ''),
       confirm: 'Hapus pemeran',
       danger: true
     })

@@ -41,7 +41,7 @@ Jendela dibuat dengan `sandbox: true`, `contextIsolation: true`, `nodeIntegratio
 | Kelompok | Kanal | Fungsi |
 |---|---|---|
 | `projects:*` | list, create, get, save, remove, duplicate | proyek dan snapshot (`list` tanpa episode seri) |
-| `series:*` | list, create, get, update, remove, plan, addEpisode, updateEpisode, removeEpisode, updateCharacter, removeCharacter, syncCastIn, syncCastOut | seri, bible, pemeran bersama, episode |
+| `series:*` | list, create, get, update, updateSettings, remove, plan, addEpisode, updateEpisode, removeEpisode, updateCharacter, removeCharacter, syncCastIn, syncCastOut | seri (cerita atau video penjelasan), bible, pengaturan episode baru, pemeran bersama, episode |
 | `story:*` | script, visuals, musicPrompt | LLM: naskah, rencana visual, prompt musik |
 | `explainer:*` | scenes | LLM: adegan video penjelasan + narasi |
 | `generate:*` | clipImage, clipVideo, clipTts, characterSheet, missingImages, missingVideos, missingTts, narration, syncCaptions, cancel, estimate | job AI dan estimasi kredit |
@@ -114,7 +114,8 @@ setelah render. Lihat [remotion.md](remotion.md#server-aset-sementara).
 ## Halaman (route renderer)
 
 `store/app.ts` menyimpan halaman aktif: `home`, `settings` (dengan `back`), `project` (`ProjectPage`), dan `series`
-(`SeriesPage` di `pages/series/`: bible, pemeran bersama, daftar episode, dan progres Sekali klik seri). Header
+(`SeriesPage` di `pages/series/`: bible, pemeran bersama (seri cerita), Pengaturan seri, daftar episode dengan
+ringkasan yang bisa disunting, dan progres Sekali klik seri). Header
 proyek episode menampilkan nama seri sebagai breadcrumb, dan tombol kembalinya membuka halaman seri.
 
 ## Simpan otomatis

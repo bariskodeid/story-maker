@@ -15,7 +15,7 @@ Tipe TypeScript-nya ada di `src/shared/types.ts`; skema SQLite di `src/main/db/i
 | `settings` | pengaturan aplikasi (key → JSON) |
 | `secrets` | kunci API terenkripsi + hasil tes terakhir |
 | `cache` | cache bebas (daftar model, estimasi kredit, daftar suara), dengan `updated_at` |
-| `series` | satu baris per seri: premis, alur, bible (`bible_json`), pengaturan untuk episode baru |
+| `series` | satu baris per seri: jenis, premis, alur, bible (`bible_json`), pengaturan untuk episode baru |
 | `series_characters` | pemeran bersama seri + path lembar karakternya di folder seri (`sheet_path`) |
 
 Relasi `project_id` memakai `ON DELETE CASCADE`. Tidak ada foreign key antara klip dan aset; klip menunjuk aset
@@ -37,6 +37,7 @@ dalam transaksi, lalu `user_version` dinaikkan.
 | 7 | `clips.media_in_ms`, `voice_in_ms`, `voice_out_ms`, `voice_start_ms` |
 | 8 | Tabel `series` dan `series_characters`; `projects.series_id`, `episode_no`, `episode_summary` |
 | 9 | `projects.kind`, `template_id`, `theme_json`; `clips.scene_json` (video penjelasan) |
+| 10 | `series.template_id`, `series.theme_json` (seri video penjelasan); `series.cast_removed_json` dan `projects.cast_removed_json` (pemeran yang dihapus manual) |
 
 **Aturan:** tambahkan migrasi baru di akhir. Jangan mengubah migrasi yang sudah ada, karena pengguna lama sudah
 menjalankannya.
@@ -67,20 +68,33 @@ Kolom seri (`series_id`, `episode_no`, `episode_summary`) dimiliki proses utama 
 `setEpisodeSummary` (`src/main/series.ts`). `duplicateProject` menyalin `episode_summary`, tetapi salinannya menjadi
 proyek biasa (`series_id` null), supaya satu episode tetap satu proyek.
 
+`projects.cast_removed_json` (array nama, huruf kecil) hanya dipakai di proses utama dan tidak ada di tipe `Project`:
+`saveSnapshot` mencatat nama pemeran yang hilang dari sebuah episode (dihapus atau diganti nama) lewat
+`noteRemovedCast`, dan `syncCastIn` tidak menambahkan nama itu lagi kecuali lewat **Ambil pemeran seri** (`restore`).
+Proyek di luar seri tidak dicatat, dan salinan `duplicateProject` mulai dengan daftar kosong.
+
+`updateSeriesSettings` juga menulis kolom pengaturan (`duration_sec`, `language`, `aspect_ratio`, `style_id`,
+`tts_provider`, `tts_voice`, `image_model`, `template_id`, `theme_json`) ke episode yang **belum punya klip**. Halaman
+seri tidak pernah tampil bersamaan dengan proyek yang terbuka, dan panelnya terkunci selama Sekali klik berjalan, jadi
+snapshot renderer yang lama tidak menimpanya.
+
 ## Seri (`Series`, `SeriesCharacter`)
 
 | Properti | Arti |
 |---|---|
-| `kind` | jenis seri; sekarang selalu `story` (kolom disiapkan untuk jenis proyek lain) |
+| `kind` | `story` (pemeran bersama) atau `explainer` (seri video penjelasan: kursus atau acara rutin, tanpa pemeran); tidak berubah setelah dibuat |
 | `title`, `premise` | judul (diisi AI saat rencana disusun) dan premis dari Beranda |
 | `continuity` | `serial` (bersambung) atau `anthology` (cerita lepas, dunia dan pemeran sama) |
-| `bible` | `{ world, tone, rules, hooks[{no, hook}] }` di `bible_json`; bisa diedit di halaman seri |
+| `bible` | `{ world, tone, rules, hooks[{no, hook}] }` di `bible_json`; bisa diedit di halaman seri. Untuk seri penjelasan `world` berisi penonton & cakupan dan `tone` gaya bicara |
 | `episodeCount` | jumlah episode yang direncanakan |
-| `durationSec`, `language`, `aspectRatio`, `styleId`, `ttsProvider`, `ttsVoice`, `imageModel`, `videoModel` | pengaturan awal setiap episode baru |
+| `durationSec`, `language`, `aspectRatio`, `styleId`, `ttsProvider`, `ttsVoice`, `imageModel`, `videoModel` | pengaturan awal setiap episode baru; semua kecuali `videoModel` bisa diubah di **Pengaturan seri** (`SeriesSettingsPatch`) |
+| `templateId`, `theme` | seri penjelasan: template dan tema (`ExplainerTheme` tanpa `logoAssetId`) untuk episode baru; `null`/`{}` untuk seri cerita |
 
 `SeriesCharacter`: `name`, `description` (bahasa Inggris, seperti pemeran proyek), `sheetPath` (relatif ke
 `<userData>/series/<id>/`, null sampai ada episode yang membuat lembarnya), `sheetUrl` (`studio://series/...`), `sort`.
-Pemeran dicocokkan antara seri dan episode lewat nama (huruf kecil, tanpa spasi tepi).
+Pemeran dicocokkan antara seri dan episode lewat nama (huruf kecil, tanpa spasi tepi, `castKey` di `shared/series.ts`).
+`series.cast_removed_json` mencatat nama pemeran yang dihapus atau diganti namanya di halaman seri, supaya
+`syncCastOut` tidak mengembalikannya dari episode yang masih memakainya.
 
 ## Klip (`Clip`)
 

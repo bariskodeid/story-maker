@@ -3,6 +3,7 @@ import type {
   AspectRatio,
   AppSettings,
   Asset,
+  CastSyncOptions,
   CharacterPatchEvent,
   ClipPatchEvent,
   CreditEstimate,
@@ -25,6 +26,8 @@ import type {
   SeriesBundle,
   SeriesCharacter,
   SeriesPatch,
+  SeriesSettingsPatch,
+  SeriesSettingsResult,
   SeriesSummary,
   TtsProvider,
   VoiceOption
@@ -47,6 +50,8 @@ export interface StudioApi {
     get(id: string): Promise<SeriesBundle>
     /** Title, premise and the editable bible (world, tone, rules). */
     update(id: string, patch: SeriesPatch): Promise<Series>
+    /** Settings new episodes start with; also given to episodes without scenes, never to the others. */
+    updateSettings(id: string, patch: SeriesSettingsPatch): Promise<SeriesSettingsResult>
     /** Deletes the series with all its episode projects and files. */
     remove(id: string): Promise<void>
     /** LLM: bible, cast and one outline per episode, then an episode project for each (replaces unstarted drafts). */
@@ -58,8 +63,11 @@ export interface StudioApi {
     removeEpisode(projectId: string): Promise<void>
     updateCharacter(id: string, patch: { name?: string; description?: string }): Promise<SeriesCharacter>
     removeCharacter(id: string): Promise<void>
-    /** Copies the series cast (characters and sheets) into an episode project and returns its fresh bundle. */
-    syncCastIn(projectId: string): Promise<ProjectBundle>
+    /**
+     * Copies series sheets into an episode's characters (and with `addMissing`/`restore` the series characters it
+     * lacks, never ones removed from it by hand unless restoring) and returns its fresh bundle.
+     */
+    syncCastIn(projectId: string, opts?: CastSyncOptions): Promise<ProjectBundle>
     /** Copies an episode's new characters and sheets back to its series; null for a project outside a series. */
     syncCastOut(projectId: string): Promise<SeriesBundle | null>
   }
