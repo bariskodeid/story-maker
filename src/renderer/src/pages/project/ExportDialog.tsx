@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, FolderOpen, RotateCcw } from 'lucide-react'
 import type { ExportOptions, Job } from '@shared/types'
 import { Button, Modal, Progress, Switch, cx, inputCls } from '../../components/ui'
+import { defaultExportOptions } from '../../lib/exportOptions'
 import { clipNumber, errorText, mmss } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { isRunning, useProject } from '../../store/project'
@@ -11,17 +12,6 @@ const RESOLUTIONS: { id: ExportOptions['resolution']; label: string; sub: string
   { id: 1080, label: '1080p', sub: 'Disarankan', mb: 0.75 },
   { id: 2160, label: '4K', sub: 'Lebih lama', mb: 2.4 }
 ]
-
-function slug(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^\p{L}\p{N}]+/gu, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60) || 'video'
-  )
-}
 
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { project, clips, jobs, flush } = useProject()
@@ -33,18 +23,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     if (!open || !project) return
     // A finished or failed export is not shown again; an export still running keeps its progress.
     setJobId((id) => (id && isRunning(useProject.getState().jobs[id]) ? id : null))
-    void window.api.exporter.defaultFolder().then((folder) =>
-      setOpts({
-        fileName: slug(project.title),
-        resolution: 1080,
-        fps: 30,
-        burnCaptions: project.editor.captionStyle !== 'none',
-        writeSrt: false,
-        normalizeAudio: true,
-        duckMusic: project.editor.duckMusic,
-        folder
-      })
-    )
+    void window.api.exporter.defaultFolder().then((folder) => setOpts(defaultExportOptions(project, folder)))
   }, [open])
 
   if (!project || !opts) return null

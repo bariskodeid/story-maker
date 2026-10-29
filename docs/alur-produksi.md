@@ -34,7 +34,11 @@ posisi proyek saat itu, misalnya setelah naskah kamu sunting. Tombol ini hanya m
 dibuat (`remainingWork`), dan sebelum mulai memeriksa layanan yang akan dipanggil (`missingServices` di
 `lib/keys.ts`, juga dipakai tombol Sekali klik di Beranda).
 
-Video AI tidak dibuat dan ekspor tetap manual. Setiap langkah dilewati kalau hasilnya sudah ada, jadi **Coba lagi**
+Video AI tidak dibuat. **Ekspor otomatis** bersifat opsional: sakelar "Ekspor MP4 otomatis setelah editor siap" ada
+di dialog konfirmasi kedua tombol dan di panel progres (bisa diubah selama berjalan), dan pilihan terakhir disimpan di
+`settings.autoExport`. Kalau menyala, setelah langkah 4 aplikasi memanggil `exporter.start` dengan
+`defaultExportOptions` (`lib/exportOptions.ts`, sama dengan isian awal dialog Ekspor) ke folder ekspor bawaan, lalu
+menunggu job ekspornya. Notifikasi "Video selesai diekspor" datang dari pemantau job di `App.tsx`. Setiap langkah dilewati kalau hasilnya sudah ada, jadi **Coba lagi**
 atau **Lanjutkan otomatis** cukup menjalankan ulang seluruh urutan. Selama berjalan, halaman proyek menampilkan
 `AutopilotPanel` sebagai ganti isi langkah dan tab langkah dikunci. Proses tetap jalan kalau pengguna kembali ke
 Beranda (kartunya berlabel "Dibuat otomatis…"), tetapi berhenti kalau aplikasi ditutup; job yang terputus ditandai

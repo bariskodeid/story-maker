@@ -25,6 +25,8 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   bisa dilanjutkan tanpa mengulang langkah yang sudah selesai. Video AI tidak ikut dibuat.
 - **Lanjutkan otomatis** di header proyek: meneruskan proyek yang sudah ada dari langkah terakhirnya dengan cara
   yang sama. Tombolnya hanya muncul kalau masih ada yang perlu dibuat.
+- Opsi **ekspor MP4 otomatis** setelah editor siap, di dialog Sekali klik/Lanjutkan otomatis dan di panel progres.
+  Memakai pilihan bawaan dialog Ekspor dan folder ekspor bawaan; pilihan terakhir diingat.
 - **9Router** (gateway AI lokal atau yang di-host sendiri, kompatibel OpenAI) sebagai penyedia baru. Satu koneksi
   (alamat + kunci opsional) dipakai untuk:
   - penyusun cerita (naskah, rencana visual, prompt musik);

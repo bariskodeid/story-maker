@@ -15,7 +15,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   elevenModel: 'eleven_multilingual_v2',
   imageModel: DEFAULT_IMAGE_MODEL,
   videoModel: DEFAULT_VIDEO_MODEL,
-  whisperAuto: true
+  whisperAuto: true,
+  autoExport: false
 }
 
 export function getSettings(): AppSettings {

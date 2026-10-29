@@ -1,8 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
 import { isNineRouterImage } from '@shared/imageModels'
-import { Button, Progress, Spinner, confirmDialog, cx } from '../../components/ui'
-import { dismissAutopilot, remainingWork, startAutopilot, stopAutopilot, type AutopilotRun, type AutopilotStage } from '../../lib/autopilot'
+import { Button, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
+import {
+  dismissAutopilot,
+  exportOption,
+  remainingWork,
+  setAutoExport,
+  startAutopilot,
+  stopAutopilot,
+  type AutopilotRun,
+  type AutopilotStage
+} from '../../lib/autopilot'
 import { joinList } from '../../lib/format'
 import { missingServices } from '../../lib/keys'
 import { useApp } from '../../store/app'
@@ -10,7 +19,7 @@ import { useProject } from '../../store/project'
 
 type RowState = 'pending' | 'active' | 'done' | 'failed'
 
-const ORDER: AutopilotStage[] = ['script', 'visuals', 'media', 'finish']
+const ORDER: AutopilotStage[] = ['script', 'visuals', 'media', 'finish', 'export']
 
 function stageState(run: AutopilotRun, stage: AutopilotStage): RowState {
   const at = ORDER.indexOf(run.stage)
@@ -63,6 +72,7 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
   // A resumed run makes new sheet jobs; only the latest one per character counts.
   const sheetJobs = [...new Map(jobs.filter((j) => j.kind === 'sheet').map((j) => [j.characterId ?? j.id, j])).values()]
   const narration = jobs.filter((j) => j.kind === 'narration').sort((a, b) => b.createdAt - a.createdAt)[0]
+  const exportJob = jobs.filter((j) => j.kind === 'export').at(-1)
   const withImage = clips.filter((c) => c.imageAssetId).length
   const toVoice = clips.filter((c) => c.narration.trim())
   const voiced = toVoice.filter((c) => c.audioAssetId).length
@@ -142,7 +152,16 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
           >
             {narration?.status === 'running' && <Progress value={narration.progress} className="max-w-[320px]" />}
           </Row>
-          <Row state={stageState(run, 'finish')} title="Editor" detail="Siap kamu cek dan ekspor" />
+          <Row state={stageState(run, 'finish')} title="Editor" detail={run.exportAfter ? 'Proyek dipindah ke editor' : 'Siap kamu cek dan ekspor'} />
+          {run.exportAfter && (
+            <Row
+              state={stageState(run, 'export')}
+              title="Ekspor MP4"
+              detail={exportJob?.status === 'running' ? (exportJob.message ?? 'Menyiapkan…') : 'Ke folder ekspor bawaan'}
+            >
+              {exportJob?.status === 'running' && <Progress value={exportJob.progress} className="max-w-[320px]" />}
+            </Row>
+          )}
         </ol>
 
         {run.state === 'failed' && run.error && (
@@ -150,6 +169,16 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             {run.error}
           </p>
+        )}
+
+        {run.state === 'running' && run.stage !== 'export' && (
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+            <Switch on={run.exportAfter} label="Ekspor MP4 otomatis setelah selesai" onChange={(on) => setAutoExport(run.projectId, on)} />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-ink">Ekspor MP4 otomatis setelah selesai</span>
+              <span className="text-[13px] text-ink-2">Ke folder ekspor bawaan, dengan pilihan bawaan dialog Ekspor. Bisa diubah selama proses berjalan.</span>
+            </span>
+          </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -203,15 +232,19 @@ export function AutopilotButton() {
         })
         return
       }
+      let exportAfter = settings.autoExport
       const ok = await confirmDialog({
         title: 'Lanjutkan otomatis?',
         body:
           `Yang akan dibuat: ${joinList(work.parts)}. Bagian yang sudah jadi tidak diulang, lalu proyek terbuka di editor. ` +
           (work.images && !isNineRouterImage(imageModel) ? 'Gambar Higgsfield memakai kredit. ' : '') +
           'Video AI tidak dibuat.',
-        confirm: 'Lanjutkan otomatis'
+        confirm: 'Lanjutkan otomatis',
+        option: exportOption(exportAfter, (on) => (exportAfter = on))
       })
-      if (ok) startAutopilot(project.id)
+      if (!ok) return
+      void window.api.settings.set({ autoExport: exportAfter })
+      startAutopilot(project.id, { exportAfter })
     } finally {
       setBusy(false)
     }

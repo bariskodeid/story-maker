@@ -9,7 +9,7 @@ import { Select, type SelectOption } from '../components/Select'
 import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
 import { Badge, Button, Chip, IconButton, Menu, confirmDialog, cx } from '../components/ui'
-import { startAutopilot, useAutopilot } from '../lib/autopilot'
+import { exportOption, startAutopilot, useAutopilot } from '../lib/autopilot'
 import { errorText, joinList, mmss, relativeTime } from '../lib/format'
 import { TTS_NAMES, TTS_PROVIDERS, missingServices, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
@@ -112,11 +112,11 @@ export function Home() {
     return (projects ?? []).filter((p) => f.match(p.status) && (!q || p.title.toLowerCase().includes(q)))
   }, [projects, filter, query])
 
-  const start = async (auto: boolean): Promise<void> => {
+  const start = async (auto: boolean, exportAfter = false): Promise<void> => {
     setCreating(auto ? 'auto' : 'manual')
     try {
       const b = await window.api.projects.create({ synopsis, durationSec, language, aspectRatio, styleId, ttsProvider: tts })
-      if (auto) startAutopilot(b.project.id)
+      if (auto) startAutopilot(b.project.id, { exportAfter })
       go({ name: 'project', id: b.project.id })
     } catch (e) {
       toast('error', errorText(e))
@@ -134,16 +134,20 @@ export function Home() {
 
   const startAuto = async (): Promise<void> => {
     const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
+    let exportAfter = appSettings?.autoExport ?? false
     const ok = await confirmDialog({
       title: 'Buat video sekali klik?',
       body:
         `Naskah, rencana visual, lembar karakter, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption dibuat otomatis, ` +
-        `lalu proyeknya terbuka di editor untuk kamu cek dan ekspor. ` +
+        `lalu proyeknya terbuka di editor. ` +
         (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
         'Video AI tidak dibuat; klip memakai gerak kamera.',
-      confirm: 'Buat otomatis'
+      confirm: 'Buat otomatis',
+      option: exportOption(exportAfter, (on) => (exportAfter = on))
     })
-    if (ok) await start(true)
+    if (!ok) return
+    void window.api.settings.set({ autoExport: exportAfter }).then(setAppSettings)
+    await start(true, exportAfter)
   }
 
   const remove = async (p: ProjectSummary): Promise<void> => {

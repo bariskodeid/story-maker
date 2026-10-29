@@ -300,6 +300,8 @@ export interface AppSettings {
   videoModel: string
   /** Time captions against the real voice with Whisper after narration is made (when the model is present). */
   whisperAuto: boolean
+  /** One-click generate also exports an MP4 once the editor is ready; the last choice made when starting a run. */
+  autoExport: boolean
 }
 
 /** What one Higgsfield request would cost, from the API's estimate endpoint. */

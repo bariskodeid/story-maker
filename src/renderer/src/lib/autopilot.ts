@@ -3,11 +3,12 @@ import { needsVisual } from '@shared/script'
 import type { Clip, Job, ProjectBundle } from '@shared/types'
 import { useApp } from '../store/app'
 import { useProject } from '../store/project'
+import { defaultExportOptions } from './exportOptions'
 import { errorText } from './format'
 
 /**
  * One-click generate: runs idea → script → visual plan → sheets and clip images + narration (Whisper runs inside
- * the narration job) → editor, by calling the same IPCs as the step buttons.
+ * the narration job) → editor → optionally an MP4 export, by calling the same IPCs as the step buttons.
  *
  * It lives in the renderer on purpose. The renderer's project store autosaves whole snapshots, so if the main
  * process rewrote clips and characters on its own, a stale snapshot could delete them again. Driving the steps
@@ -15,7 +16,7 @@ import { errorText } from './format'
  * is open. A module-level store keeps the run going while the user is on another page; it stops with the app.
  */
 
-export type AutopilotStage = 'script' | 'visuals' | 'media' | 'finish'
+export type AutopilotStage = 'script' | 'visuals' | 'media' | 'finish' | 'export'
 
 export interface AutopilotRun {
   projectId: string
@@ -23,6 +24,8 @@ export interface AutopilotRun {
   state: 'running' | 'failed' | 'stopped'
   error: string | null
   stopping: boolean
+  /** Export an MP4 once the editor is ready; can be switched while the run is going. */
+  exportAfter: boolean
   /** Every job of the project seen during the run, by id (latest state from job events). */
   jobs: Record<string, Job>
 }
@@ -44,6 +47,16 @@ export function remainingWork(clips: Clip[]): { parts: string[]; story: boolean;
   if (noImage) parts.push(`${noImage} gambar klip`)
   if (noVoice) parts.push(`narasi ${noVoice} klip`)
   return { parts, story: stale > 0, images: noImage > 0, voice: noVoice > 0 }
+}
+
+/** The "export too" switch of the start dialogs, starting from the remembered choice. */
+export function exportOption(initial: boolean, onChange: (on: boolean) => void) {
+  return {
+    label: 'Ekspor MP4 otomatis setelah editor siap',
+    hint: 'Ke folder ekspor bawaan, dengan pilihan bawaan dialog Ekspor (1080p, caption ditempel).',
+    initial,
+    onChange
+  }
 }
 
 /** Failed images and narration get one more round before the run gives up. */
@@ -115,6 +128,20 @@ async function openEditor(id: string): Promise<void> {
   })
 }
 
+async function exportVideo(id: string): Promise<void> {
+  patch(id, { stage: 'export' })
+  await flushIfOpen(id)
+  const b = await window.api.projects.get(id)
+  const job = await window.api.exporter.start(id, defaultExportOptions(b.project, await window.api.exporter.defaultFolder()))
+  track(id, [job])
+  await waitFor(id, [job.id])
+  checkStop(id)
+  const done = runOf(id)?.jobs[job.id]
+  if (done?.status !== 'done') throw new Error(`Ekspor video gagal${done?.error ? `: ${done.error}` : '.'}`)
+  // Main marks the project exported; the open store must agree or its next autosave would undo it.
+  if (isOpen(id)) useProject.getState().updateProject({ status: 'exported' })
+}
+
 function failureText(id: string, missingImages: number, missingVoices: number): string {
   const parts: string[] = []
   if (missingImages) parts.push(`${missingImages} gambar klip`)
@@ -171,11 +198,17 @@ async function pipeline(id: string): Promise<void> {
 
     patch(id, { stage: 'finish' })
     await openEditor(id)
+    checkStop(id)
+
+    const exported = runOf(id)?.exportAfter ?? false
+    if (exported) await exportVideo(id)
+
     useAutopilot.setState((s) => {
       const { [id]: _done, ...rest } = s.runs
       return { runs: rest }
     })
-    useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
+    // An export brings its own "Video selesai diekspor" toast with a button to open the folder (App.tsx).
+    if (!exported) useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
   } catch (e) {
     if (e instanceof Stopped || runOf(id)?.stopping) patch(id, { state: 'stopped', stopping: false, error: null })
     else patch(id, { state: 'failed', error: errorText(e) })
@@ -184,14 +217,24 @@ async function pipeline(id: string): Promise<void> {
   }
 }
 
-/** Starts (or resumes) one-click generate. Steps already done are skipped, so a failed run can simply start again. */
-export function startAutopilot(projectId: string): void {
+/**
+ * Starts (or resumes) one-click generate. Steps already done are skipped, so a failed run can simply start again.
+ * `exportAfter` defaults to the previous run's choice.
+ */
+export function startAutopilot(projectId: string, opts: { exportAfter?: boolean } = {}): void {
   const run = runOf(projectId)
   if (run?.state === 'running') return
+  const exportAfter = opts.exportAfter ?? run?.exportAfter ?? false
   useAutopilot.setState((s) => ({
-    runs: { ...s.runs, [projectId]: { projectId, stage: 'script', state: 'running', error: null, stopping: false, jobs: run?.jobs ?? {} } }
+    runs: { ...s.runs, [projectId]: { projectId, stage: 'script', state: 'running', error: null, stopping: false, exportAfter, jobs: run?.jobs ?? {} } }
   }))
   void pipeline(projectId)
+}
+
+/** Flips automatic export for a run and remembers the choice for the next one. */
+export function setAutoExport(projectId: string, on: boolean): void {
+  patch(projectId, { exportAfter: on })
+  void window.api.settings.set({ autoExport: on })
 }
 
 /** Stops after the current step: running image and voice jobs are canceled; a script or plan in progress finishes. */

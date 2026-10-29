@@ -259,6 +259,8 @@ interface ConfirmRequest {
   /** Label of the other button; "Batal" by default. */
   cancel?: string
   danger?: boolean
+  /** One on/off choice shown above the buttons; `onChange` gets every flip, the caller reads it after confirming. */
+  option?: { label: string; hint?: string; initial: boolean; onChange: (on: boolean) => void }
   resolve: (ok: boolean) => void
 }
 
@@ -273,13 +275,32 @@ export function confirmDialog(opts: Omit<ConfirmRequest, 'resolve'>): Promise<bo
 
 export function ConfirmHost() {
   const { req, set } = useConfirmStore()
+  const [optionOn, setOptionOn] = useState(false)
+  useEffect(() => setOptionOn(!!req?.option?.initial), [req])
   const close = (ok: boolean): void => {
     req?.resolve(ok)
     set(null)
   }
+  const option = req?.option
   return (
     <Modal open={!!req} onClose={() => close(false)} title={req?.title} width={480}>
       <p className="text-[15px] leading-relaxed text-ink-2">{req?.body}</p>
+      {option && (
+        <div className="flex items-start gap-3 rounded-xl border border-line bg-paper px-3.5 py-3">
+          <Switch
+            on={optionOn}
+            label={option.label}
+            onChange={(v) => {
+              setOptionOn(v)
+              option.onChange(v)
+            }}
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold text-ink">{option.label}</span>
+            {option.hint && <span className="text-[13px] text-ink-2">{option.hint}</span>}
+          </span>
+        </div>
+      )}
       <div className="flex justify-end gap-2.5">
         <Button onClick={() => close(false)}>{req?.cancel ?? 'Batal'}</Button>
         <Button variant={req?.danger ? 'ink' : 'primary'} onClick={() => close(true)} autoFocus>
