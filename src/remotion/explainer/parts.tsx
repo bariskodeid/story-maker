@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Img, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { CodeKind, ExplainerLook, SceneHighlight } from '@shared/explainer'
 import { alpha, BODY_FONT, enter, MONO_FONT, SNAP } from './layout'
@@ -265,6 +265,46 @@ export function Picture({
             }}
           />
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A box in the frame whose content shrinks when it would not fit. Text from the LLM varies in length, and text
+ * that spills out of its box would run into the captions or off the frame, so a too-tall layout is scaled down
+ * as a whole. The measurement runs before paint on every render, so the Player and the MP4 scale alike.
+ */
+export function FitBox({
+  x,
+  y,
+  w,
+  h,
+  style,
+  children,
+  origin = 'center top'
+}: {
+  x: number
+  y: number
+  w: number
+  h: number
+  style?: CSSProperties
+  children: ReactNode
+  origin?: string
+}) {
+  const inner = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = inner.current
+    if (!el) return
+    // offsetHeight ignores transforms, so entrance animations inside cannot make the scale jump.
+    const need = el.offsetHeight
+    const t = need > h + 0.5 ? `scale(${(h / need).toFixed(4)})` : ''
+    if (el.style.transform !== t) el.style.transform = t
+  })
+  return (
+    <div style={{ position: 'absolute', left: x, top: y, width: w, height: h }}>
+      <div ref={inner} style={{ width: w, minHeight: h, display: 'flex', transformOrigin: origin, ...style }}>
+        {children}
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from 
 import type { RenderEngineStatus, RenderTestResult } from '@shared/render'
 import { emit } from './events'
 import { dataDir, fontsDir, projectDir, remotionBinariesDir, remotionBundleDir } from './paths'
+import { getSecret } from './secrets'
 
 /**
  * Remotion renders explainer videos: a prebuilt bundle (src/remotion) runs in Chrome Headless Shell, which
@@ -250,6 +251,11 @@ export async function renderVideo(req: RenderRequest): Promise<void> {
     req.onProgress(0.05 * (total ? received / total : 0), `Mengunduh mesin render (${mb(received)} dari ${mb(total)})`)
   )
   if (req.signal.aborted) throw new Error('Dibatalkan')
+  // Companies above the free tier add their Remotion Company License key in Settings. With a key, Remotion
+  // reports each finished render to remotion.pro (the key, success, nothing about the video) before it
+  // resolves; a failed report is only logged by Remotion and never fails the render. Without a key nothing is
+  // sent, as before. getSecret throws a readable message when a stored key can no longer be decrypted.
+  const licenseKey = getSecret('remotion')
   const { cancelSignal, cancel } = makeCancelSignal()
   const onAbort = (): void => cancel()
   req.signal.addEventListener('abort', onAbort)
@@ -283,8 +289,14 @@ export async function renderVideo(req: RenderRequest): Promise<void> {
       imageFormat: 'jpeg',
       jpegQuality: 92,
       cancelSignal,
+      ...(licenseKey ? { licenseKey } : {}),
       onProgress: ({ progress, renderedFrames, stitchStage }) => {
-        const msg = stitchStage === 'muxing' || renderedFrames >= frames ? 'Menyatukan gambar dan suara' : `Merender frame ${renderedFrames} dari ${frames}`
+        const msg =
+          licenseKey && progress >= 1
+            ? 'Mencatat pemakaian lisensi Remotion'
+            : stitchStage === 'muxing' || renderedFrames >= frames
+              ? 'Menyatukan gambar dan suara'
+              : `Merender frame ${renderedFrames} dari ${frames}`
         req.onProgress(0.06 + 0.84 * progress, msg)
       }
     })

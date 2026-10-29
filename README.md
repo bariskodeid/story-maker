@@ -33,8 +33,9 @@ Story Maker adalah aplikasi desktop untuk kreator konten. Tulis satu ide, misaln
 
 Hasilnya video MP4 yang siap diunggah ke YouTube, Shorts, Reels, atau TikTok.
 
-Selain video cerita, ada juga **Video penjelasan**: tutorial langkah demi langkah, tips & trik, fakta/countdown, dan
-kutipan/motivasi dengan tampilan yang didesain (tipografi, kode, screenshot, angka besar), dirender dengan Remotion.
+Selain video cerita, ada juga **Video penjelasan**: tutorial langkah demi langkah, tips & trik, fakta/countdown,
+kutipan/motivasi, perbandingan A vs B, dan rangkuman berita dengan tampilan yang didesain (tipografi, kode,
+screenshot, angka besar, layar terbelah, lower third), dirender dengan Remotion.
 
 Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunci API sendiri (*bring your own key*), jadi biaya AI dibayar langsung ke penyedianya, tanpa server perantara.
 
@@ -61,16 +62,21 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 
 **Video penjelasan**
 - Pilih **Video penjelasan** di Beranda, tulis topiknya, lalu pilih template: **Tutorial langkah demi langkah**,
-  **Tips & trik**, **Fakta / countdown**, atau **Kutipan / motivasi**.
+  **Tips & trik**, **Fakta / countdown**, **Kutipan / motivasi**, **Perbandingan (A vs B)** (layar terbelah, ronde
+  dengan skor, plus minus, putusan), atau **Berita / rangkuman cepat** (kartu judul, lower third, poin penting,
+  tanggal dan sumber, ticker).
 - AI menulis adegan (judul, langkah, tips, fakta, kutipan, perbandingan, penutup) beserta narasinya. Setiap adegan
   bisa diedit dengan pratinjau langsung: teks, nomor, emoji, kode atau perintah terminal, kutipan dan tokohnya.
 - Gambar per adegan opsional: unggah screenshot (lengkap dengan kotak sorotan yang tinggal kamu seret) atau buat
-  gambar AI lewat Higgsfield atau 9Router.
-- Editor dengan pratinjau video utuh, pilihan palet warna, warna aksen, font judul, caption, logo, dan musik latar.
+  gambar AI lewat Higgsfield atau 9Router. Model gambarnya bisa diganti lagi di langkah Adegan.
+- Editor dengan pratinjau video utuh, pilihan palet warna, warna aksen, font judul, logo, musik latar, dan caption
+  dengan empat gaya (**Kotak**, **Karaoke**, **Minimal**, **Besar**) di bawah, tengah, atau atas. Isi adegan
+  otomatis bergeser supaya tidak tertutup caption.
 - Ekspor MP4 720p/1080p/4K, volume −14 LUFS, dan file `.srt` opsional. **Sekali klik** juga berlaku untuk video
   penjelasan.
 - Mesin render (Chrome Headless Shell, unduhan ±100 MB) diunduh sekali saat ekspor pertama, atau dari Pengaturan ›
-  Umum.
+  Umum. Di sana juga ada kolom opsional **Kunci lisensi Remotion** untuk perusahaan yang memerlukan Remotion Company
+  License.
 
 **1. Ide cerita**
 - Tulis ide atau sinopsis, lalu atur:

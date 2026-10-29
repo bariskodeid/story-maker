@@ -138,6 +138,7 @@ function KeyForm({
   link,
   linkLabel,
   customUrl,
+  testable = true,
   onChanged,
   onSaved
 }: {
@@ -151,6 +152,8 @@ function KeyForm({
   link: string | null
   linkLabel: string
   customUrl?: string
+  /** False for keys that cannot be checked against their service (the Remotion license): no test button. */
+  testable?: boolean
   onChanged: () => void
   onSaved?: (r: KeyTestResult) => void
 }) {
@@ -304,7 +307,7 @@ function KeyForm({
           </Button>
         ) : (
           <Button variant="accent" className="h-11" disabled={!canSave} loading={busy === 'save'} onClick={() => void save()}>
-            Simpan dan tes
+            {testable ? 'Simpan dan tes' : 'Simpan'}
           </Button>
         )}
         {!isCustom && editing && !!preview && (
@@ -321,16 +324,20 @@ function KeyForm({
         )}
         {configured && (
           <>
-            <Button className="h-11" loading={busy === 'test'} onClick={() => void test()}>
-              Tes
-            </Button>
+            {testable && (
+              <Button className="h-11" loading={busy === 'test'} onClick={() => void test()}>
+                Tes
+              </Button>
+            )}
             <IconButton label={`Hapus ${name}`} size={44} className="text-bad-ink" onClick={() => void clear()}>
               <Trash2 className="size-[18px]" />
             </IconButton>
           </>
         )}
       </div>
-      {unsaved && <p className="-mt-1 text-[13px] font-semibold text-accent-dark">Kunci belum tersimpan. Tekan Enter atau klik Simpan dan tes.</p>}
+      {unsaved && (
+        <p className="-mt-1 text-[13px] font-semibold text-accent-dark">Kunci belum tersimpan. Tekan Enter atau klik {testable ? 'Simpan dan tes' : 'Simpan'}.</p>
+      )}
       {hint && <p className="-mt-1 text-[13px] text-ink-2">{hint}</p>}
       <div className="flex items-center gap-2 text-[13px] text-ink-2">
         <span className={cx('flex-1', configured && status?.lastOk === false && 'text-bad-ink')}>
@@ -762,7 +769,22 @@ export function Settings() {
                     </div>
                   </Field>
                 </section>
-                <RenderEngineSection />
+                <RenderEngineSection
+                  license={
+                    <KeyForm
+                      provider="remotion"
+                      name="Lisensi Remotion"
+                      status={statusOf('remotion')}
+                      label="Kunci lisensi Remotion (opsional)"
+                      placeholder="Kunci dari halaman License keys di remotion.pro"
+                      help="Hanya untuk perusahaan dengan lebih dari 3 orang (wajib punya Remotion Company License). Perorangan dan tim kecil tidak perlu mengisinya."
+                      link="https://www.remotion.dev/docs/license"
+                      linkLabel="Lisensi Remotion"
+                      testable={false}
+                      onChanged={reload}
+                    />
+                  }
+                />
               </>
             )}
 

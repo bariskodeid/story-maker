@@ -23,6 +23,7 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
 | `elevenlabs` | TTS |
 | `openrouter`, `groq`, `custom` | LLM lewat API kompatibel OpenAI |
 | `ninerouter` | LLM, TTS, serta gambar klip dan lembar karakter lewat gateway 9Router (satu base URL + kunci opsional untuk semuanya) |
+| `remotion` | bukan layanan AI: kunci Remotion Company License opsional untuk render video penjelasan, diisi di Pengaturan › Umum dan tidak dites (lihat [remotion.md](remotion.md#kunci-lisensi-remotion)) |
 
 ## LLM (`services/llm.ts`, `services/gemini.ts`)
 

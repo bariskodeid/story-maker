@@ -120,6 +120,24 @@ React (`src/remotion/explainer`) dipakai Player di aplikasi dan render MP4, deng
 yang sama, jadi pratinjau dan ekspor identik (diuji dengan membandingkan screenshot Player dan frame MP4 yang sama).
 Proyek cerita tetap memakai exporter FFmpeg. Lisensi Remotion: lihat [remotion.md](remotion.md#lisensi-remotion).
 
+### Caption video penjelasan punya pita sendiri, dan isi adegan menyusut supaya muat
+Caption yang ditaruh di atas adegan pasti suatu saat menutupi teks adegan, karena panjang teks dari AI tidak bisa
+ditebak. `frameOf` menyisihkan pita caption (setinggi dua baris gaya terpilih, di posisi terpilih) dan area isi
+berhenti sebelum pita itu. Isi adegan ditaruh di `FitBox`, yang mengukur tinggi isinya sebelum frame dilukis dan
+memperkecilnya sebagai satu kesatuan kalau terlalu tinggi. Ukuran memakai `offsetHeight` (tidak terpengaruh
+transform), jadi animasi masuk tidak membuat skala berubah-ubah; Player dan render mengukur dengan cara yang sama.
+
+### Hiasan latar ditempatkan dari zona teks
+Konfeti template Tips dulu dipilih acak di tepi kiri/kanan dengan lebar tetap, dan di 9:16 (margin lebih sempit)
+titiknya jatuh di sela huruf judul. Sekarang setiap hiasan diukur dan ditempatkan dari `textZones` (area isi + pita
+caption, plus logo dan progres); tekstur seperti grid titik disembunyikan di zona itu dengan mask.
+
+### Kunci lisensi Remotion hanya dipakai kalau diisi
+Remotion mengirim *usage event* berisi kunci ke remotion.pro setelah setiap render yang diberi `licenseKey`. Tanpa
+kunci aplikasi tidak memberi `licenseKey` sama sekali (bukan `'free-license'`), supaya pengguna perorangan tidak
+mengirim apa pun dan render tidak tertahan saat offline. Kunci yang salah hanya dicatat Remotion di log; ekspor tetap
+berhasil. Detail: [remotion.md](remotion.md#kunci-lisensi-remotion).
+
 ### Chrome Headless Shell diunduh ke folder data, dari working directory sementara
 Remotion memilih folder unduhan browser dari `process.cwd()`. Aplikasi terpasang bisa berjalan dengan working
 directory `C:\Program Files\...` (tidak bisa ditulis), dan kalau ada `package.json` di folder induk, browser bisa

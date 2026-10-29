@@ -3,11 +3,14 @@ import { ArrowDown, ArrowRight, ArrowUp, Image as ImageIcon, ImagePlus, Mic, Mor
 import {
   getTemplate,
   sceneHas,
+  sceneShowsImage,
   sceneTypeName,
   type CodeKind,
   type ExplainerScene,
+  type ExplainerTemplateId,
   type SceneHighlight,
   type SceneImageMode,
+  type SceneSide,
   type SceneType,
   wantsAiImage
 } from '@shared/explainer'
@@ -21,10 +24,33 @@ import { errorText } from '../../../lib/format'
 import { useNarration } from '../../../lib/useNarration'
 import { useApp } from '../../../store/app'
 import { isRunning, jobFor, useProject } from '../../../store/project'
+import { ModelSection } from '../ModelSection'
 
-const VALUE_LABEL: Partial<Record<SceneType, string>> = { step: 'Nomor langkah', tip: 'Nomor', fact: 'Angka besar' }
-const AUTHOR_LABEL: Partial<Record<SceneType, string>> = { quote: 'Tokoh', fact: 'Sumber' }
-const HEADING_LABEL: Partial<Record<SceneType, string>> = { quote: 'Kutipan', compare: 'Judul perbandingan' }
+const VALUE_LABEL: Partial<Record<SceneType, string>> = { step: 'Nomor langkah', tip: 'Nomor', fact: 'Angka besar', headline: 'Tanggal' }
+const AUTHOR_LABEL: Partial<Record<SceneType, string>> = { quote: 'Tokoh', fact: 'Sumber', headline: 'Sumber' }
+const HEADING_LABEL: Partial<Record<SceneType, string>> = {
+  quote: 'Kutipan',
+  compare: 'Judul perbandingan',
+  versus: 'Pertanyaan ronde ini',
+  proscons: 'Ringkasan pilihan ini',
+  verdict: 'Putusan',
+  headline: 'Judul berita',
+  points: 'Judul daftar'
+}
+const LABEL_HINT: Partial<Record<SceneType, [string, string]>> = {
+  fact: ['Label (peringkat)', '#3'],
+  versus: ['Aspek yang diadu', 'Harga'],
+  verdict: ['Cap di pemenang', 'Pemenang'],
+  headline: ['Kategori', 'Ekonomi'],
+  points: ['Label kecil', '']
+}
+
+/** Names of option A and B in an A-vs-B video: typed once on the title scene, used by every scene. */
+function sideNames(clips: Clip[]): { a: string; b: string } {
+  const named = (c: Clip): boolean => !!(c.scene?.leftTitle || c.scene?.rightTitle)
+  const src = (clips.find((c) => c.scene?.type === 'title' && named(c)) ?? clips.find(named))?.scene
+  return { a: src?.leftTitle || 'A', b: src?.rightTitle || 'B' }
+}
 
 /** Whether a scene's voice matches its narration text. */
 function voiceState(clip: Clip, assets: ReturnType<typeof useProject.getState>['assets']): 'none' | 'stale' | 'ok' {
@@ -100,8 +126,8 @@ function Section({ title, right, children }: { title: string; right?: ReactNode;
 
 /** The picture of a scene: none, a screenshot the user adds, or an AI image from its prompt. */
 function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScene; onScene: (p: Partial<ExplainerScene>) => void }) {
-  const { assets, jobs, flush } = useProject()
-  const { toast } = useApp()
+  const { project, clips, assets, jobs, flush, updateProject } = useProject()
+  const { toast, go } = useApp()
   const image = clip.imageAssetId ? assets[clip.imageAssetId] : null
   const job = jobFor(jobs, 'image', { clipId: clip.id })
   const running = isRunning(job)
@@ -194,21 +220,53 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
             </div>
           )}
           {job?.status === 'failed' && job.error && <p className="rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad-ink">{job.error}</p>}
+          {project && (
+            // The model chosen in step 1 can change here; it applies to the next picture made, existing ones stay.
+            <ModelSection
+              imageOnly
+              project={project}
+              clipCount={Math.max(1, clips.filter((c) => wantsAiImage(c.scene) && !c.imageAssetId).length)}
+              perClip={7}
+              onChange={(patch) => {
+                updateProject(patch)
+                if (patch.imageModel) void window.api.settings.set({ imageModel: patch.imageModel })
+              }}
+              onOpenSettings={() => {
+                void flush().then(() => go({ name: 'settings', back: { name: 'project', id: project.id } }))
+              }}
+            />
+          )}
         </>
       )}
     </Section>
   )
 }
 
-function SceneForm({ clip, scene, allowed }: { clip: Clip; scene: ExplainerScene; allowed: SceneType[] }) {
-  const { updateClip, assets } = useProject()
+function SceneForm({ clip, scene, allowed, templateId }: { clip: Clip; scene: ExplainerScene; allowed: SceneType[]; templateId: ExplainerTemplateId }) {
+  const { updateClip, assets, clips } = useProject()
   const set = (p: Partial<ExplainerScene>): void => {
     const next = { ...scene, ...p }
     updateClip(clip.id, { scene: next, ...(p.heading !== undefined ? { title: p.heading.slice(0, 80) } : {}) })
   }
   const t = scene.type
   const voice = voiceState(clip, assets)
-  const text = (key: 'label' | 'value' | 'icon' | 'author' | 'codeLanguage' | 'leftTitle' | 'rightTitle', label: string, placeholder = '', mono = false) => (
+  const names = sideNames(clips)
+  const versusTitle = templateId === 'compare' && t === 'title'
+  const sideOptions: { id: SceneSide; label: string }[] =
+    t === 'proscons'
+      ? [
+          { id: 'left', label: names.a },
+          { id: 'right', label: names.b }
+        ]
+      : [
+          { id: 'left', label: names.a },
+          { id: 'right', label: names.b },
+          { id: 'both', label: 'Seri' },
+          { id: 'none', label: 'Belum' }
+        ]
+  const listLabels: [string, string] =
+    t === 'proscons' ? ['Kelebihan', 'Kekurangan'] : t === 'verdict' ? [`Pilih ${names.a} kalau…`, `Pilih ${names.b} kalau…`] : [`Poin ${names.a}`, `Poin ${names.b}`]
+  const text = (key: 'label' | 'value' | 'icon' | 'author' | 'codeLanguage' | 'leftTitle' | 'rightTitle' | 'leftValue' | 'rightValue', label: string, placeholder = '', mono = false) => (
     <Field label={label}>
       <input value={scene[key]} onChange={(e) => set({ [key]: e.target.value })} placeholder={placeholder} className={cx(inputCls, 'h-10 text-sm', mono && 'font-mono')} />
     </Field>
@@ -229,7 +287,18 @@ function SceneForm({ clip, scene, allowed }: { clip: Clip; scene: ExplainerScene
           {sceneHas(t, 'icon') && text('icon', 'Emoji', '💡')}
         </div>
       )}
-      {sceneHas(t, 'label') && text('label', t === 'fact' ? 'Label (peringkat)' : 'Label kecil', t === 'fact' ? '#3' : 'Topik')}
+      {sceneHas(t, 'label') && text('label', LABEL_HINT[t]?.[0] ?? (templateId === 'news' && t === 'title' ? 'Desk berita' : 'Label kecil'), LABEL_HINT[t]?.[1] ?? (templateId === 'news' && t === 'title' ? 'Tekno' : 'Topik'))}
+      {versusTitle && (
+        <div className="grid grid-cols-2 gap-3">
+          {text('leftTitle', 'Pilihan A', 'Kereta')}
+          {text('rightTitle', 'Pilihan B', 'Pesawat')}
+        </div>
+      )}
+      {sceneHas(t, 'side') && (
+        <Field label={t === 'proscons' ? 'Tentang pilihan' : 'Pemenang'}>
+          <Segmented<SceneSide> size="sm" value={scene.side === 'none' && t === 'proscons' ? 'left' : scene.side} onChange={(v) => set({ side: v })} options={sideOptions} />
+        </Field>
+      )}
       <Field label={HEADING_LABEL[t] ?? 'Judul'}>
         <AutoTextarea minRows={2} value={scene.heading} onChange={(e) => set({ heading: e.target.value })} className={cx(inputCls, 'py-2 text-[15px] font-semibold')} />
       </Field>
@@ -239,6 +308,23 @@ function SceneForm({ clip, scene, allowed }: { clip: Clip; scene: ExplainerScene
         </Field>
       )}
       {sceneHas(t, 'author') && text('author', AUTHOR_LABEL[t] ?? 'Sumber')}
+      {templateId === 'news' && t === 'title' && (
+        <div className="grid grid-cols-2 gap-3">
+          {text('value', 'Tanggal', '29 Okt 2026')}
+          {text('author', 'Sumber utama')}
+        </div>
+      )}
+      {sceneHas(t, 'values') && (
+        <div className="grid grid-cols-2 gap-3">
+          {text('leftValue', `Angka ${names.a}`, 'Rp350 rb')}
+          {text('rightValue', `Angka ${names.b}`, 'Rp1,2 jt')}
+        </div>
+      )}
+      {sceneHas(t, 'list') && (
+        <Field label="Poin" hint="Satu poin per baris, paling banyak 5">
+          <AutoTextarea minRows={3} value={scene.left.join('\n')} onChange={(e) => set({ left: e.target.value.split('\n') })} className={cx(inputCls, 'py-2 text-sm')} />
+        </Field>
+      )}
       {sceneHas(t, 'code') && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
@@ -269,18 +355,27 @@ function SceneForm({ clip, scene, allowed }: { clip: Clip; scene: ExplainerScene
           )}
         </div>
       )}
-      {sceneHas(t, 'compare') && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-2">
-            {text('leftTitle', 'Kolom kiri', 'Hindari')}
-            {list('left', 'Poin kiri')}
+      {sceneHas(t, 'compare') &&
+        (t === 'compare' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              {text('leftTitle', 'Kolom kiri', 'Hindari')}
+              {list('left', 'Poin kiri')}
+            </div>
+            <div className="flex flex-col gap-2">
+              {text('rightTitle', 'Kolom kanan', 'Lakukan')}
+              {list('right', 'Poin kanan')}
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            {text('rightTitle', 'Kolom kanan', 'Lakukan')}
-            {list('right', 'Poin kanan')}
-          </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {list('left', listLabels[0])}
+              {list('right', listLabels[1])}
+            </div>
+            <p className="-mt-1 text-[12.5px] text-muted">Nama {names.a} dan {names.b} diubah di adegan Judul.</p>
+          </>
+        ))}
       <Field
         label={
           <span className="flex items-center justify-between">
@@ -385,7 +480,7 @@ export function ScenesStep() {
               <div className={cx('shrink-0 overflow-hidden rounded-2xl border border-line-2 bg-ink shadow-ink', portrait && 'mx-auto w-[300px]')}>
                 <ExplainerStill input={input} frame={settledFrame(input, index)} />
               </div>
-              {scene && sceneHas(scene.type, 'image') && (
+              {scene && sceneShowsImage(project.templateId, scene.type) && (
                 <ImagePanel clip={clip} scene={scene} onScene={(p) => updateClip(clip.id, { scene: { ...scene, ...p } })} />
               )}
             </>
@@ -394,7 +489,9 @@ export function ScenesStep() {
           )}
         </main>
 
-        <aside className="scroll-thin overflow-y-auto border-l border-line bg-surface px-5 py-5">{clip && scene && <SceneForm clip={clip} scene={scene} allowed={template.sceneTypes} />}</aside>
+        <aside className="scroll-thin overflow-y-auto border-l border-line bg-surface px-5 py-5">
+          {clip && scene && <SceneForm clip={clip} scene={scene} allowed={template.sceneTypes} templateId={template.id} />}
+        </aside>
       </div>
 
       <footer className="flex h-[76px] shrink-0 items-center gap-4 border-t border-line bg-surface px-7">

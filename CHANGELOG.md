@@ -9,6 +9,19 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- Dua template video penjelasan baru:
+  - **Perbandingan (A vs B)**: layar terbelah miring dengan warna masing-masing pilihan, ronde per aspek dengan angka
+    besar dan pemenang yang terungkap (cakram VS berubah jadi skor), adegan plus minus, putusan dengan cap dan skor
+    akhir, serta transisi dua warna yang bertabrakan.
+  - **Berita / rangkuman cepat**: pembuka dengan daftar berita, judul dalam lower third, poin penting yang muncul satu
+    per satu, tanggal dan sumber, bug desk di pojok, ticker judul (16:9), dan pita merah di setiap potongan. AI hanya
+    merangkum isi topik, tanpa mengarang peristiwa, angka, atau sumber.
+- **Gaya caption** untuk video penjelasan: **Kotak**, **Karaoke** (warna mengisi kata demi kata), **Minimal**, dan
+  **Besar** (2–3 kata besar ala Shorts), di posisi bawah, tengah, atau atas, dipilih dari kotak pratinjau di Editor.
+  Isi adegan bergeser dan mengecil bila perlu, jadi caption tidak pernah menutupi teks adegan.
+- Kolom opsional **Kunci lisensi Remotion** di Pengaturan › Umum › Mesin render, untuk perusahaan dengan lebih dari
+  3 orang. Disimpan terenkripsi; tanpa kunci, ekspor berjalan seperti sebelumnya.
+- Model gambar AI video penjelasan bisa diganti di langkah Adegan, tanpa kembali ke langkah 1.
 - **Video penjelasan**, jenis proyek baru di samping cerita. Pilih di Beranda, tulis topiknya, lalu pilih satu dari
   empat template: **Tutorial langkah demi langkah**, **Tips & trik**, **Fakta / countdown**, dan **Kutipan /
   motivasi**. AI menulis adegan yang didesain (judul, langkah dengan kode atau perintah terminal, tips dengan emoji,
@@ -35,6 +48,12 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 - Video tutorial YouTube dan tautan channel di halaman Tentang, beserta header Referer khusus embed YouTube dan izin
   iframe YouTube di CSP.
 - Tautan referral Higgsfield di Pengaturan, diganti dengan dashboard Higgsfield Cloud.
+
+### Diperbaiki
+- Hiasan template Tips (konfeti, cakram, cincin) tidak lagi muncul di sela huruf judul atau caption; grid titik
+  Tutorial memudar di bawah teks, dan cincin di adegan penutup diganti cahaya lembut.
+- Teks adegan yang terlalu panjang tidak lagi tumpah ke caption atau keluar layar: isinya diperkecil sampai muat.
+- Caption Tips dengan palet Arang (gelap) kini terbaca (sebelumnya teks putih di kotak krem).
 
 ### Ditambahkan
 - **Seri dan episode**: dari satu premis, AI menyusun bible seri (dunia, nada, aturan), pemeran tetap, dan rencana
