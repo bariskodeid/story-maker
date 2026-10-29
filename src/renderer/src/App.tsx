@@ -3,6 +3,7 @@ import { ConfirmHost } from './components/ui'
 import { Toasts } from './components/Toasts'
 import { Home } from './pages/Home'
 import { ProjectPage } from './pages/project/ProjectPage'
+import { SeriesPage } from './pages/series/SeriesPage'
 import { Settings } from './pages/Settings'
 import { useApp } from './store/app'
 import { useProject } from './store/project'
@@ -56,6 +57,7 @@ export function App() {
       {route.name === 'home' && <Home />}
       {route.name === 'settings' && <Settings />}
       {route.name === 'project' && <ProjectPage key={route.id} id={route.id} />}
+      {route.name === 'series' && <SeriesPage key={route.id} id={route.id} />}
       <Toasts />
       <ConfirmHost />
     </>

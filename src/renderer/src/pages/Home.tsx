@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowRight, Copy, FolderOpen, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, Wand2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Copy, FolderOpen, Layers, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, Wand2 } from 'lucide-react'
 import { isNineRouterImage } from '@shared/imageModels'
 import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
+import { MAX_EPISODES, MIN_EPISODES } from '@shared/series'
 import { getStyle } from '@shared/styles'
-import type { ApiProvider, AppSettings, AspectRatio, KeyStatus, ProjectStatus, ProjectSummary, TtsProvider } from '@shared/types'
+import type {
+  ApiProvider,
+  AppSettings,
+  AspectRatio,
+  KeyStatus,
+  ProjectStatus,
+  ProjectSummary,
+  SeriesContinuity,
+  SeriesSummary,
+  TtsProvider
+} from '@shared/types'
 import { Logo } from '../components/Logo'
 import { Select, type SelectOption } from '../components/Select'
 import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
-import { Badge, Button, Chip, IconButton, Menu, confirmDialog, cx } from '../components/ui'
+import { Badge, Button, Chip, IconButton, Menu, Segmented, confirmDialog, cx } from '../components/ui'
 import { exportOption, startAutopilot, useAutopilot } from '../lib/autopilot'
+import { dismissSeriesAutopilot, planSeries, startSeriesAutopilot, useSeriesAutopilot } from '../lib/seriesAutopilot'
 import { errorText, joinList, mmss, relativeTime } from '../lib/format'
 import { TTS_NAMES, TTS_PROVIDERS, missingServices, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
@@ -22,12 +34,26 @@ const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'w
   exported: { label: 'Diekspor', tone: 'ok' }
 }
 
-const FILTERS: { id: 'all' | 'draft' | 'progress' | 'exported'; label: string; match: (s: ProjectStatus) => boolean }[] = [
+/** Status filters apply to standalone projects; "Seri" shows only series, "Semua" both. */
+const FILTERS: { id: 'all' | 'draft' | 'progress' | 'exported' | 'series'; label: string; match: (s: ProjectStatus) => boolean }[] = [
   { id: 'all', label: 'Semua', match: () => true },
   { id: 'draft', label: 'Draf', match: (s) => s === 'draft' },
   { id: 'progress', label: 'Dalam proses', match: (s) => s === 'script' || s === 'storyboard' || s === 'editing' },
-  { id: 'exported', label: 'Diekspor', match: (s) => s === 'exported' }
+  { id: 'exported', label: 'Diekspor', match: (s) => s === 'exported' },
+  { id: 'series', label: 'Seri', match: () => false }
 ]
+
+const CONTINUITY: SelectOption<SeriesContinuity>[] = [
+  { value: 'serial', label: 'Bersambung', note: 'Satu alur cerita berlanjut dari episode ke episode' },
+  { value: 'anthology', label: 'Antologi', note: 'Cerita lepas dengan dunia dan pemeran yang sama' }
+]
+
+const EPISODE_COUNTS: SelectOption<number>[] = Array.from({ length: MAX_EPISODES - MIN_EPISODES + 1 }, (_, i) => ({
+  value: MIN_EPISODES + i,
+  label: `${MIN_EPISODES + i} episode`
+}))
+
+type Card = { kind: 'project'; p: ProjectSummary; at: number } | { kind: 'series'; s: SeriesSummary; at: number }
 
 const SUGGESTIONS = [
   'Asal-usul Sumpah Palapa dan bagaimana Gajah Mada menepatinya',
@@ -43,6 +69,10 @@ const ASPECTS: SelectOption<AspectRatio>[] = [
 export function Home() {
   const { go, toast } = useApp()
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null)
+  const [seriesList, setSeriesList] = useState<SeriesSummary[]>([])
+  const [mode, setMode] = useState<'single' | 'series'>('single')
+  const [episodeCount, setEpisodeCount] = useState(3)
+  const [continuity, setContinuity] = useState<SeriesContinuity>('serial')
   const [keys, setKeys] = useState<KeyStatus[]>([])
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all')
@@ -55,11 +85,17 @@ export function Home() {
   const [tts, setTts] = useState<TtsProvider>('gemini')
   const [creating, setCreating] = useState<'manual' | 'auto' | null>(null)
   const autopilots = useAutopilot((s) => s.runs)
+  const seriesRuns = useSeriesAutopilot((s) => s.runs)
+  const seriesPlanning = useSeriesAutopilot((s) => s.planning)
 
   const refresh = (): void => {
     window.api.projects
       .list()
       .then(setProjects)
+      .catch((e) => toast('error', errorText(e)))
+    window.api.series
+      .list()
+      .then(setSeriesList)
       .catch((e) => toast('error', errorText(e)))
   }
 
@@ -106,11 +142,21 @@ export function Home() {
     return issues
   }, [keys, appSettings])
 
-  const visible = useMemo(() => {
+  const visible = useMemo((): Card[] => {
     const f = FILTERS.find((x) => x.id === filter)!
     const q = query.trim().toLowerCase()
-    return (projects ?? []).filter((p) => f.match(p.status) && (!q || p.title.toLowerCase().includes(q)))
-  }, [projects, filter, query])
+    const hit = (title: string): boolean => !q || title.toLowerCase().includes(q)
+    const series: Card[] =
+      filter === 'all' || filter === 'series' ? seriesList.filter((s) => hit(s.title)).map((s) => ({ kind: 'series', s, at: s.updatedAt })) : []
+    const singles: Card[] = (projects ?? []).filter((p) => f.match(p.status) && hit(p.title)).map((p) => ({ kind: 'project', p, at: p.updatedAt }))
+    return [...series, ...singles].sort((a, b) => b.at - a.at)
+  }, [projects, seriesList, filter, query])
+
+  const countFor = (id: (typeof FILTERS)[number]['id']): number => {
+    if (id === 'series') return seriesList.length
+    const f = FILTERS.find((x) => x.id === id)!
+    return (projects ?? []).filter((p) => f.match(p.status)).length + (id === 'all' ? seriesList.length : 0)
+  }
 
   const start = async (auto: boolean, exportAfter = false): Promise<void> => {
     setCreating(auto ? 'auto' : 'manual')
@@ -127,7 +173,9 @@ export function Home() {
   // One-click generate needs every service up front; the manual flow can still start and fix keys later.
   const autoMissing = appSettings && keys.length ? missingServices(appSettings, keys, { story: true, imageModel: appSettings.imageModel, tts }) : []
   const autoBlocked = !synopsis.trim()
-    ? 'Tulis ide ceritanya dulu.'
+    ? mode === 'series'
+      ? 'Tulis premis serinya dulu.'
+      : 'Tulis ide ceritanya dulu.'
     : autoMissing.length
       ? `Atur dulu ${joinList(autoMissing)} di Pengaturan, atau pilih suara narator lain.`
       : null
@@ -148,6 +196,69 @@ export function Home() {
     if (!ok) return
     void window.api.settings.set({ autoExport: exportAfter }).then(setAppSettings)
     await start(true, exportAfter)
+  }
+
+  /** Creates a series and opens its page; the plan (and with `auto` every episode) is made there in the background. */
+  const startSeries = async (auto: boolean, exportAfter = false): Promise<void> => {
+    setCreating(auto ? 'auto' : 'manual')
+    try {
+      const series = await window.api.series.create({
+        premise: synopsis,
+        continuity,
+        episodeCount,
+        durationSec,
+        language,
+        aspectRatio,
+        styleId,
+        ttsProvider: tts
+      })
+      if (auto) startSeriesAutopilot(series.id, { exportAfter })
+      else void planSeries(series.id).catch((e) => toast('error', errorText(e)))
+      go({ name: 'series', id: series.id })
+    } catch (e) {
+      toast('error', errorText(e))
+      setCreating(null)
+    }
+  }
+
+  const startSeriesAuto = async (): Promise<void> => {
+    const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
+    let exportAfter = appSettings?.autoExport ?? false
+    const ok = await confirmDialog({
+      title: `Buat ${episodeCount} episode sekali klik?`,
+      body:
+        `AI menyusun bible seri, pemeran tetap, dan rencana ${episodeCount} episode, lalu membuat episodenya satu per satu: naskah, ` +
+        `rencana visual, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption per episode. Lembar karakter dibuat sekali dan ` +
+        'dipakai ulang di semua episode. ' +
+        (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
+        'Video AI tidak dibuat.',
+      confirm: 'Buat semua episode',
+      option: {
+        ...exportOption(exportAfter, (on) => (exportAfter = on)),
+        hint: 'Satu file per episode (E01-….mp4) di subfolder seri, di folder ekspor bawaan.'
+      }
+    })
+    if (!ok) return
+    void window.api.settings.set({ autoExport: exportAfter }).then(setAppSettings)
+    await startSeries(true, exportAfter)
+  }
+
+  const removeSeries = async (s: SeriesSummary): Promise<void> => {
+    if (seriesRuns[s.id]?.state === 'running' || seriesPlanning[s.id]) return toast('error', 'Hentikan dulu pembuatan otomatis seri ini.')
+    const ok = await confirmDialog({
+      title: 'Hapus seri?',
+      body: `“${s.title}” beserta ${s.episodeCount} episode, semua gambar, video, suara, dan lembar karakternya akan dihapus dari komputer ini. Tindakan ini tidak bisa dibatalkan.`,
+      confirm: 'Hapus seri',
+      danger: true
+    })
+    if (!ok) return
+    try {
+      await window.api.series.remove(s.id)
+      dismissSeriesAutopilot(s.id)
+    } catch (e) {
+      toast('error', errorText(e))
+    }
+    refresh()
   }
 
   const remove = async (p: ProjectSummary): Promise<void> => {
@@ -214,24 +325,45 @@ export function Home() {
             </p>
           </div>
           <div className="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-ink bg-surface py-5 pl-6 pr-5 shadow-ink-lg">
-            <label htmlFor="ide" className="text-[13px] font-semibold text-ink-2">
-              Ide cerita atau sinopsis
-            </label>
+            <div className="flex items-center gap-3">
+              <label htmlFor="ide" className="flex-1 text-[13px] font-semibold text-ink-2">
+                {mode === 'series' ? 'Premis seri' : 'Ide cerita atau sinopsis'}
+              </label>
+              <Segmented
+                size="sm"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { id: 'single', label: 'Satu video' },
+                  { id: 'series', label: 'Seri', title: 'Beberapa episode dengan dunia dan pemeran yang sama' }
+                ]}
+              />
+            </div>
             <textarea
               id="ide"
               rows={3}
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
-              placeholder="Contoh: Gajah Mada bersumpah tidak akan menikmati palapa sebelum Nusantara bersatu. Para menteri menertawakannya, tapi dia membuktikannya…"
+              placeholder={
+                mode === 'series'
+                  ? 'Contoh: Si Kancil yang cerdik tinggal di hutan Jawa. Setiap kali hewan lain dalam bahaya, dia memakai akalnya, tapi suatu hari dia bertemu lawan yang sama cerdiknya…'
+                  : 'Contoh: Gajah Mada bersumpah tidak akan menikmati palapa sebelum Nusantara bersatu. Para menteri menertawakannya, tapi dia membuktikannya…'
+              }
               className="resize-none bg-transparent text-lg leading-relaxed outline-none placeholder:text-muted/70"
             />
             <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-line pt-3.5">
+              {mode === 'series' && (
+                <>
+                  <Select variant="pill" label="Jumlah episode" value={episodeCount} onChange={setEpisodeCount} options={EPISODE_COUNTS} menuWidth={180} />
+                  <Select variant="pill" label="Alur seri" value={continuity} onChange={setContinuity} options={CONTINUITY} menuWidth={300} />
+                </>
+              )}
               <Select
                 variant="pill"
-                label="Durasi"
+                label={mode === 'series' ? 'Durasi per episode' : 'Durasi'}
                 value={durationSec}
                 onChange={setDurationSec}
-                options={DURATIONS.map((d) => ({ value: d.sec, label: d.label }))}
+                options={DURATIONS.map((d) => ({ value: d.sec, label: mode === 'series' ? `${d.label} / episode` : d.label }))}
               />
               <Select
                 variant="pill"
@@ -251,15 +383,30 @@ export function Home() {
                   icon={<Wand2 className="size-[18px]" />}
                   disabled={!!autoBlocked || creating !== null}
                   loading={creating === 'auto'}
-                  onClick={() => void startAuto()}
+                  onClick={() => void (mode === 'series' ? startSeriesAuto() : startAuto())}
                 >
-                  Sekali klik
+                  {mode === 'series' ? 'Sekali klik semua' : 'Sekali klik'}
                 </Button>
               </span>
-              <Button variant="primary" size="lg" disabled={creating !== null} loading={creating === 'manual'} onClick={() => void start(false)}>
-                Mulai
-                <ArrowRight className="size-[18px]" />
-              </Button>
+              {mode === 'series' ? (
+                <span title={!synopsis.trim() ? 'Tulis premis serinya dulu.' : undefined}>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    icon={<Layers className="size-[18px]" />}
+                    disabled={!synopsis.trim() || creating !== null}
+                    loading={creating === 'manual'}
+                    onClick={() => void startSeries(false)}
+                  >
+                    Susun seri
+                  </Button>
+                </span>
+              ) : (
+                <Button variant="primary" size="lg" disabled={creating !== null} loading={creating === 'manual'} onClick={() => void start(false)}>
+                  Mulai
+                  <ArrowRight className="size-[18px]" />
+                </Button>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
@@ -282,7 +429,7 @@ export function Home() {
             <h2 className="font-display text-[27px] font-bold tracking-[-0.015em]">Proyek kamu</h2>
             <div className="ml-2 flex gap-1.5">
               {FILTERS.map((f) => {
-                const count = (projects ?? []).filter((p) => f.match(p.status)).length
+                const count = countFor(f.id)
                 return (
                   <Chip key={f.id} on={filter === f.id} onClick={() => setFilter(f.id)}>
                     {f.label}
@@ -294,19 +441,89 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-4 gap-5">
-            <button
-              type="button"
-              onClick={() => void start(false)}
-              className="flex min-h-[262px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-3 text-ink-2 hover:border-ink-2 hover:bg-surface"
-            >
-              <span className="flex size-[54px] items-center justify-center rounded-full border-[1.5px] border-ink bg-accent text-white shadow-ink">
-                <Plus className="size-6" strokeWidth={2.2} />
-              </span>
-              <span className="text-base font-semibold text-ink">Proyek baru</span>
-              <span className="text-[13px]">Mulai dari ide atau sinopsis</span>
-            </button>
+            {filter === 'series' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  // A series needs a premise first, so this goes to the composer instead of creating anything.
+                  setMode('series')
+                  const field = document.getElementById('ide')
+                  field?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                  field?.focus()
+                }}
+                className="flex min-h-[262px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-3 text-ink-2 hover:border-ink-2 hover:bg-surface"
+              >
+                <span className="flex size-[54px] items-center justify-center rounded-full border-[1.5px] border-ink bg-sun text-ink shadow-ink">
+                  <Layers className="size-6" strokeWidth={2.2} />
+                </span>
+                <span className="text-base font-semibold text-ink">Seri baru</span>
+                <span className="text-[13px]">Beberapa episode, pemeran yang sama</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void start(false)}
+                className="flex min-h-[262px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-3 text-ink-2 hover:border-ink-2 hover:bg-surface"
+              >
+                <span className="flex size-[54px] items-center justify-center rounded-full border-[1.5px] border-ink bg-accent text-white shadow-ink">
+                  <Plus className="size-6" strokeWidth={2.2} />
+                </span>
+                <span className="text-base font-semibold text-ink">Proyek baru</span>
+                <span className="text-[13px]">Mulai dari ide atau sinopsis</span>
+              </button>
+            )}
 
-            {visible.map((p) => {
+            {visible.map((card) => {
+              if (card.kind === 'series') {
+                const s = card.s
+                const run = seriesRuns[s.id]
+                return (
+                  <article key={s.id} data-series-card={s.title} className="relative flex flex-col pt-3">
+                    {/* Two sheets behind the card make a series read as a stack of episodes. */}
+                    <span aria-hidden className="absolute inset-x-6 top-0 h-8 rounded-t-2xl border border-b-0 border-line-3 bg-line" />
+                    <span aria-hidden className="absolute inset-x-3 top-1.5 h-8 rounded-t-2xl border border-b-0 border-line-3 bg-sand" />
+                    <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-ink/70 bg-surface">
+                      <button type="button" onClick={() => go({ name: 'series', id: s.id })} className="text-left">
+                        <div className="relative aspect-video w-full overflow-hidden border-b border-line">
+                          {s.coverUrl ? (
+                            <img src={s.coverUrl} alt="" className="size-full object-cover" />
+                          ) : (
+                            <StyleSwatch styleId={s.styleId} className="size-full" iconSize={40} />
+                          )}
+                          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full border border-ink bg-sun px-2.5 py-[3px] text-xs font-semibold">
+                            <Layers className="size-3" />
+                            Seri · {s.episodeCount} episode
+                          </span>
+                        </div>
+                        <div className="line-clamp-2 min-h-[46px] px-4 pb-0.5 pt-3.5 text-base font-semibold leading-snug">{s.title}</div>
+                      </button>
+                      <div className="flex items-center gap-2 py-2 pl-4 pr-2">
+                        {run?.state === 'running' || seriesPlanning[s.id] ? (
+                          <Badge tone="info">Dibuat otomatis…</Badge>
+                        ) : (
+                          <Badge tone={s.episodeCount > 0 && s.readyCount === s.episodeCount ? 'ok' : s.readyCount > 0 ? 'warn' : 'draft'}>
+                            {s.readyCount}/{s.episodeCount} episode siap
+                          </Badge>
+                        )}
+                        <span className="truncate text-[13px] text-muted">{relativeTime(s.updatedAt)}</span>
+                        <div className="flex-1" />
+                        <Menu
+                          trigger={(open) => (
+                            <IconButton label="Opsi seri" onClick={open} className="border-transparent" size={36}>
+                              <MoreHorizontal className="size-[18px]" />
+                            </IconButton>
+                          )}
+                          items={[
+                            { label: 'Buka', icon: <FolderOpen className="size-4" />, run: () => go({ name: 'series', id: s.id }) },
+                            { label: 'Hapus', icon: <Trash2 className="size-4" />, danger: true, run: () => void removeSeries(s) }
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </article>
+                )
+              }
+              const p = card.p
               const st = STATUS[p.status]
               return (
                 <article key={p.id} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface">
@@ -349,7 +566,7 @@ export function Home() {
               )
             })}
           </div>
-          {projects && projects.length === 0 && (
+          {projects && projects.length === 0 && seriesList.length === 0 && (
             <p className="text-sm text-muted">Belum ada proyek. Tulis ide di atas lalu klik Mulai.</p>
           )}
         </section>

@@ -2,7 +2,7 @@ import { createReadStream, statSync } from 'node:fs'
 import { extname, join, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { protocol } from 'electron'
-import { fontsDir, projectsRoot } from './paths'
+import { fontsDir, projectsRoot, seriesRoot } from './paths'
 
 const TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -24,11 +24,13 @@ export function registerSchemes(): void {
   ])
 }
 
-/** Serves project assets and caption fonts to the renderer, with Range support so audio and video can seek. */
+const ROOTS: Record<string, () => string> = { fonts: fontsDir, asset: projectsRoot, series: seriesRoot }
+
+/** Serves project assets, series files and caption fonts to the renderer, with Range support so audio and video can seek. */
 export function handleStudioProtocol(): void {
   protocol.handle('studio', (req) => {
     const url = new URL(req.url)
-    const root = url.hostname === 'fonts' ? fontsDir() : url.hostname === 'asset' ? projectsRoot() : null
+    const root = Object.hasOwn(ROOTS, url.hostname) ? ROOTS[url.hostname]() : null
     if (!root) return new Response('Not found', { status: 404 })
     const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '')
     const abs = normalize(join(root, rel))

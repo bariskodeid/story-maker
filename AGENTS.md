@@ -28,7 +28,8 @@ src/
     ipc.ts         semua handler IPC (window.api)
     repo.ts        akses SQLite (proyek, klip, pemeran, aset, job)
     db/index.ts    skema + migrasi (PRAGMA user_version)
-    story.ts       naskah, rencana visual, prompt musik (LLM)
+    story.ts       naskah, rencana visual, prompt musik, rencana seri dan episode (LLM)
+    series.ts      seri: bible, pemeran bersama, episode (proyek biasa), salin pemeran masuk/keluar
     generation.ts  gambar/video Higgsfield, lembar karakter, TTS per klip, estimasi kredit
     narration.ts   narasi satu rekaman utuh lalu dipotong per adegan; sinkron caption
     whisper.ts     whisper.cpp lokal (unduh model, kenali kata)
@@ -44,6 +45,7 @@ src/
   shared/          kode yang dipakai main DAN renderer (tipe, aturan gerak, caption, timeline)
   renderer/src/    tampilan React + Tailwind v4 + Zustand
     pages/project/  langkah Ide, Naskah, Storyboard, Editor
+    pages/series/   halaman seri: bible, pemeran, daftar episode, Sekali klik seri
     pages/project/editor/  pratinjau (Player), Timeline, Inspector (panel kanan), engine pemutaran
 resources/         font caption, whisper-cli.exe + DLL, file lisensi
 build/             ikon aplikasi untuk installer (icon.ico, icon.png), dibuat dari logo di components/Logo.tsx

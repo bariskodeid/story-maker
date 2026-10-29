@@ -1,6 +1,7 @@
 import type { ExportOptions, Project } from '@shared/types'
 
-function slug(s: string): string {
+/** A file or folder name from a title: lowercase words joined by dashes. */
+export function slug(s: string): string {
   return (
     s
       .toLowerCase()

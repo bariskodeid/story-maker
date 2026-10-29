@@ -133,6 +133,41 @@ const MIGRATIONS: string[] = [
   ALTER TABLE clips ADD COLUMN voice_in_ms INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE clips ADD COLUMN voice_out_ms INTEGER;
   ALTER TABLE clips ADD COLUMN voice_start_ms INTEGER NOT NULL DEFAULT 0;
+  `,
+  // Series: a bible and a shared cast, with each episode stored as an ordinary project.
+  `
+  CREATE TABLE series (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'story',
+    title TEXT NOT NULL,
+    premise TEXT NOT NULL DEFAULT '',
+    continuity TEXT NOT NULL DEFAULT 'serial',
+    bible_json TEXT NOT NULL DEFAULT '{}',
+    episode_count INTEGER NOT NULL DEFAULT 0,
+    duration_sec INTEGER NOT NULL DEFAULT 60,
+    language TEXT NOT NULL DEFAULT 'id',
+    aspect_ratio TEXT NOT NULL DEFAULT '16:9',
+    style_id TEXT NOT NULL DEFAULT 'stickman',
+    tts_provider TEXT NOT NULL DEFAULT 'gemini',
+    tts_voice TEXT NOT NULL DEFAULT 'Charon',
+    image_model TEXT,
+    video_model TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE series_characters (
+    id TEXT PRIMARY KEY,
+    series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    sheet_path TEXT,
+    sort INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX series_characters_series ON series_characters(series_id, sort);
+  ALTER TABLE projects ADD COLUMN series_id TEXT;
+  ALTER TABLE projects ADD COLUMN episode_no INTEGER;
+  ALTER TABLE projects ADD COLUMN episode_summary TEXT NOT NULL DEFAULT '';
+  CREATE INDEX projects_series ON projects(series_id, episode_no);
   `
 ]
 

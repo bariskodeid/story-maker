@@ -89,6 +89,22 @@ menghapusnya lagi, dan tidak ada event "proyek berubah" untuk memuat ulang. Kare
 yang sama dengan tombol langkah dan me-`load()` setiap bundle ke store kalau proyeknya terbuka, persis seperti alur
 manual. Selama berjalan, isi langkah diganti panel progres supaya tidak ada suntingan yang bertabrakan.
 
+### Episode seri adalah proyek biasa, dan pemerannya disalin
+Ekspor (`exporter.ts` memakai `bundle.project.id`), pratinjau (`getBundle` hanya memuat aset proyek itu), dan store
+renderer (`addAsset` membuang aset proyek lain) semuanya mencari file di folder proyek pemiliknya. Supaya tidak ada
+yang perlu diubah di jalur itu, episode dibuat sebagai proyek biasa, dan lembar karakter seri **disalin** (baris dan
+file) ke setiap episode (`syncCastIn`), lalu lembar baru dari episode disalin balik ke folder seri (`syncCastOut`).
+Lembar seri yang sudah ada tidak pernah ditimpa, jadi semua episode memakai referensi wajah yang sama dan
+`generateMissingImages` tidak menggambar lembar baru. Seperti Sekali klik, penyalinan masuk dilakukan sebelum
+renderer memuat proyeknya, dan bundle hasilnya di-`load()` kalau proyek itu terbuka, supaya snapshot lama tidak
+menghapus pemeran yang baru disalin.
+
+### Episode seri dibuat berurutan, tidak paralel
+Naskah episode bersambung ditulis dari ringkasan episode sebelumnya (`episode_summary`), lembar karakter yang dibuat
+episode pertama dipakai ulang oleh episode berikutnya, dan penyedia gambar/suara (terutama 9Router dengan akun
+langganan) cepat kena batas pemakaian. Karena itu `seriesAutopilot.ts` menjalankan satu episode sampai selesai
+sebelum mulai episode berikutnya, dan berhenti di episode pertama yang gagal.
+
 ### Narasi 9Router: satu rekaman per bagian 1.000 karakter, tanpa waktu kata
 9Router meneruskan ke banyak mesin suara (Edge TTS, OpenAI, Gemini, ElevenLabs), dan endpoint-nya tidak mengirim
 waktu per kata. Narasinya ikut jalur Gemini (`untimedTake`): satu rekaman per bagian, lalu dipotong dengan Whisper

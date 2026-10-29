@@ -157,7 +157,7 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
             <Row
               state={stageState(run, 'export')}
               title="Ekspor MP4"
-              detail={exportJob?.status === 'running' ? (exportJob.message ?? 'Menyiapkan…') : 'Ke folder ekspor bawaan'}
+              detail={exportJob?.status === 'running' ? (exportJob.message ?? 'Menyiapkan…') : run.exportTarget ? 'Ke folder seri' : 'Ke folder ekspor bawaan'}
             >
               {exportJob?.status === 'running' && <Progress value={exportJob.progress} className="max-w-[320px]" />}
             </Row>

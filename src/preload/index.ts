@@ -23,6 +23,21 @@ const api: StudioApi = {
     remove: call('projects:remove'),
     duplicate: call('projects:duplicate')
   },
+  series: {
+    list: call('series:list'),
+    create: call('series:create'),
+    get: call('series:get'),
+    update: call('series:update'),
+    remove: call('series:remove'),
+    plan: call('series:plan'),
+    addEpisode: call('series:addEpisode'),
+    updateEpisode: call('series:updateEpisode'),
+    removeEpisode: call('series:removeEpisode'),
+    updateCharacter: call('series:updateCharacter'),
+    removeCharacter: call('series:removeCharacter'),
+    syncCastIn: call('series:syncCastIn'),
+    syncCastOut: call('series:syncCastOut')
+  },
   story: {
     script: call('story:script'),
     visuals: call('story:visuals'),

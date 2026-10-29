@@ -39,7 +39,8 @@ Jendela dibuat dengan `sandbox: true`, `contextIsolation: true`, `nodeIntegratio
 
 | Kelompok | Kanal | Fungsi |
 |---|---|---|
-| `projects:*` | list, create, get, save, remove, duplicate | proyek dan snapshot |
+| `projects:*` | list, create, get, save, remove, duplicate | proyek dan snapshot (`list` tanpa episode seri) |
+| `series:*` | list, create, get, update, remove, plan, addEpisode, updateEpisode, removeEpisode, updateCharacter, removeCharacter, syncCastIn, syncCastOut | seri, bible, pemeran bersama, episode |
 | `story:*` | script, visuals, musicPrompt | LLM: naskah, rencana visual, prompt musik |
 | `generate:*` | clipImage, clipVideo, clipTts, characterSheet, missingImages, missingVideos, missingTts, narration, syncCaptions, cancel, estimate | job AI dan estimasi kredit |
 | `clips:*` | split, detachVoice | edit timeline yang menyentuh file |
@@ -79,13 +80,14 @@ Semua data pengguna ada di folder data aplikasi (`app.getPath('userData')`). Di 
   studio.db                 SQLite: proyek, klip, pemeran, aset, job, pengaturan, kunci terenkripsi, cache
   projects\<id-proyek>\
     images\  videos\  audio\  music\  overlays\     file hasil generate dan unggahan
+  series\<id-seri>\sheets\                         lembar karakter pemeran bersama seri
   models\whisper\ggml-small.bin                     model Whisper (diunduh dari Pengaturan)
   tmp\                                              file sementara render/Whisper (dihapus setelah selesai)
 ```
 
 - Nama folder proyek dan file berupa ID acak; judul hanya ada di database.
 - Path aset disimpan **relatif** terhadap folder proyek (`assets.local_path`), sehingga proyek bisa disalin utuh.
-- Menghapus proyek menghapus foldernya.
+- Menghapus proyek menghapus foldernya. Menghapus seri menghapus semua proyek episodenya dan folder seri.
 - Folder data dari nama lama aplikasi (`Bang Story`, atau `Studio Cerita` sebelum itu) dipindahkan otomatis ke
   `Story Maker` saat pertama dibuka (`useDataFolder`).
 
@@ -96,6 +98,15 @@ dengan dukungan HTTP Range (supaya audio dan video bisa di-seek):
 
 - `studio://asset/<id-proyek>/<path-relatif>`, dibuat oleh `assetUrl()` di `paths.ts`
 - `studio://fonts/<file>.ttf`, font caption untuk `@font-face` di `styles.css`
+- `studio://series/<id-seri>/<path-relatif>`, lembar karakter seri, dibuat oleh `seriesFileUrl()` di `paths.ts`
+
+Setiap host punya folder akarnya sendiri (`ROOTS` di `protocol.ts`), dan path yang keluar dari folder itu ditolak.
+
+## Halaman (route renderer)
+
+`store/app.ts` menyimpan halaman aktif: `home`, `settings` (dengan `back`), `project` (`ProjectPage`), dan `series`
+(`SeriesPage` di `pages/series/`: bible, pemeran bersama, daftar episode, dan progres Sekali klik seri). Header
+proyek episode menampilkan nama seri sebagai breadcrumb, dan tombol kembalinya membuka halaman seri.
 
 ## Simpan otomatis
 

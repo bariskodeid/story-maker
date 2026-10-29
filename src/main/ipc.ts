@@ -11,7 +11,9 @@ import type {
   KeyTestResult,
   ModelSource,
   NewProjectInput,
+  NewSeriesInput,
   ProjectSnapshot,
+  SeriesPatch,
   TtsProvider,
   VoiceOption,
   WordTiming
@@ -56,7 +58,20 @@ import * as hf from './services/higgsfield'
 import * as llm from './services/llm'
 import { listImageModels as nineRouterImageModels } from './services/ninerouterImages'
 import * as ninerouterTts from './services/ninerouterTts'
-import { generateScript, generateVisuals, generateMusicPrompt } from './story'
+import {
+  createSeries,
+  getSeriesBundle,
+  listSeries,
+  removeEpisode,
+  removeSeries,
+  removeSeriesCharacter,
+  syncCastIn,
+  syncCastOut,
+  updateEpisode,
+  updateSeries,
+  updateSeriesCharacter
+} from './series'
+import { generateNextEpisode, generateScript, generateSeriesPlan, generateVisuals, generateMusicPrompt } from './story'
 
 
 type Handler = (...args: any[]) => unknown
@@ -89,6 +104,22 @@ export function registerIpc(): void {
   handle('projects:save', (snap: ProjectSnapshot) => ({ updatedAt: saveSnapshot(snap) }))
   handle('projects:remove', (id: string) => removeProject(id))
   handle('projects:duplicate', (id: string) => duplicateProject(id))
+
+  handle('series:list', () => listSeries())
+  handle('series:create', (input: NewSeriesInput) => createSeries(input))
+  handle('series:get', (id: string) => getSeriesBundle(id))
+  handle('series:update', (id: string, patch: SeriesPatch) => updateSeries(id, patch ?? {}))
+  handle('series:remove', (id: string) => removeSeries(id))
+  handle('series:plan', (id: string) => generateSeriesPlan(id))
+  handle('series:addEpisode', (id: string) => generateNextEpisode(id))
+  handle('series:updateEpisode', (projectId: string, patch: { title?: string; synopsis?: string; summary?: string }) =>
+    updateEpisode(projectId, patch ?? {})
+  )
+  handle('series:removeEpisode', (projectId: string) => removeEpisode(projectId))
+  handle('series:updateCharacter', (id: string, patch: { name?: string; description?: string }) => updateSeriesCharacter(id, patch ?? {}))
+  handle('series:removeCharacter', (id: string) => removeSeriesCharacter(id))
+  handle('series:syncCastIn', (projectId: string) => syncCastIn(projectId))
+  handle('series:syncCastOut', (projectId: string) => syncCastOut(projectId))
 
   handle('story:script', (projectId: string) => generateScript(projectId))
   handle('story:musicPrompt', (projectId: string) => generateMusicPrompt(projectId))

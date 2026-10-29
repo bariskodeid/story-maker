@@ -17,6 +17,7 @@ import { errorText } from './format'
  */
 
 export type AutopilotStage = 'script' | 'visuals' | 'media' | 'finish' | 'export'
+export type AutopilotResult = 'done' | 'failed' | 'stopped'
 
 export interface AutopilotRun {
   projectId: string
@@ -28,6 +29,16 @@ export interface AutopilotRun {
   exportAfter: boolean
   /** Every job of the project seen during the run, by id (latest state from job events). */
   jobs: Record<string, Job>
+  /** Where the automatic export goes instead of the default folder and title (a series puts episodes in its own folder). */
+  exportTarget: { folder: string; fileName: string } | null
+  /** No "ready in the editor" toast; a series run reports once for all its episodes. */
+  quiet: boolean
+}
+
+export interface AutopilotOptions {
+  exportAfter?: boolean
+  exportTarget?: { folder: string; fileName: string } | null
+  quiet?: boolean
 }
 
 interface AutopilotState {
@@ -132,7 +143,9 @@ async function exportVideo(id: string): Promise<void> {
   patch(id, { stage: 'export' })
   await flushIfOpen(id)
   const b = await window.api.projects.get(id)
-  const job = await window.api.exporter.start(id, defaultExportOptions(b.project, await window.api.exporter.defaultFolder()))
+  const target = runOf(id)?.exportTarget
+  const options = defaultExportOptions(b.project, target?.folder ?? (await window.api.exporter.defaultFolder()))
+  const job = await window.api.exporter.start(id, target ? { ...options, fileName: target.fileName } : options)
   track(id, [job])
   await waitFor(id, [job.id])
   checkStop(id)
@@ -152,7 +165,7 @@ function failureText(id: string, missingImages: number, missingVoices: number): 
   return `${parts.join(' dan ')} belum berhasil dibuat.${lastError ? ` Penyebab terakhir: ${lastError}` : ''}`
 }
 
-async function pipeline(id: string): Promise<void> {
+async function pipeline(id: string): Promise<AutopilotResult> {
   const off = window.api.on.job((j) => {
     if (j.projectId === id) patch(id, (r) => ({ jobs: { ...r.jobs, [j.id]: j } }))
   })
@@ -203,32 +216,67 @@ async function pipeline(id: string): Promise<void> {
     const exported = runOf(id)?.exportAfter ?? false
     if (exported) await exportVideo(id)
 
+    const quiet = runOf(id)?.quiet ?? false
     useAutopilot.setState((s) => {
       const { [id]: _done, ...rest } = s.runs
       return { runs: rest }
     })
     // An export brings its own "Video selesai diekspor" toast with a button to open the folder (App.tsx).
-    if (!exported) useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
+    if (!exported && !quiet) useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
+    return 'done'
   } catch (e) {
-    if (e instanceof Stopped || runOf(id)?.stopping) patch(id, { state: 'stopped', stopping: false, error: null })
-    else patch(id, { state: 'failed', error: errorText(e) })
+    if (e instanceof Stopped || runOf(id)?.stopping) {
+      patch(id, { state: 'stopped', stopping: false, error: null })
+      return 'stopped'
+    }
+    patch(id, { state: 'failed', error: errorText(e) })
+    return 'failed'
   } finally {
     off()
   }
 }
 
+/** Resolves when a run that is already going ends: a finished run is removed, the others stay stopped or failed. */
+function untilEnded(id: string): Promise<AutopilotResult> {
+  return new Promise((resolve) => {
+    const ended = (s: AutopilotState): boolean => {
+      const run = s.runs[id]
+      if (run?.state === 'running') return false
+      resolve(run ? run.state : 'done')
+      return true
+    }
+    if (ended(useAutopilot.getState())) return
+    const off = useAutopilot.subscribe((s) => {
+      if (ended(s)) off()
+    })
+  })
+}
+
 /**
- * Starts (or resumes) one-click generate. Steps already done are skipped, so a failed run can simply start again.
- * `exportAfter` defaults to the previous run's choice.
+ * Starts (or resumes) one-click generate and resolves with how it ended. Steps already done are skipped, so a failed
+ * run can simply start again. Options left out keep the previous run's choice.
  */
-export function startAutopilot(projectId: string, opts: { exportAfter?: boolean } = {}): void {
+export function runAutopilot(projectId: string, opts: AutopilotOptions = {}): Promise<AutopilotResult> {
   const run = runOf(projectId)
-  if (run?.state === 'running') return
-  const exportAfter = opts.exportAfter ?? run?.exportAfter ?? false
-  useAutopilot.setState((s) => ({
-    runs: { ...s.runs, [projectId]: { projectId, stage: 'script', state: 'running', error: null, stopping: false, exportAfter, jobs: run?.jobs ?? {} } }
-  }))
-  void pipeline(projectId)
+  if (run?.state === 'running') return untilEnded(projectId)
+  const next: AutopilotRun = {
+    projectId,
+    stage: 'script',
+    state: 'running',
+    error: null,
+    stopping: false,
+    exportAfter: opts.exportAfter ?? run?.exportAfter ?? false,
+    jobs: run?.jobs ?? {},
+    exportTarget: opts.exportTarget !== undefined ? opts.exportTarget : (run?.exportTarget ?? null),
+    quiet: opts.quiet ?? run?.quiet ?? false
+  }
+  useAutopilot.setState((s) => ({ runs: { ...s.runs, [projectId]: next } }))
+  return pipeline(projectId)
+}
+
+/** Starts one-click generate without waiting for it (the start buttons). */
+export function startAutopilot(projectId: string, opts: AutopilotOptions = {}): void {
+  void runAutopilot(projectId, opts)
 }
 
 /** Flips automatic export for a run and remembers the choice for the next one. */

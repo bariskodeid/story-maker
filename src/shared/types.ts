@@ -113,6 +113,11 @@ export interface Project {
   step: Step
   coverAssetId: string | null
   editor: EditorSettings
+  /** Set when the project is an episode of a series; owned by the main process, never written by a save. */
+  seriesId: string | null
+  episodeNo: number | null
+  /** What happened in this episode (written with its script), for the scripts of later episodes. */
+  episodeSummary: string
   createdAt: number
   updatedAt: number
 }
@@ -239,7 +244,7 @@ export interface ProjectSummary {
 
 /** What the renderer sends on save. Asset links are owned by the main process and never overwritten by a save. */
 export interface ProjectSnapshot {
-  project: Omit<Project, 'createdAt' | 'updatedAt' | 'coverAssetId'>
+  project: Omit<Project, 'createdAt' | 'updatedAt' | 'coverAssetId' | 'seriesId' | 'episodeNo' | 'episodeSummary'>
   characters: Omit<Character, 'sheetAssetId'>[]
   clips: Omit<Clip, 'imageAssetId' | 'videoAssetId' | 'audioAssetId'>[]
 }
@@ -362,3 +367,100 @@ export interface CharacterPatchEvent {
   characterId: string
   patch: Partial<Character>
 }
+
+// ---------- series ----------
+
+/** serial: the episodes tell one continuing story; anthology: standalone stories with the same cast and world. */
+export type SeriesContinuity = 'serial' | 'anthology'
+/** Only story series exist for now; the column leaves room for other project kinds. */
+export type SeriesKind = 'story'
+
+/** The series bible: what every episode script must agree with. */
+export interface SeriesBible {
+  world: string
+  tone: string
+  rules: string
+  /** One-line teaser per episode number; a serial episode ends by leading into the next one's hook. */
+  hooks: { no: number; hook: string }[]
+}
+
+export interface Series {
+  id: string
+  kind: SeriesKind
+  title: string
+  premise: string
+  continuity: SeriesContinuity
+  bible: SeriesBible
+  /** Episodes planned so far. */
+  episodeCount: number
+  /** Settings every new episode project starts with. */
+  durationSec: number
+  language: string
+  aspectRatio: AspectRatio
+  styleId: string
+  ttsProvider: TtsProvider
+  ttsVoice: string
+  imageModel: string | null
+  videoModel: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+/** The shared cast. A sheet lives in the series folder and is copied into each episode project that uses it. */
+export interface SeriesCharacter {
+  id: string
+  seriesId: string
+  name: string
+  description: string
+  /** Relative to the series folder; null until an episode made a sheet for this character. */
+  sheetPath: string | null
+  sheetUrl: string | null
+  sort: number
+}
+
+export interface SeriesEpisode {
+  /** The episode's project id. */
+  id: string
+  no: number
+  title: string
+  synopsis: string
+  summary: string
+  status: ProjectStatus
+  step: Step
+  clipCount: number
+  totalMs: number
+  coverUrl: string | null
+  updatedAt: number
+}
+
+export interface SeriesBundle {
+  series: Series
+  characters: SeriesCharacter[]
+  episodes: SeriesEpisode[]
+}
+
+export interface SeriesSummary {
+  id: string
+  title: string
+  continuity: SeriesContinuity
+  styleId: string
+  episodeCount: number
+  /** Episodes that reached the editor (status editing or exported). */
+  readyCount: number
+  exportedCount: number
+  coverUrl: string | null
+  updatedAt: number
+}
+
+export interface NewSeriesInput {
+  premise: string
+  continuity: SeriesContinuity
+  episodeCount: number
+  durationSec: number
+  language: string
+  aspectRatio: AspectRatio
+  styleId: string
+  ttsProvider: TtsProvider
+}
+
+export type SeriesPatch = Partial<Pick<Series, 'title' | 'premise'> & Pick<SeriesBible, 'world' | 'tone' | 'rules'>>

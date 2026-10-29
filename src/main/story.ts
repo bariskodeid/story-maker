@@ -1,9 +1,21 @@
 import { CAMERA_PRESETS, MOTION_STRENGTHS, TRANSITIONS } from '@shared/motion'
 import { LANGUAGES, clipCountFor } from '@shared/models'
 import { estimateNarrationMs, needsVisual } from '@shared/script'
+import { MAX_EPISODES, MIN_EPISODES, stripEpisodeTag } from '@shared/series'
 import { getStyle } from '@shared/styles'
-import type { CameraPresetId, Clip, MotionStrength, MusicPrompt, ProjectBundle, TransitionId } from '@shared/types'
-import { applyVisuals, charactersOf, clipsOf, getBundle, getProject, replaceScript, type SceneVisual } from './repo'
+import type { CameraPresetId, Clip, MotionStrength, MusicPrompt, Project, ProjectBundle, SeriesBundle, TransitionId } from '@shared/types'
+import { applyVisuals, charactersOf, clipsOf, getBundle, getProject, removeProject, replaceScript, type SceneVisual } from './repo'
+import {
+  addSeriesCast,
+  createEpisode,
+  dropUnsheetedCast,
+  episodesOf,
+  getSeries,
+  getSeriesBundle,
+  seriesCast,
+  setEpisodeSummary,
+  setSeriesBible
+} from './series'
 import { generateJson } from './services/llm'
 
 const CAMERA_IDS = CAMERA_PRESETS.map((c) => c.id)
@@ -48,9 +60,68 @@ const SCRIPT_SCHEMA = {
   required: ['title', 'scenes']
 }
 
+/**
+ * The script schema for an episode of a series: the same scenes plus a summary that later episodes are written
+ * from. A separate schema keeps the request for ordinary projects exactly as it was.
+ */
+const EPISODE_SCRIPT_SCHEMA = {
+  ...SCRIPT_SCHEMA,
+  properties: {
+    ...SCRIPT_SCHEMA.properties,
+    summary: {
+      type: 'string',
+      description:
+        'Two or three sentences in the target language summarizing what happens in this episode and how it ends, for the writers of the next episodes.'
+    }
+  },
+  required: ['title', 'summary', 'scenes']
+}
+
 interface ScriptPlan {
   title?: string
+  summary?: string
   scenes?: { title?: string; story?: string; narration?: string }[]
+}
+
+/**
+ * What an episode's script must agree with: the series bible, the fixed cast, and for a serial what happened
+ * before and where the next episode picks up. Null for a project that is not an episode.
+ */
+function episodeBrief(project: Project): { system: string[]; prompt: string[] } | null {
+  if (!project.seriesId || project.episodeNo == null) return null
+  const s = getSeries(project.seriesId)
+  const cast = seriesCast(s.id)
+  const episodes = episodesOf(s.id)
+  const no = project.episodeNo
+  const serial = s.continuity === 'serial'
+  const previous = serial ? episodes.filter((e) => e.episodeNo != null && e.episodeNo < no) : []
+  const nextHook = serial ? str(s.bible.hooks.find((h) => h.no === no + 1)?.hook) : ''
+  const isLast = !episodes.some((e) => (e.episodeNo ?? 0) > no)
+  const system = [
+    'This video is one episode of a series. Stay true to the series bible, keep every cast member\'s personality and relationships, and call each of them by exactly the name given in the cast list.',
+    serial
+      ? 'The series is serial: this episode continues the story of the previous episodes. Do not retell them; at most one short recap line at the start. Never contradict what already happened.'
+      : 'The series is an anthology: this episode is a complete standalone story in the same world with the same cast. Do not refer to events of other episodes.',
+    serial && nextHook ? 'End this episode on a cliffhanger that leads into the next episode\'s hook, instead of a subscribe line.' : '',
+    serial && isLast ? 'This is the final episode of the series: resolve the story arc.' : ''
+  ].filter(Boolean)
+  const prompt = [
+    `Series: ${s.title}`,
+    s.bible.world.trim() ? `World of the series:\n${s.bible.world.trim()}` : '',
+    s.bible.tone.trim() ? `Tone:\n${s.bible.tone.trim()}` : '',
+    s.bible.rules.trim() ? `Rules every episode follows:\n${s.bible.rules.trim()}` : '',
+    cast.length
+      ? `Fixed cast (use these names exactly; anyone else is a minor role or an unnamed extra):\n${cast.map((c) => `- ${c.name}: ${c.description}`).join('\n')}`
+      : '',
+    `This is episode ${no} of ${episodes.length}.`,
+    previous.length
+      ? `Previous episodes, in order:\n${previous
+          .map((e) => `Episode ${e.episodeNo} "${stripEpisodeTag(e.title)}": ${e.episodeSummary.trim() || `(planned) ${e.synopsis.trim()}`}`)
+          .join('\n')}`
+      : '',
+    nextHook ? `Next episode's hook (lead into it at the end): ${nextHook}` : ''
+  ].filter(Boolean)
+  return { system, prompt }
 }
 
 /** Writes the scene-by-scene script (story and voice-over) that the user reviews before any visuals exist. */
@@ -59,6 +130,7 @@ export async function generateScript(projectId: string): Promise<ProjectBundle> 
   if (!project.synopsis.trim()) throw new Error('Tulis ide cerita atau sinopsis dulu.')
   const lang = languageOf(project.language)
   const count = clipCountFor(project.durationSec)
+  const episode = episodeBrief(project)
 
   const system = [
     'You are a scriptwriter for faceless YouTube storytelling and explainer videos.',
@@ -66,21 +138,29 @@ export async function generateScript(projectId: string): Promise<ProjectBundle> 
     'The first scene is a strong hook. The story has a clear beginning, rising tension and a satisfying ending. The last scene can invite viewers to subscribe.',
     'Keep facts accurate for history and science topics, and always call each character by the same name.',
     'The narration is voiced by an expressive text-to-speech model. Where it helps the delivery, add a few English vocal tags in angle brackets inside the narration, such as <short pause>, <long pause>, <chuckles>, <sigh>, <gasp> or <whispers>. Use them sparingly, at most one or two per scene, and never other markup.',
+    ...(episode?.system ?? []),
     `Write everything in ${lang}, except the vocal tags, which stay in English.`
   ].join(' ')
   const prompt = [
-    `Idea / synopsis:\n${project.synopsis}`,
+    ...(episode?.prompt ?? []),
+    `${episode ? 'Synopsis of this episode' : 'Idea / synopsis'}:\n${project.synopsis}`,
     `Target video length: about ${project.durationSec} seconds.`,
     `Write exactly ${count} scenes.`
   ].join('\n\n')
 
-  const plan = await generateJson<ScriptPlan>({ system, prompt, schema: SCRIPT_SCHEMA, name: 'script' })
+  const plan = await generateJson<ScriptPlan>({
+    system,
+    prompt,
+    schema: episode ? EPISODE_SCRIPT_SCHEMA : SCRIPT_SCHEMA,
+    name: episode ? 'episode_script' : 'script'
+  })
   const scenes = (plan.scenes ?? []).filter((c) => str(c.narration) || str(c.story))
   if (!scenes.length) throw new Error('Model tidak menghasilkan adegan. Coba lagi atau pilih model lain di Pengaturan.')
 
   replaceScript(
     projectId,
-    str(plan.title) || project.title,
+    // An episode keeps its "E01 · " title from the series plan, so the series page and export names stay in order.
+    episode ? project.title : str(plan.title) || project.title,
     scenes.map((c, i) => ({
       title: str(c.title) || `Adegan ${i + 1}`,
       story: str(c.story),
@@ -88,6 +168,7 @@ export async function generateScript(projectId: string): Promise<ProjectBundle> 
       durationMs: estimateNarrationMs(str(c.narration))
     }))
   )
+  if (episode) setEpisodeSummary(projectId, str(plan.summary))
   return getBundle(projectId)
 }
 
@@ -274,6 +355,7 @@ export async function generateVisuals(projectId: string, mode: 'missing' | 'all'
     `Visual style of the video (for your framing choices only, do not repeat it in the descriptions): ${getStyle(project.styleId).name}.`,
     `Frame format: ${project.aspectRatio === '9:16' ? 'vertical 9:16' : 'horizontal 16:9'}.`,
     `Idea of the video: ${project.synopsis}`,
+    ...(project.seriesId ? seriesWorldLine(project.seriesId) : []),
     known.length ? `Existing characters (keep them exactly):\n${known.map((c) => `- ${c.name}: ${c.description}`).join('\n')}` : 'There are no existing characters yet.',
     `Full script:\n${script}`,
     `Write visuals for these scenes only: ${targets.map((t) => t.n).join(', ')}.`,
@@ -380,4 +462,214 @@ export async function generateMusicPrompt(projectId: string): Promise<MusicPromp
   }
   if (!out.style && !out.description) throw new Error('Model tidak menghasilkan prompt musik. Coba lagi.')
   return out
+}
+
+// ---------- series: bible, cast and episode outlines ----------
+
+/** The world line for an episode's visual plan, so every episode is drawn in the same place and era. */
+function seriesWorldLine(seriesId: string): string[] {
+  const world = getSeries(seriesId).bible.world.trim()
+  return world ? [`This video is an episode of a series. World of the series (keep every scene in it): ${world}`] : []
+}
+
+const CAST_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string', description: 'Character name, the same in every episode.' },
+    identity: {
+      type: 'string',
+      description:
+        'English, what the character is and looks like WITHOUT clothing: species (write "human" for people), gender, age, height and build, skin tone, face, hair, permanent body traits. No clothing, no art-style words.'
+    },
+    outfit: {
+      type: 'string',
+      description: 'English, the default outfit the character wears in most episodes, with colors and one signature accessory.'
+    }
+  },
+  required: ['name', 'identity', 'outfit']
+}
+
+const OUTLINE_PROPS = {
+  title: { type: 'string', description: 'Short episode title in the target language, max 50 characters.' },
+  synopsis: {
+    type: 'string',
+    description:
+      'What happens in the episode, 3 to 5 sentences in the target language, written as the brief for its script: the situation, the main event and how the episode ends.'
+  },
+  hook: {
+    type: 'string',
+    description: 'One sentence in the target language that teases this episode; the episode before it ends by leading into this hook.'
+  }
+}
+
+const SERIES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    title: { type: 'string', description: 'Short catchy series title in the target language, max 50 characters.' },
+    world: {
+      type: 'string',
+      description: 'The world of the series in the target language, 2 to 4 sentences: place, era, technology level, who the people are and what makes it special.'
+    },
+    tone: { type: 'string', description: 'How the series feels and is told, one or two sentences in the target language.' },
+    rules: {
+      type: 'string',
+      description:
+        'Rules every episode follows, in the target language: 3 to 6 short lines separated by newlines (facts of the world, what the characters can and cannot do, recurring elements).'
+    },
+    cast: {
+      type: 'array',
+      description: 'The recurring main characters who appear across episodes, 1 to 5 of them.',
+      items: CAST_ITEM
+    },
+    episodes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: { no: { type: 'integer', description: 'Episode number, starting at 1.' }, ...OUTLINE_PROPS },
+        required: ['no', 'title', 'synopsis', 'hook']
+      }
+    }
+  },
+  required: ['title', 'world', 'tone', 'rules', 'cast', 'episodes']
+}
+
+const NEXT_EPISODE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: OUTLINE_PROPS,
+  required: ['title', 'synopsis', 'hook']
+}
+
+interface SeriesPlan {
+  title?: string
+  world?: string
+  tone?: string
+  rules?: string
+  cast?: { name?: string; identity?: string; outfit?: string }[]
+  episodes?: { no?: number; title?: string; synopsis?: string; hook?: string }[]
+}
+
+function continuityRule(serial: boolean): string {
+  return serial
+    ? 'The series is serial: the episodes tell ONE continuing story arc in order. Every episode moves the arc forward and raises the stakes, and ends on a cliffhanger that leads into the next episode. The last episode resolves the arc.'
+    : 'The series is an anthology: every episode is a complete standalone story with its own beginning and ending, set in the same world and starring the same cast. Episodes can be watched in any order and never depend on each other.'
+}
+
+/** Series being planned right now; a second request would create a second set of episodes. */
+const planning = new Set<string>()
+
+/**
+ * Plans a whole series from its premise: bible (world, tone, rules), the recurring cast (no sheets yet) and one
+ * outline per episode, then creates an episode project for each outline with the series settings and the cast
+ * copied in. Planning again is only allowed while no episode has a script, and replaces those drafts.
+ */
+export async function generateSeriesPlan(seriesId: string): Promise<SeriesBundle> {
+  if (planning.has(seriesId)) throw new Error('Rencana seri ini sedang disusun. Tunggu sebentar.')
+  planning.add(seriesId)
+  try {
+    const s = getSeries(seriesId)
+    if (!s.premise.trim()) throw new Error('Tulis premis seri dulu.')
+    const existing = episodesOf(seriesId)
+    if (existing.some((e) => clipsOf(e.id).length))
+      throw new Error('Episode seri ini sudah mulai dibuat, jadi rencananya tidak bisa disusun ulang. Tambahkan episode baru saja.')
+    const count = Math.max(MIN_EPISODES, Math.min(MAX_EPISODES, s.episodeCount || MIN_EPISODES))
+    const lang = languageOf(s.language)
+    const serial = s.continuity === 'serial'
+
+    const system = [
+      'You are the showrunner of a faceless YouTube storytelling series. You plan the whole series before any script is written.',
+      'You write a series bible (world, tone, rules), a fixed cast of recurring characters, and a short outline for every episode.',
+      continuityRule(serial),
+      `Each episode is a short video of about ${s.durationSec} seconds (about ${clipCountFor(s.durationSec)} scenes of one voice-over line each), so give every episode one clear plot that fits that length.`,
+      'Keep facts accurate for history and science topics, and use the same character names everywhere.',
+      `Write the title, world, tone, rules and the episode titles, synopses and hooks in ${lang}. Write the cast "identity" and "outfit" in English.`
+    ].join(' ')
+    const prompt = [
+      `Series premise:\n${s.premise}`,
+      `Visual style of the videos (for your choices only; the image model adds it, so never repeat it in the cast descriptions): ${getStyle(s.styleId).name}.`,
+      `Write exactly ${count} episodes, numbered 1 to ${count}.`
+    ].join('\n\n')
+
+    const plan = await generateJson<SeriesPlan>({ system, prompt, schema: SERIES_SCHEMA, name: 'series_plan' })
+    const episodes = (plan.episodes ?? [])
+      .filter((e) => str(e.title) || str(e.synopsis))
+      .sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0))
+      .slice(0, count)
+      .map((e, i) => ({ no: i + 1, title: str(e.title) || `Episode ${i + 1}`, synopsis: str(e.synopsis) || str(e.title), hook: str(e.hook) }))
+    if (!episodes.length) throw new Error('Model tidak menghasilkan episode. Coba lagi atau pilih model lain di Pengaturan.')
+
+    for (const e of existing) removeProject(e.id)
+    dropUnsheetedCast(seriesId)
+    addSeriesCast(
+      seriesId,
+      (plan.cast ?? []).filter((c) => str(c.name)).map((c) => ({ name: str(c.name), description: characterLook(c) }))
+    )
+    setSeriesBible(
+      seriesId,
+      str(plan.title) || s.title,
+      { world: str(plan.world), tone: str(plan.tone), rules: str(plan.rules), hooks: episodes.map((e) => ({ no: e.no, hook: e.hook })) },
+      episodes.length
+    )
+    for (const e of episodes) await createEpisode(seriesId, e)
+    return getSeriesBundle(seriesId)
+  } finally {
+    planning.delete(seriesId)
+  }
+}
+
+/** Plans one more episode after the last one and creates its project. */
+export async function generateNextEpisode(seriesId: string): Promise<SeriesBundle> {
+  if (planning.has(seriesId)) throw new Error('Rencana seri ini sedang disusun. Tunggu sebentar.')
+  planning.add(seriesId)
+  try {
+    const s = getSeries(seriesId)
+    const episodes = episodesOf(seriesId)
+    if (!episodes.length) throw new Error('Susun rencana seri dulu.')
+    if (episodes.length >= MAX_EPISODES) throw new Error(`Satu seri paling banyak ${MAX_EPISODES} episode.`)
+    const no = Math.max(...episodes.map((e) => e.episodeNo ?? 0)) + 1
+    const serial = s.continuity === 'serial'
+    const cast = seriesCast(seriesId)
+
+    const system = [
+      'You are the showrunner of a faceless YouTube storytelling series. Write the outline of the next episode.',
+      continuityRule(serial),
+      serial
+        ? 'Continue the arc from where the last episode ends. If the arc is already resolved, open a new chapter with the same cast.'
+        : 'Give the new episode a fresh standalone story that does not repeat the plots of the earlier episodes.',
+      `The episode is a short video of about ${s.durationSec} seconds, so give it one clear plot that fits that length.`,
+      `Write the title, synopsis and hook in ${languageOf(s.language)}.`
+    ].join(' ')
+    const prompt = [
+      `Series: ${s.title}`,
+      `Premise:\n${s.premise}`,
+      s.bible.world.trim() ? `World:\n${s.bible.world.trim()}` : '',
+      s.bible.tone.trim() ? `Tone:\n${s.bible.tone.trim()}` : '',
+      s.bible.rules.trim() ? `Rules:\n${s.bible.rules.trim()}` : '',
+      cast.length ? `Cast:\n${cast.map((c) => `- ${c.name}: ${c.description}`).join('\n')}` : '',
+      `Episodes so far:\n${episodes
+        .map((e) => `Episode ${e.episodeNo} "${stripEpisodeTag(e.title)}": ${e.episodeSummary.trim() || e.synopsis.trim()}`)
+        .join('\n')}`,
+      `Write episode ${no}.`
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    const r = await generateJson<{ title?: string; synopsis?: string; hook?: string }>({ system, prompt, schema: NEXT_EPISODE_SCHEMA, name: 'next_episode' })
+    const title = str(r.title) || `Episode ${no}`
+    const synopsis = str(r.synopsis)
+    if (!synopsis) throw new Error('Model tidak menghasilkan episode. Coba lagi atau pilih model lain di Pengaturan.')
+    setSeriesBible(
+      seriesId,
+      s.title,
+      { ...s.bible, hooks: [...s.bible.hooks.filter((h) => h.no !== no), { no, hook: str(r.hook) }] },
+      episodes.length + 1
+    )
+    await createEpisode(seriesId, { no, title, synopsis })
+    return getSeriesBundle(seriesId)
+  } finally {
+    planning.delete(seriesId)
+  }
 }

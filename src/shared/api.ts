@@ -20,6 +20,12 @@ import type {
   ProjectBundle,
   ProjectSnapshot,
   ProjectSummary,
+  NewSeriesInput,
+  Series,
+  SeriesBundle,
+  SeriesCharacter,
+  SeriesPatch,
+  SeriesSummary,
   TtsProvider,
   VoiceOption
 } from './types'
@@ -33,6 +39,28 @@ export interface StudioApi {
     save(snapshot: ProjectSnapshot): Promise<{ updatedAt: number }>
     remove(id: string): Promise<void>
     duplicate(id: string): Promise<ProjectSummary>
+  }
+  series: {
+    list(): Promise<SeriesSummary[]>
+    create(input: NewSeriesInput): Promise<Series>
+    get(id: string): Promise<SeriesBundle>
+    /** Title, premise and the editable bible (world, tone, rules). */
+    update(id: string, patch: SeriesPatch): Promise<Series>
+    /** Deletes the series with all its episode projects and files. */
+    remove(id: string): Promise<void>
+    /** LLM: bible, cast and one outline per episode, then an episode project for each (replaces unstarted drafts). */
+    plan(id: string): Promise<SeriesBundle>
+    /** LLM: plans one more episode after the last one. */
+    addEpisode(id: string): Promise<SeriesBundle>
+    updateEpisode(projectId: string, patch: { title?: string; synopsis?: string; summary?: string }): Promise<void>
+    /** Deletes one episode; later episodes move up a number. */
+    removeEpisode(projectId: string): Promise<void>
+    updateCharacter(id: string, patch: { name?: string; description?: string }): Promise<SeriesCharacter>
+    removeCharacter(id: string): Promise<void>
+    /** Copies the series cast (characters and sheets) into an episode project and returns its fresh bundle. */
+    syncCastIn(projectId: string): Promise<ProjectBundle>
+    /** Copies an episode's new characters and sheets back to its series; null for a project outside a series. */
+    syncCastOut(projectId: string): Promise<SeriesBundle | null>
   }
   story: {
     /** Idea → scene-by-scene script (story and voice-over). */

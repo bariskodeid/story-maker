@@ -15,6 +15,8 @@ Tipe TypeScript-nya ada di `src/shared/types.ts`; skema SQLite di `src/main/db/i
 | `settings` | pengaturan aplikasi (key → JSON) |
 | `secrets` | kunci API terenkripsi + hasil tes terakhir |
 | `cache` | cache bebas (daftar model, estimasi kredit, daftar suara), dengan `updated_at` |
+| `series` | satu baris per seri: premis, alur, bible (`bible_json`), pengaturan untuk episode baru |
+| `series_characters` | pemeran bersama seri + path lembar karakternya di folder seri (`sheet_path`) |
 
 Relasi `project_id` memakai `ON DELETE CASCADE`. Tidak ada foreign key antara klip dan aset; klip menunjuk aset
 lewat `image_asset_id`, `video_asset_id`, `audio_asset_id`. Aset lama tetap tersimpan sebagai riwayat versi.
@@ -33,6 +35,7 @@ dalam transaksi, lalu `user_version` dinaikkan.
 | 5 | `projects.video_resolution` |
 | 6 | `clips.video_camera`, `video_strength`, `transition_ms`, `voice_gain_db` |
 | 7 | `clips.media_in_ms`, `voice_in_ms`, `voice_out_ms`, `voice_start_ms` |
+| 8 | Tabel `series` dan `series_characters`; `projects.series_id`, `episode_no`, `episode_summary` |
 
 **Aturan:** tambahkan migrasi baru di akhir. Jangan mengubah migrasi yang sudah ada, karena pengguna lama sudah
 menjalankannya.
@@ -49,6 +52,28 @@ menjalankannya.
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
 | `coverAssetId` | gambar sampul kartu proyek |
 | `editor` | `EditorSettings` (JSON), lihat di bawah |
+| `seriesId`, `episodeNo` | seri pemilik dan nomor episodenya; null untuk proyek biasa |
+| `episodeSummary` | ringkasan 2–3 kalimat yang ditulis bersama naskah episode, dibaca naskah episode berikutnya |
+
+Kolom seri (`series_id`, `episode_no`, `episode_summary`) dimiliki proses utama seperti `cover_asset_id`: tidak ada di
+`ProjectSnapshot` dan tidak ditulis `saveSnapshot`. Diubah lewat `createEpisode`, `updateEpisode`, `removeEpisode`, dan
+`setEpisodeSummary` (`src/main/series.ts`). `duplicateProject` menyalin `episode_summary`, tetapi salinannya menjadi
+proyek biasa (`series_id` null), supaya satu episode tetap satu proyek.
+
+## Seri (`Series`, `SeriesCharacter`)
+
+| Properti | Arti |
+|---|---|
+| `kind` | jenis seri; sekarang selalu `story` (kolom disiapkan untuk jenis proyek lain) |
+| `title`, `premise` | judul (diisi AI saat rencana disusun) dan premis dari Beranda |
+| `continuity` | `serial` (bersambung) atau `anthology` (cerita lepas, dunia dan pemeran sama) |
+| `bible` | `{ world, tone, rules, hooks[{no, hook}] }` di `bible_json`; bisa diedit di halaman seri |
+| `episodeCount` | jumlah episode yang direncanakan |
+| `durationSec`, `language`, `aspectRatio`, `styleId`, `ttsProvider`, `ttsVoice`, `imageModel`, `videoModel` | pengaturan awal setiap episode baru |
+
+`SeriesCharacter`: `name`, `description` (bahasa Inggris, seperti pemeran proyek), `sheetPath` (relatif ke
+`<userData>/series/<id>/`, null sampai ada episode yang membuat lembarnya), `sheetUrl` (`studio://series/...`), `sort`.
+Pemeran dicocokkan antara seri dan episode lewat nama (huruf kecil, tanpa spasi tepi).
 
 ## Klip (`Clip`)
 

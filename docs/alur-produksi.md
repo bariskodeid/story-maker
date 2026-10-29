@@ -44,6 +44,70 @@ atau **Lanjutkan otomatis** cukup menjalankan ulang seluruh urutan. Selama berja
 Beranda (kartunya berlabel "Dibuat otomatis…"), tetapi berhenti kalau aplikasi ditutup; job yang terputus ditandai
 gagal oleh `resumeJobs`, dan proyeknya bisa dilanjutkan manual dari langkah terakhir.
 
+## Seri dan episode (`src/main/series.ts`, `generateSeriesPlan` di `story.ts`)
+
+Di Beranda, sakelar **Satu video / Seri** di kolom ide mengubahnya jadi formulir seri: premis, jumlah episode
+(2–20), durasi per episode, alur **Bersambung** (satu cerita berlanjut) atau **Antologi** (cerita lepas dengan dunia
+dan pemeran yang sama), bahasa, format, gaya, dan suara narator. **Susun seri** membuat baris `series` lalu menyusun
+rencananya; **Sekali klik semua** langsung menyusun rencana dan membuat semua episode.
+
+Setiap episode adalah **proyek biasa** (`projects.series_id`, `episode_no`), jadi langkah Ide sampai Editor, Sekali
+klik, dan ekspor berjalan tanpa perubahan. Episode tidak tampil di grid Beranda (`listProjects` menyaringnya); grid
+menampilkan kartu seri bertumpuk dengan progres "3/5 episode siap", dan chip filter **Seri**.
+
+1. **Rencana seri** (`generateSeriesPlan`): dari premis, alur, jumlah episode, bahasa, dan gaya, LLM menulis
+   `{ title, world, tone, rules, cast[{name, identity, outfit}], episodes[{no, title, synopsis, hook}] }`. Bible
+   (`world`, `tone`, `rules`) dan judul ditulis dalam bahasa seri, deskripsi pemeran dalam bahasa Inggris seperti
+   pemeran proyek. `hook` adalah satu kalimat penggoda tiap episode; episode bersambung diakhiri dengan mengarah ke
+   hook episode berikutnya. Bible disimpan di `series.bible_json` (`hooks` per nomor episode), pemeran di
+   `series_characters` (belum ada lembar karakter), lalu satu proyek dibuat per episode: judul `E01 · <judul>`,
+   sinopsis = sinopsis episode, pengaturan dari seri, pemeran disalin masuk. Menyusun ulang hanya bisa selama belum
+   ada episode yang punya naskah (draf lama diganti, pemeran yang sudah punya lembar tetap).
+2. **Naskah episode** (`generateScript` + `episodeBrief`): prompt biasa ditambah bible, daftar pemeran tetap (nama
+   wajib sama persis), "episode N dari M", dan untuk seri bersambung ringkasan episode-episode sebelumnya serta hook
+   episode berikutnya. Episode terakhir diminta menutup alur. Antologi tidak mendapat ringkasan episode lain. Skemanya
+   varian `EPISODE_SCRIPT_SCHEMA` dengan kolom `summary` (2–3 kalimat) yang disimpan di `projects.episode_summary`
+   untuk episode berikutnya; proyek biasa tetap memakai `SCRIPT_SCHEMA` yang lama. Judul episode tidak diganti judul
+   dari LLM, supaya urutan `E01 · …` tetap.
+3. **Rencana visual** episode mendapat satu baris tambahan berisi dunia seri, supaya semua episode tergambar di
+   tempat dan zaman yang sama. Pemeran seri sudah ada di proyek, jadi masuk ke "Existing characters (keep them
+   exactly)".
+4. **Tambah episode** (`generateNextEpisode`): LLM menulis satu rencana episode lagi dari bible, pemeran, dan
+   ringkasan episode yang sudah ada.
+
+### Pemeran bersama (`syncCastIn` / `syncCastOut`)
+
+Aset tidak bisa dipakai lintas proyek (ekspor dan pratinjau mencari setiap file di folder proyek pemiliknya), jadi
+lembar karakter **disalin**:
+
+- **Masuk ke episode** (`series:syncCastIn`): saat episode dibuat, saat halaman episode dibuka, dan sebelum episode
+  dijalankan Sekali klik. Pemeran yang belum ada (dicocokkan dari nama, huruf kecil, tanpa spasi tepi) ditambahkan;
+  lembar karakter seri disalin ke `images/` proyek sebagai aset `image` (`provider = 'series'`, `character_id`
+  terisi) lalu dijadikan `sheet_asset_id`. Karena pemerannya sudah punya lembar, `generateMissingImages` tidak membuat
+  lembar baru. Pemeran yang sudah punya lembar sendiri di episode itu tidak diubah.
+- **Kembali ke seri** (`series:syncCastOut`): setelah tiap episode selesai di Sekali klik seri, dan saat halaman
+  episode ditutup. Pemeran baru (dengan lembarnya kalau ada) ditambahkan ke `series_characters`, dan pemeran seri yang
+  belum punya lembar mendapat salinan lembar dari episode. Lembar seri yang sudah ada tidak pernah ditimpa.
+
+File lembar seri ada di `<userData>/series/<id>/sheets/` dan ditampilkan lewat `studio://series/<id>/…`.
+
+### Sekali klik seri (`src/renderer/src/lib/seriesAutopilot.ts`)
+
+`startSeriesAutopilot` menyusun rencana kalau seri belum punya episode, lalu menjalankan episode **satu per satu**
+sesuai nomor. Episode yang sudah selesai (ada adegan, `remainingWork` kosong, sudah di Editor, dan sudah diekspor
+kalau ekspor diminta) dilewati. Untuk setiap episode lain: `syncCastIn` → `runAutopilot` (versi `startAutopilot` yang
+mengembalikan `'done' | 'failed' | 'stopped'`) → `syncCastOut`. Kalau satu episode gagal, run berhenti dan kartu
+progres di halaman seri menyebut episode mana yang gagal beserta tombol **Coba lagi**; **Hentikan** menghentikan
+episode yang sedang berjalan, dan **Lanjutkan** meneruskan dari episode itu.
+
+Ekspor otomatis (opsional, sakelar yang sama dengan Sekali klik biasa) menulis
+`<folder ekspor>/<slug judul seri>/E01-<slug judul episode>.mp4`: `runAutopilot` menerima `exportTarget`
+(folder + nama file) yang menggantikan bagian itu dari `defaultExportOptions`. Halaman seri menampilkan progres
+keseluruhan (episode N dari M, langkah yang sedang berjalan) dan tombol untuk membuka panel progres episode itu.
+Tombol **Sekali klik** per episode menjalankan satu episode dengan cara yang sama (`runEpisode`).
+
+Menghapus seri menghapus semua proyek episodenya (baris dan folder) dan folder seri.
+
 ## 1. Ide → naskah (`generateScript`, `src/main/story.ts`)
 
 - Masukan: sinopsis, target durasi, bahasa.

@@ -25,6 +25,8 @@ export function ProjectPage({ id }: { id: string }) {
     let alive = true
     window.api.projects
       .get(id)
+      // An episode takes the series cast (and its character sheets) before anything is generated in it.
+      .then((b) => (b.project.seriesId ? window.api.series.syncCastIn(id) : b))
       .then((b) => alive && load(b))
       .catch((e) => {
         toast('error', errorText(e))
@@ -32,7 +34,14 @@ export function ProjectPage({ id }: { id: string }) {
       })
     return () => {
       alive = false
-      void useProject.getState().flush().then(unload)
+      const episode = !!useProject.getState().project?.seriesId
+      void useProject
+        .getState()
+        .flush()
+        .then(unload)
+        // Characters and sheets made while working on an episode by hand become available to the other episodes.
+        .then(() => (episode ? window.api.series.syncCastOut(id) : null))
+        .catch(() => undefined)
     }
   }, [id])
 

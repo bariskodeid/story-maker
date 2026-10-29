@@ -20,6 +20,12 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 - Tautan referral Higgsfield di Pengaturan, diganti dengan dashboard Higgsfield Cloud.
 
 ### Ditambahkan
+- **Seri dan episode**: dari satu premis, AI menyusun bible seri (dunia, nada, aturan), pemeran tetap, dan rencana
+  2–20 episode, bersambung atau antologi. Setiap episode adalah proyek biasa dengan naskah yang mengikuti bible dan
+  ringkasan episode sebelumnya. Lembar karakter dibuat sekali lalu disalin ke setiap episode. Halaman seri untuk
+  menyunting bible, pemeran, dan episode; **Tambah episode**; dan **Buat semua episode sekali klik** yang membuat
+  episode satu per satu (bisa dihentikan dan dilanjutkan) dengan ekspor opsional ke folder seri. Seri tampil sebagai
+  kartu bertumpuk di Beranda dengan filter **Seri**.
 - **Sekali klik** di Beranda: dari satu ide, naskah, rencana visual, lembar karakter, gambar klip, narasi, dan
   caption dibuat otomatis, lalu proyek terbuka di editor. Progresnya tampil di halaman proyek, bisa dihentikan, dan
   bisa dilanjutkan tanpa mengulang langkah yang sudah selesai. Video AI tidak ikut dibuat.

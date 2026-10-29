@@ -52,6 +52,9 @@ const toProject = (r: Row): Project => ({
   step: r.step,
   coverAssetId: r.cover_asset_id,
   editor: { ...DEFAULT_EDITOR, ...JSON.parse(r.editor_json || '{}') },
+  seriesId: r.series_id ?? null,
+  episodeNo: r.episode_no ?? null,
+  episodeSummary: r.episode_summary ?? '',
   createdAt: r.created_at,
   updatedAt: r.updated_at
 })
@@ -132,6 +135,7 @@ export const toJob = (r: Row): Job => ({
 
 // ---------- projects ----------
 
+/** Standalone projects; episodes are listed on their series page instead. */
 export function listProjects(): ProjectSummary[] {
   const rows = getDb()
     .prepare(
@@ -139,7 +143,7 @@ export function listProjects(): ProjectSummary[] {
         (SELECT COUNT(*) FROM clips c WHERE c.project_id = p.id) AS clip_count,
         (SELECT COALESCE(SUM(duration_ms), 0) FROM clips c WHERE c.project_id = p.id) AS total_ms,
         (SELECT a.local_path FROM assets a WHERE a.id = p.cover_asset_id) AS cover_path
-       FROM projects p ORDER BY p.updated_at DESC`
+       FROM projects p WHERE p.series_id IS NULL ORDER BY p.updated_at DESC`
     )
     .all() as Row[]
   return rows.map((r) => ({
@@ -218,7 +222,7 @@ export function touchProject(id: string, patch: Partial<Pick<Project, 'status' |
     .run({ ...patch, id, now: Date.now() })
 }
 
-/** Saves the editable parts of a project. Asset links stay owned by the main process. */
+/** Saves the editable parts of a project. Asset links and the series fields stay owned by the main process. */
 export function saveSnapshot(snap: ProjectSnapshot): number {
   const db = getDb()
   const now = Date.now()
@@ -298,11 +302,12 @@ export function duplicateProject(id: string): ProjectSummary {
   }
   db.transaction(() => {
     const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Row
+    // A copy of an episode becomes a standalone project (series_id stays null), so the series keeps one project per episode.
     db.prepare(
       `INSERT INTO projects (id, title, synopsis, duration_sec, language, aspect_ratio, style_id, tts_provider, tts_voice,
-         image_model, video_model, video_resolution, status, step, cover_asset_id, editor_json, created_at, updated_at)
+         image_model, video_model, video_resolution, status, step, cover_asset_id, editor_json, episode_summary, created_at, updated_at)
        SELECT @newId, @title, synopsis, duration_sec, language, aspect_ratio, style_id, tts_provider, tts_voice,
-         image_model, video_model, video_resolution, status, step, @cover, editor_json, @now, @now FROM projects WHERE id = @id`
+         image_model, video_model, video_resolution, status, step, @cover, editor_json, episode_summary, @now, @now FROM projects WHERE id = @id`
     ).run({ newId, id, title: `${p.title} (salinan)`, cover: mapId(p.cover_asset_id), now })
     for (const a of src.assets) {
       db.prepare(

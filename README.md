@@ -46,6 +46,16 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 - Proyek yang sudah berjalan bisa diteruskan dengan **Lanjutkan otomatis** di header proyek, misalnya setelah kamu
   menyunting naskah.
 
+**Seri dan episode**
+- Pilih **Seri** di Beranda, tulis premisnya, lalu tentukan jumlah episode (2–20), durasi per episode, dan alurnya:
+  **bersambung** (satu cerita berlanjut) atau **antologi** (cerita lepas dengan dunia dan pemeran yang sama).
+- AI menyusun bible seri (dunia, nada, aturan), pemeran tetap, dan rencana setiap episode. Semuanya bisa kamu sunting
+  di halaman seri.
+- Naskah episode bersambung melanjutkan ringkasan episode sebelumnya. Lembar karakter dibuat sekali, lalu dipakai
+  ulang di semua episode supaya wajah pemerannya konsisten.
+- **Buat semua episode sekali klik**: episode dibuat satu per satu, bisa dihentikan dan dilanjutkan, dan opsional
+  diekspor ke satu folder seri (`E01-….mp4`, `E02-….mp4`, …). Episode baru bisa ditambah kapan saja.
+
 **1. Ide cerita**
 - Tulis ide atau sinopsis, lalu atur:
   - durasi (30 detik sampai 10 menit);

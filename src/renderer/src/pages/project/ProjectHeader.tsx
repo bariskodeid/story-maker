@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
-import { AlertCircle, ArrowLeft, Check, CheckCircle2, Loader2, Pencil, Save, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AlertCircle, ArrowLeft, Check, CheckCircle2, Layers, Loader2, Pencil, Save, SlidersHorizontal } from 'lucide-react'
+import { episodeTag } from '@shared/series'
 import type { Step } from '@shared/types'
 import { Button, IconButton, Kbd, cx } from '../../components/ui'
 import { relativeTime } from '../../lib/format'
@@ -52,6 +53,15 @@ export function ProjectHeader({ doneSteps, right, locked = false }: { doneSteps:
   const { project, updateProject, save, flush } = useProject()
   const { go } = useApp()
   const [editing, setEditing] = useState(false)
+  const [seriesTitle, setSeriesTitle] = useState<string | null>(null)
+  const seriesId = project?.seriesId ?? null
+  useEffect(() => {
+    if (!seriesId) return setSeriesTitle(null)
+    window.api.series
+      .get(seriesId)
+      .then((b) => setSeriesTitle(b.series.title))
+      .catch(() => setSeriesTitle(null))
+  }, [seriesId])
   if (!project) return null
 
   const setStep = (n: Step): void => {
@@ -65,15 +75,29 @@ export function ProjectHeader({ doneSteps, right, locked = false }: { doneSteps:
     <header className="grid h-[68px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-6">
       <div className="flex min-w-0 items-center gap-3">
         <IconButton
-          label="Kembali ke beranda"
+          label={seriesId ? 'Kembali ke seri' : 'Kembali ke beranda'}
           onClick={async () => {
             await flush()
-            go({ name: 'home' })
+            go(seriesId ? { name: 'series', id: seriesId } : { name: 'home' })
           }}
         >
           <ArrowLeft className="size-[18px]" />
         </IconButton>
         <div className="flex min-w-0 flex-col gap-px">
+          {seriesId && (
+            <button
+              type="button"
+              onClick={async () => {
+                await flush()
+                go({ name: 'series', id: seriesId })
+              }}
+              className="flex min-w-0 items-center gap-1 text-left text-[11px] font-semibold leading-4 text-ink-2 hover:text-ink hover:underline"
+            >
+              <Layers className="size-3 shrink-0" />
+              <span className="truncate">{seriesTitle ?? 'Seri'}</span>
+              {project.episodeNo != null && <span className="shrink-0 font-mono font-medium text-muted">/ {episodeTag(project.episodeNo)}</span>}
+            </button>
+          )}
           <div className="flex min-w-0 items-center gap-1">
             {editing ? (
               <input
