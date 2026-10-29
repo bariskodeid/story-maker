@@ -449,6 +449,8 @@ export interface SeriesEpisode {
   clipCount: number
   totalMs: number
   coverUrl: string | null
+  /** The episode's own explainer template (it keeps it when the series template changes later); null for stories. */
+  templateId: ExplainerTemplateId | null
   updatedAt: number
 }
 

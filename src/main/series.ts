@@ -177,7 +177,7 @@ export function getSeriesBundle(id: string): SeriesBundle {
   const series = getSeries(id)
   const rows = getDb()
     .prepare(
-      `SELECT p.id, p.title, p.synopsis, p.episode_no, p.episode_summary, p.status, p.step, p.updated_at,
+      `SELECT p.id, p.title, p.synopsis, p.episode_no, p.episode_summary, p.status, p.step, p.updated_at, p.kind, p.template_id,
         (SELECT COUNT(*) FROM clips c WHERE c.project_id = p.id) AS clip_count,
         (SELECT COALESCE(SUM(duration_ms), 0) FROM clips c WHERE c.project_id = p.id) AS total_ms,
         (SELECT a.local_path FROM assets a WHERE a.id = p.cover_asset_id) AS cover_path
@@ -200,6 +200,7 @@ export function getSeriesBundle(id: string): SeriesBundle {
     clipCount: r.clip_count,
     totalMs: series.kind === 'explainer' && r.clip_count > 0 ? explainerMs(r.id) : r.total_ms,
     coverUrl: r.cover_path ? assetUrl(r.id, r.cover_path) : null,
+    templateId: r.kind === 'explainer' ? getTemplate(r.template_id).id : null,
     updatedAt: r.updated_at
   }))
   return { series, characters: seriesCast(id), episodes }

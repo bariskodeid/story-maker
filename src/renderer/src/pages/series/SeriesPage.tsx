@@ -369,7 +369,7 @@ function EpisodeRow({
         {ep.coverUrl ? (
           <img src={ep.coverUrl} alt="" className="size-full object-cover" />
         ) : explainer ? (
-          <TemplateSwatch templateId={series.templateId} className="size-full" />
+          <TemplateSwatch templateId={ep.templateId ?? series.templateId} className="size-full" />
         ) : (
           <StyleSwatch styleId={series.styleId} className="size-full" iconSize={28} />
         )}

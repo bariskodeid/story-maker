@@ -160,3 +160,9 @@ Gambar, lembar karakter, dan suara episode yang sudah dibuat bergantung pada gay
 saat itu. Mengubahnya di episode tersebut membuat episode setengah lama setengah baru (misalnya narasi baru dengan
 suara lain sementara gambar tetap). Karena itu `updateSeriesSettings` hanya menulis ke episode yang belum punya klip,
 dan hanya kolom yang diubah, lalu UI menyebut berapa episode yang tidak ikut berubah.
+
+### `hook` episode ditulis eksplisit sebagai penggoda episode itu sendiri
+Saat diuji, model menulis `hook` tiap episode sebagai *cliffhanger* di akhir episode itu (penggoda episode
+sesudahnya). Karena akhir episode N dibuat dari `hook` episode N+1, pelajaran 1 jadi menggoda isi yang baru ada di
+pelajaran 3. Deskripsi skema (`OUTLINE_PROPS`, `EXPLAINER_OUTLINE_PROPS`) sekarang menyebut bahwa `hook` membahas
+episode itu sendiri dan tidak boleh menggoda episode sesudahnya; setelah perubahan ini hook kembali sesuai.
