@@ -44,7 +44,7 @@ menjalankannya.
 | `title`, `synopsis` | judul (diisi AI saat menulis naskah) dan ide cerita |
 | `durationSec`, `language`, `aspectRatio` | target durasi, bahasa naskah/suara, `16:9` atau `9:16` |
 | `styleId` | gaya visual (`src/shared/styles.ts`, 20 gaya) |
-| `ttsProvider`, `ttsVoice` | `gemini` atau `elevenlabs` + ID suara |
+| `ttsProvider`, `ttsVoice` | `gemini`, `elevenlabs`, atau `ninerouter` + ID suara (untuk 9Router, ID suara = ID model 9Router, mis. `edge-tts/id-ID-ArdiNeural`; bawaan per bahasa dari `defaultTtsVoice` di `shared/voices.ts`) |
 | `imageModel`, `videoModel`, `videoResolution` | model Higgsfield per proyek (null = bawaan aplikasi); `imageModel` berawalan `9router:` berarti model gambar 9Router |
 | `status`, `step` | `draft`/`script`/`storyboard`/`editing`/`exported`; langkah 1 Ide, 2 Naskah, 3 Storyboard, 4 Editor |
 | `coverAssetId` | gambar sampul kartu proyek |
@@ -93,7 +93,7 @@ Tambahkan di semua tempat berikut, atau data akan hilang diam-diam:
 |---|---|
 | `kind` | `image`, `video`, `audio`, `music`, `overlay`, `export` |
 | `clipId` / `characterId` | pemiliknya (riwayat versi per klip/pemeran) |
-| `provider`, `model`, `prompt` | asal file; untuk audio narasi `prompt` = teks narasi saat direkam |
+| `provider`, `model`, `prompt` | asal file; untuk audio narasi `prompt` = teks narasi saat direkam (audio 9Router: `model` = ID suaranya) |
 | `remoteId`, `remoteUrl` | ID permintaan dan URL hasil di Higgsfield |
 | `localPath` | path relatif di folder proyek; `url` = `studio://asset/...` |
 | `durationMs`, `width`, `height` | hasil probe FFmpeg |
@@ -131,7 +131,8 @@ Properti opsional baru di `EditorSettings` tidak butuh migrasi; berikan nilai ba
 
 `defaultTtsProvider`, `defaultLanguage`, `exportFolder`, `llmProvider`, `llmModels` (model per penyedia LLM),
 `customBaseUrl`, `nineRouterBaseUrl`, `geminiTtsModel`, `elevenModel`, `imageModel`, `videoModel` (bawaan untuk proyek baru),
-`whisperAuto` (sinkron caption otomatis setelah narasi Gemini).
+`whisperAuto` (sinkron caption otomatis setelah narasi Gemini atau 9Router). Narasi 9Router memakai `nineRouterBaseUrl`
+dan kunci `ninerouter` yang sama dengan penyusun cerita 9Router; tidak ada pengaturan model TTS terpisah.
 
 Kunci baru harus ada di `DEFAULT_SETTINGS` (`src/main/settings.ts`); kunci yang tidak dikenal diabaikan saat
 disimpan.

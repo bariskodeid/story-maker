@@ -18,6 +18,7 @@ import type {
   ProjectSummary
 } from '@shared/types'
 import { visualSourceOf } from '@shared/script'
+import { defaultTtsVoice } from '@shared/voices'
 import { getDb } from './db'
 import { assetUrl, projectDir, projectsRoot } from './paths'
 import { getSettings } from './settings'
@@ -174,7 +175,7 @@ export function createProject(input: NewProjectInput): Project {
       input.aspectRatio ?? '16:9',
       input.styleId ?? 'stickman',
       tts,
-      tts === 'gemini' ? 'Charon' : '',
+      defaultTtsVoice(tts, input.language ?? s.defaultLanguage),
       s.imageModel,
       s.videoModel,
       JSON.stringify(DEFAULT_EDITOR),

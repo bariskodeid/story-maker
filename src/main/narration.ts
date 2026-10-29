@@ -7,6 +7,7 @@ import { WHISPER_TIMING, captionNeedsSync, estimateWordTimings } from '@shared/c
 import { estimateNarrationMs } from '@shared/script'
 import { spokenWords, stripVoiceTags } from '@shared/speech'
 import type { Clip, Job, Project, WordTiming } from '@shared/types'
+import { defaultTtsVoice } from '@shared/voices'
 import { emit } from './events'
 import { runJob, type TaskCtx } from './jobs'
 import { assetAbsPath, binPath, dataDir } from './paths'
@@ -27,6 +28,7 @@ import { chooseCuts, cutsFromWords } from './cuts'
 import { probeDurationMs } from './services/audio'
 import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
+import * as ninerouter from './services/ninerouterTts'
 import { timeScript, whisperReady } from './whisper'
 
 /**
@@ -37,6 +39,8 @@ import { timeScript, whisperReady } from './whisper'
 
 const GEMINI_PART_SEC = 240
 const ELEVEN_PART_CHARS = 2400
+// 9Router forwards to many engines; Edge TTS (Bing) and OpenAI TTS refuse long inputs, so its takes stay short.
+const NINEROUTER_PART_CHARS = 1000
 
 interface Segment {
   clip: Clip
@@ -79,9 +83,10 @@ function parts(clips: Clip[], provider: Project['ttsProvider']): Clip[][] {
   const out: Clip[][] = []
   let cur: Clip[] = []
   let size = 0
+  const byChars = provider !== 'gemini'
+  const limit = provider === 'elevenlabs' ? ELEVEN_PART_CHARS : provider === 'ninerouter' ? NINEROUTER_PART_CHARS : GEMINI_PART_SEC
   for (const c of clips) {
-    const s = provider === 'elevenlabs' ? c.narration.length : estimateNarrationMs(c.narration) / 1000
-    const limit = provider === 'elevenlabs' ? ELEVEN_PART_CHARS : GEMINI_PART_SEC
+    const s = byChars ? c.narration.length : estimateNarrationMs(c.narration) / 1000
     if (cur.length && size + s > limit) {
       out.push(cur)
       cur = []
@@ -111,11 +116,23 @@ async function whisperTimes(take: string, words: string[], p: Project, total: nu
   }
 }
 
-async function geminiTake(p: Project, voice: string, group: Clip[], tmp: string, ctx: TaskCtx, note: () => void): Promise<Segment[]> {
+/** One take of a group of scenes from a voice that returns no word timings. */
+async function untimedSpeech(p: Project, voice: string, group: Clip[], signal: AbortSignal): Promise<{ audio: Buffer; ext: string }> {
+  if (p.ttsProvider === 'ninerouter') {
+    // 9Router's engines do not know Gemini's tags. Ending every scene on a full stop makes the voice pause there,
+    // which gives the cutter a gap at the scene boundary.
+    const text = group.map((c) => stripVoiceTags(c.narration).replace(/([^.!?…"'”’)])$/, '$1.')).join('\n\n')
+    return ninerouter.speak(text, voice, p.language, signal)
+  }
   // A long pause between scenes gives the cutter a clear gap to find.
-  const wav = await gemini.speak(group.map((c) => c.narration.trim()).join('\n<long pause>\n'), voice, p.language, ctx.signal)
-  const take = join(tmp, `take-${randomUUID()}.wav`)
-  writeFileSync(take, wav)
+  const wav = await gemini.speak(group.map((c) => c.narration.trim()).join('\n<long pause>\n'), voice, p.language, signal)
+  return { audio: wav, ext: '.wav' }
+}
+
+async function untimedTake(p: Project, voice: string, group: Clip[], tmp: string, ctx: TaskCtx, note: () => void): Promise<Segment[]> {
+  const speech = await untimedSpeech(p, voice, group, ctx.signal)
+  const take = join(tmp, `take-${randomUUID()}${speech.ext}`)
+  writeFileSync(take, speech.audio)
   const total = (await probeDurationMs(take)) / 1000
   const silences = await detectSilences(take, ctx.signal)
 
@@ -222,7 +239,8 @@ function store(p: Project, s: Segment, voice: string, takeId: string, bytes: Buf
     clipId: s.clip.id,
     kind: 'audio',
     provider: p.ttsProvider,
-    model: p.ttsProvider === 'gemini' ? getSettings().geminiTtsModel : getSettings().elevenModel,
+    // A 9Router voice id is also its model id.
+    model: p.ttsProvider === 'gemini' ? getSettings().geminiTtsModel : p.ttsProvider === 'ninerouter' ? voice : getSettings().elevenModel,
     prompt: s.clip.narration,
     localPath: rel,
     durationMs: s.durationMs,
@@ -248,7 +266,7 @@ export function generateNarration(projectId: string, mode: 'missing' | 'all'): J
   emit.job(job)
   return runJob(job, 'tts', async (ctx) => {
     const p = getProject(projectId)
-    const voice = p.ttsVoice || (p.ttsProvider === 'gemini' ? 'Charon' : '')
+    const voice = p.ttsVoice || defaultTtsVoice(p.ttsProvider, p.language)
     if (p.ttsProvider === 'elevenlabs' && !voice) throw new Error('Pilih suara ElevenLabs dulu di langkah Ide cerita.')
     const clips = targets.map((c) => getClip(c.id)).filter((c) => c.narration.trim())
     const groups = parts(clips, p.ttsProvider)
@@ -270,7 +288,7 @@ export function generateNarration(projectId: string, mode: 'missing' | 'all'): J
                 tmp,
                 ctx
               )
-            : await geminiTake(p, voice, group, tmp, ctx, () =>
+            : await untimedTake(p, voice, group, tmp, ctx, () =>
                 ctx.progress(0.05 + 0.85 * ((done + group.length * 0.6) / clips.length), 'Menyinkronkan caption dengan Whisper')
               )
         ctx.progress(0.05 + 0.85 * ((done + group.length * 0.9) / clips.length), 'Memotong suara per adegan')

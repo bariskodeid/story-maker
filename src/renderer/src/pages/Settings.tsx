@@ -405,6 +405,7 @@ function LlmSection({ settings, statusOf, onChanged, onSettings }: { settings: A
       />
       <Card key={provider}>
         <KeyForm
+          key={baseUrl}
           provider={provider}
           name={spec.name}
           status={status}
@@ -415,7 +416,13 @@ function LlmSection({ settings, statusOf, onChanged, onSettings }: { settings: A
                 ? 'Jalankan 9Router (npx 9router), hubungkan penyedia di dashboard-nya, lalu simpan di sini. Ganti alamatnya kalau 9Router dipasang di server lain.'
                 : 'Setelah kunci disimpan, daftar model diambil langsung dari penyedianya.'
           }
-          hint={provider === 'gemini' && settings.defaultTtsProvider === 'gemini' ? 'Kunci ini dipakai bersama untuk suara narator Gemini TTS.' : undefined}
+          hint={
+            provider === 'gemini' && settings.defaultTtsProvider === 'gemini'
+              ? 'Kunci ini dipakai bersama untuk suara narator Gemini TTS.'
+              : provider === 'ninerouter' && settings.defaultTtsProvider === 'ninerouter'
+                ? 'Koneksi ini dipakai bersama untuk suara narator 9Router.'
+                : undefined
+          }
           link={spec.link}
           linkLabel={spec.linkLabel}
           customUrl={baseUrl}
@@ -463,7 +470,8 @@ function TtsSection({ settings, statusOf, onChanged, onSettings }: { settings: A
   const provider = settings.defaultTtsProvider
   const status = statusOf(provider)
   const ready = !!status?.configured && status.lastOk !== false
-  const models = useModels(provider === 'gemini' ? 'gemini-tts' : 'elevenlabs', ready)
+  // A 9Router voice is also its model, so there is no separate model list; voices are picked per project.
+  const models = useModels(provider === 'gemini' ? 'gemini-tts' : 'elevenlabs', ready && provider !== 'ninerouter')
   const options: ProviderOption<TtsProvider>[] = [
     {
       id: 'gemini',
@@ -478,6 +486,13 @@ function TtsSection({ settings, statusOf, onChanged, onSettings }: { settings: A
       note: 'Suara sangat natural dengan waktu kata yang presisi untuk caption karaoke.',
       logo: 'elevenlabs',
       status: statusOf('elevenlabs')
+    },
+    {
+      id: 'ninerouter',
+      name: '9Router',
+      note: 'Edge TTS gratis (ada bahasa Indonesia) dan suara lain yang terhubung di 9Router.',
+      logo: 'ninerouter',
+      status: statusOf('ninerouter')
     }
   ]
   const value = provider === 'gemini' ? settings.geminiTtsModel : settings.elevenModel
@@ -490,30 +505,60 @@ function TtsSection({ settings, statusOf, onChanged, onSettings }: { settings: A
       />
       <ProviderSelect value={provider} options={options} onChange={async (id) => onSettings(await window.api.settings.set({ defaultTtsProvider: id }))} />
       <Card key={provider}>
-        <KeyForm
-          provider={provider}
-          name={provider === 'gemini' ? 'Google Gemini' : 'ElevenLabs'}
-          status={status}
-          help={provider === 'gemini' ? 'Kunci Gemini dari Google AI Studio.' : 'Kunci API dari akun ElevenLabs.'}
-          hint={provider === 'gemini' && settings.llmProvider === 'gemini' ? 'Kunci ini dipakai bersama dengan penyusun cerita Gemini.' : undefined}
-          link={provider === 'gemini' ? 'https://aistudio.google.com/apikey' : 'https://elevenlabs.io/app/settings/api-keys'}
-          linkLabel={provider === 'gemini' ? 'Buat kunci di Google AI Studio' : 'Buat kunci di ElevenLabs'}
-          onChanged={onChanged}
-          onSaved={(r) => r.ok && void models.refresh()}
-        />
-        {ready && (
-          <div className="flex flex-col gap-1.5 border-t border-dashed border-line pt-4">
-            <span className="text-sm font-semibold">Model suara</span>
-            <ModelPicker
-              value={value}
-              models={models.models}
-              loading={models.loading}
-              error={models.error}
-              fetchedAt={models.fetchedAt}
-              onChange={async (id) => onSettings(await window.api.settings.set(provider === 'gemini' ? { geminiTtsModel: id } : { elevenModel: id }))}
-              onRefresh={() => void models.refresh()}
+        {provider === 'ninerouter' ? (
+          <>
+            {/* The same connection as the 9Router story writer, so it can be set up from either section. */}
+            <KeyForm
+              key={settings.nineRouterBaseUrl}
+              provider="ninerouter"
+              name="9Router"
+              status={status}
+              customUrl={settings.nineRouterBaseUrl}
+              help="Jalankan 9Router (npx 9router), lalu simpan alamatnya di sini. Edge TTS bisa langsung dipakai tanpa akun; penyedia suara lain dihubungkan dulu di dashboard 9Router."
+              hint={settings.llmProvider === 'ninerouter' ? 'Koneksi ini dipakai bersama dengan penyusun cerita 9Router.' : undefined}
+              link="https://github.com/decolua/9router"
+              linkLabel="Pasang 9Router"
+              onChanged={onChanged}
             />
-          </div>
+            {ready && (
+              <p className="flex items-start gap-2.5 border-t border-dashed border-line pt-4 text-[13px] leading-relaxed text-ink-2">
+                <Mic className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  Suaranya dipilih per proyek di langkah <strong className="text-ink">Ide cerita</strong>, misalnya{' '}
+                  <code className="rounded bg-sand px-1 font-mono text-xs">edge-tts/id-ID-ArdiNeural</code>. 9Router tidak mengirim waktu per kata,
+                  jadi waktu caption diambil dari Whisper kalau modelnya sudah diunduh, atau diperkirakan.
+                </span>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <KeyForm
+              provider={provider}
+              name={provider === 'gemini' ? 'Google Gemini' : 'ElevenLabs'}
+              status={status}
+              help={provider === 'gemini' ? 'Kunci Gemini dari Google AI Studio.' : 'Kunci API dari akun ElevenLabs.'}
+              hint={provider === 'gemini' && settings.llmProvider === 'gemini' ? 'Kunci ini dipakai bersama dengan penyusun cerita Gemini.' : undefined}
+              link={provider === 'gemini' ? 'https://aistudio.google.com/apikey' : 'https://elevenlabs.io/app/settings/api-keys'}
+              linkLabel={provider === 'gemini' ? 'Buat kunci di Google AI Studio' : 'Buat kunci di ElevenLabs'}
+              onChanged={onChanged}
+              onSaved={(r) => r.ok && void models.refresh()}
+            />
+            {ready && (
+              <div className="flex flex-col gap-1.5 border-t border-dashed border-line pt-4">
+                <span className="text-sm font-semibold">Model suara</span>
+                <ModelPicker
+                  value={value}
+                  models={models.models}
+                  loading={models.loading}
+                  error={models.error}
+                  fetchedAt={models.fetchedAt}
+                  onChange={async (id) => onSettings(await window.api.settings.set(provider === 'gemini' ? { geminiTtsModel: id } : { elevenModel: id }))}
+                  onRefresh={() => void models.refresh()}
+                />
+              </div>
+            )}
+          </>
         )}
       </Card>
     </>

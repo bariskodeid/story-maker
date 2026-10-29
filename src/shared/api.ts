@@ -87,7 +87,8 @@ export interface StudioApi {
     /** The full stored key, only for the "show key" button. */
     revealKey(provider: ApiProvider): Promise<string | null>
     testKey(provider: ApiProvider): Promise<KeyTestResult>
-    voices(provider: TtsProvider): Promise<VoiceOption[]>
+    /** `refresh` skips the cached list (9Router). */
+    voices(provider: TtsProvider, refresh?: boolean): Promise<VoiceOption[]>
   }
   models: {
     /** Live model list from the provider. Served from cache unless `refresh` is set or the cache is stale. */

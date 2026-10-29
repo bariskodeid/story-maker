@@ -1,6 +1,6 @@
 export type ProjectStatus = 'draft' | 'script' | 'storyboard' | 'editing' | 'exported'
 export type AspectRatio = '16:9' | '9:16'
-export type TtsProvider = 'gemini' | 'elevenlabs'
+export type TtsProvider = 'gemini' | 'elevenlabs' | 'ninerouter'
 export type LlmProvider = 'gemini' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
 export type ApiProvider = 'higgsfield' | 'gemini' | 'elevenlabs' | 'openrouter' | 'groq' | 'ninerouter' | 'custom'
 /** LLM providers reached at a user-chosen base URL, with an optional key. */
@@ -275,6 +275,10 @@ export interface VoiceOption {
   name: string
   description: string
   previewUrl?: string | null
+  /** ISO 639-1 code of the language the voice speaks, when known, so the project's language can come first. */
+  language?: string
+  /** Short labels the picker can filter on, e.g. "Indonesia", "Pria". */
+  tags?: string[]
 }
 
 export interface AppSettings {

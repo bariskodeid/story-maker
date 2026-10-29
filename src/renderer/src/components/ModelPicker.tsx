@@ -40,7 +40,8 @@ export function ModelPicker({
   align = 'left',
   menuClassName,
   footerNote,
-  renderIcon
+  renderIcon,
+  noun = 'model'
 }: {
   value: string
   models: ModelOption[]
@@ -64,6 +65,8 @@ export function ModelPicker({
   footerNote?: string
   /** A mark shown before each model name, e.g. its brand logo. */
   renderIcon?: (m: ModelOption) => ReactNode
+  /** What the list holds, in the picker's texts (e.g. "suara" for a voice list). */
+  noun?: string
 }) {
   const [menu, setMenu] = useState<{ up: boolean; max: number }>({ up: false, max: 440 })
   const [open, setOpen] = useState(!!defaultOpen)
@@ -174,7 +177,7 @@ export function ModelPicker({
                 : current && current.name !== value && <span className="truncate font-mono text-xs text-muted">{value}</span>}
             </>
           ) : (
-            <span className="text-[15px] font-semibold text-accent-dark">{loading ? 'Memuat daftar model…' : placeholder}</span>
+            <span className="text-[15px] font-semibold text-accent-dark">{loading ? `Memuat daftar ${noun}…` : placeholder}</span>
           )}
         </span>
         {current && ctxLabel(current.contextLength) && (
@@ -201,8 +204,8 @@ export function ModelPicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onKey}
-                placeholder={models.length ? `Cari dari ${models.length.toLocaleString('id-ID')} model…` : allowCustom ? 'Ketik ID model…' : 'Cari model…'}
-                aria-label="Cari model"
+                placeholder={models.length ? `Cari dari ${models.length.toLocaleString('id-ID')} ${noun}…` : allowCustom ? `Ketik ID ${noun}…` : `Cari ${noun}…`}
+                aria-label={`Cari ${noun}`}
                 role="combobox"
                 aria-expanded="true"
                 aria-controls="model-list"
@@ -256,7 +259,7 @@ export function ModelPicker({
             {!error && loading && !models.length && (
               <p className="flex items-center gap-2 px-3 py-4 text-sm text-ink-2">
                 <Spinner />
-                Mengambil daftar model dari penyedia…
+                Mengambil daftar {noun} dari penyedia…
               </p>
             )}
             {filtered.map((m, i) => {
@@ -325,17 +328,17 @@ export function ModelPicker({
                 className={cx('flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm', active === filtered.length ? 'bg-sand' : 'hover:bg-sand/60')}
               >
                 <span className="size-4" />
-                Pakai model <span className="font-mono font-semibold">{customId}</span>
+                Pakai {noun} <span className="font-mono font-semibold">{customId}</span>
               </button>
             )}
             {!loading && !error && rows === 0 && (
-              <p className="px-3 py-4 text-sm text-muted">{models.length ? 'Tidak ada model yang cocok.' : 'Daftar model kosong.'}</p>
+              <p className="px-3 py-4 text-sm text-muted">{models.length ? `Tidak ada ${noun} yang cocok.` : `Daftar ${noun} kosong.`}</p>
             )}
           </div>
 
           <div className="flex items-center gap-2 border-t border-line bg-paper px-3 py-2 text-xs text-muted">
             <span className="flex-1">
-              {filtered.length.toLocaleString('id-ID')} dari {models.length.toLocaleString('id-ID')} model
+              {filtered.length.toLocaleString('id-ID')} dari {models.length.toLocaleString('id-ID')} {noun}
               {models.some((m) => m.priceIn != null) && ' · harga per 1 juta token (masuk / keluar)'}
               {footerNote && ` · ${footerNote}`}
               {fetchedAt ? ` · diperbarui ${relativeTime(fetchedAt)}` : ''}

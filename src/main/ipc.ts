@@ -55,6 +55,7 @@ import * as gemini from './services/gemini'
 import * as hf from './services/higgsfield'
 import * as llm from './services/llm'
 import { listImageModels as nineRouterImageModels } from './services/ninerouterImages'
+import * as ninerouterTts from './services/ninerouterTts'
 import { generateScript, generateVisuals, generateMusicPrompt } from './story'
 
 
@@ -204,6 +205,7 @@ export function registerIpc(): void {
     setSettings(provider === 'ninerouter' ? { nineRouterBaseUrl: url } : { customBaseUrl: url })
     if (key.trim()) setSecret(provider, key.trim())
     dropCache(`models:${provider}`)
+    dropCache(`voices:${provider}`)
     const result = await llm.testLlm(provider, key.trim() || undefined, url)
     recordCheck(provider, result.ok, result.message)
     return result
@@ -222,8 +224,9 @@ export function registerIpc(): void {
     return result
   })
   handle('settings:revealKey', (provider: ApiProvider) => revealSecret(provider))
-  handle('settings:voices', async (provider: TtsProvider): Promise<VoiceOption[]> => {
+  handle('settings:voices', async (provider: TtsProvider, refresh?: boolean): Promise<VoiceOption[]> => {
     if (provider === 'gemini') return gemini.listVoices()
+    if (provider === 'ninerouter') return ninerouterTts.listVoices(!!refresh)
     return eleven.listVoices()
   })
 

@@ -10,7 +10,7 @@ import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
 import { Badge, Button, Chip, IconButton, Menu, confirmDialog, cx } from '../components/ui'
 import { errorText, mmss, relativeTime } from '../lib/format'
-import { TTS_NAMES, ttsReadiness, usableTts } from '../lib/keys'
+import { TTS_NAMES, TTS_PROVIDERS, ttsReadiness, usableTts } from '../lib/keys'
 import { useApp } from '../store/app'
 
 const STATUS: Record<ProjectStatus, { label: string; tone: 'draft' | 'info' | 'warn' | 'ok' }> = {
@@ -83,7 +83,7 @@ export function Home() {
 
   const ttsOptions = useMemo((): SelectOption<TtsProvider>[] => {
     const ready = ttsReadiness(keys)
-    return (['gemini', 'elevenlabs'] as const).map((p) => {
+    return TTS_PROVIDERS.map((p) => {
       const blocked = keys.length > 0 && !ready[p].ok
       return { value: p, label: TTS_NAMES[p], disabled: blocked, note: blocked ? `${ready[p].reason}. Atur di Pengaturan.` : undefined }
     })
@@ -103,9 +103,9 @@ export function Home() {
     const llm = appSettings.llmProvider
     if (!ok(llm)) issues.push({ what: `kunci ${llmName(llm)}`, blocks: 'cerita' })
     else if (!appSettings.llmModels[llm]) issues.push({ what: `model ${llmName(llm)}`, blocks: 'cerita' })
-    // Narration needs just one working voice service; every project can pick either one.
+    // Narration needs just one working voice service; every project can pick any of them.
     const tts = ttsReadiness(keys)
-    if (!tts.gemini.ok && !tts.elevenlabs.ok) issues.push({ what: 'kunci Gemini atau ElevenLabs', blocks: 'suara narator' })
+    if (!TTS_PROVIDERS.some((p) => tts[p].ok)) issues.push({ what: 'kunci Gemini, ElevenLabs, atau 9Router', blocks: 'suara narator' })
     return issues
   }, [keys, appSettings])
 

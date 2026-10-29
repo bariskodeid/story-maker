@@ -91,6 +91,11 @@ dan intonasinya konsisten. (Rekaman per klip menghasilkan suara yang sedikit ber
   (`GEMINI_PART_SEC`).
 - **ElevenLabs**: per bagian maksimal 2.400 karakter (`ELEVEN_PART_CHARS`), dengan `previous_text`/`next_text`
   agar intonasi bersambung. Waktu per kata datang dari API (alignment).
+- **9Router**: tag suara dibuang, setiap adegan diakhiri tanda titik dan dipisah baris kosong, per bagian
+  maksimal 1.000 karakter (`NINEROUTER_PART_CHARS`, karena Edge TTS dan OpenAI TTS menolak teks panjang). Seperti
+  Gemini, tidak ada waktu per kata: jalurnya sama (`untimedTake`), yaitu Whisper kalau ada, atau `chooseCuts` +
+  waktu kata perkiraan. Catatan: pada Edge TTS jeda antar-kalimat (sekitar 1 detik) hampir sama panjang dengan
+  jeda antar-paragraf, jadi tanpa Whisper titik potong lebih bergantung pada perkiraan panjang teks.
 - **Titik potong antar-adegan**:
   - dengan Whisper: `cutsFromWords` (`cuts.ts`) memotong di jeda yang tumpang-tindih dengan celah antara kata
     terakhir satu adegan dan kata pertama adegan berikutnya, tidak pernah di tengah kata;
@@ -107,7 +112,7 @@ dan intonasinya konsisten. (Rekaman per klip menghasilkan suara yang sedikit ber
   DTW). **Tanpa `--prompt`**: prompt berisi naskah membuat Whisper berhalusinasi mengulang kata.
 - `align.ts` mencocokkan kata **naskah** ke kata yang didengar Whisper (edit distance). Ejaan caption tetap dari
   naskah; hanya waktunya dari Whisper.
-- Berjalan otomatis setelah narasi Gemini (`whisperAuto`), atau manual lewat tab Caption
+- Berjalan otomatis setelah narasi Gemini atau 9Router (`whisperAuto`), atau manual lewat tab Caption
   (`syncCaptions`, mode `stale`/`all`). Hasil ditandai `meta.timedBy = 'whisper-dtw'`.
 
 ## 6. Prompt musik (`generateMusicPrompt`)
