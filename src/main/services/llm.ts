@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { endpointUrl, isEndpointProvider } from '@shared/models'
 import type { EndpointProvider, KeyTestResult, LlmProvider, ModelList, ModelOption, ModelSource } from '@shared/types'
 import { getSecret, PROVIDER_NAMES } from '../secrets'
@@ -69,6 +70,8 @@ async function call<T>(c: Compat, path: string, init: RequestInit = {}): Promise
       ...init,
       headers: {
         Accept: 'application/json',
+        // Node's fetch says "node", which Cloudflare-fronted gateways (e.g. a self-hosted 9Router) challenge with a 403 page.
+        'User-Agent': `Bang Story/${app.getVersion()}`,
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...(c.key ? { Authorization: `Bearer ${c.key}` } : {}),
         ...c.headers,
@@ -83,6 +86,11 @@ async function call<T>(c: Compat, path: string, init: RequestInit = {}): Promise
     throw new LlmError(`Tidak bisa terhubung ke ${c.provider === 'custom' ? c.base : PROVIDER_NAMES[c.provider]}: ${(e as Error).message}`)
   }
   if (!res.ok) {
+    if (res.status === 403 && /text\/html/i.test(res.headers.get('content-type') ?? ''))
+      throw new LlmError(
+        `${PROVIDER_NAMES[c.provider]} di ${c.base} diblokir proteksi server (misalnya Cloudflare). Izinkan akses API di pengaturan proteksi servernya.`,
+        403
+      )
     const detail = await readError(res)
     throw new LlmError(friendlyStatus(c, res.status, detail), res.status, detail)
   }
