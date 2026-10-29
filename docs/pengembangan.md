@@ -173,7 +173,8 @@ Gambar di `docs/images/` diambil dari aplikasi sungguhan dengan dev harness, mem
 2. Di rencana harness, isi kunci palsu (`{"main":"key","provider":"higgsfield","ok":true}`, juga untuk penyedia
    lain) supaya banner "atur kunci" tidak muncul. Set `STUDIO_HF_BASE=http://127.0.0.1:9` agar aplikasi tidak
    mengirim kunci palsu itu ke Higgsfield.
-3. Ambil screenshot dengan `shot` (jendela bawaan 1440×900, isi halaman 1424×861).
+3. Ambil screenshot dengan `shot` (jendela bawaan 1440×900, isi halaman 1424×861; di layar yang lebih pendek, misalnya
+   sandbox Linux, hasilnya 1440×720).
 4. Ubah ke WebP kualitas 90 dengan bingkai 1 px warna `line-2` (`#d4cbbb`), lalu hapus salinan data uji.
 
 ### Membagikan kode tanpa installer

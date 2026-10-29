@@ -9,7 +9,7 @@
 AI menyusun naskah dan visual, Higgsfield membuat gambar dan video, narator AI mengisi suara,<br>
 lalu kamu merapikannya di editor timeline dan mengekspor MP4.
 
-[![Versi](https://img.shields.io/badge/versi-1.0.0-c93a1b?style=flat-square)](CHANGELOG.md)
+[![Versi](https://img.shields.io/badge/versi-1.1.0-c93a1b?style=flat-square)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-1f1d1a?style=flat-square)](#kebutuhan)
 [![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-2e7d32?style=flat-square)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org)
@@ -130,7 +130,7 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/images/beranda.webp" alt="Beranda: kolom ide cerita dan daftar proyek"><br><b>Beranda</b>: tulis ide dan buka proyekmu</td>
+    <td width="50%" valign="top"><img src="docs/images/beranda.webp" alt="Beranda: kolom ide dengan pilihan Cerita atau Video penjelasan dan Satu video atau Seri, tombol Sekali klik, dan daftar proyek"><br><b>Beranda</b>: tulis ide, pilih cerita atau video penjelasan, lalu Sekali klik</td>
     <td width="50%" valign="top"><img src="docs/images/ide-cerita.webp" alt="Langkah Ide cerita: durasi, bahasa, format, suara narator, dan gaya visual"><br><b>Ide cerita</b>: durasi, format, suara, dan gaya visual</td>
   </tr>
   <tr>
@@ -140,6 +140,14 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
   <tr>
     <td width="50%" valign="top"><img src="docs/images/transisi.webp" alt="Panel Transisi di editor dengan pratinjau transisi geser ke kiri"><br><b>Transisi</b>: pilih per sambungan dan lihat pratinjaunya</td>
     <td width="50%" valign="top"><img src="docs/images/caption.webp" alt="Panel Caption di editor dengan daftar font yang langsung menampilkan contoh hurufnya"><br><b>Caption</b>: gaya, font, warna, dan ukuran</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/seri.webp" alt="Halaman seri: daftar episode dengan sinopsis, bible seri, dan tombol Buat semua episode sekali klik"><br><b>Seri</b>: bible, pemeran bersama, dan semua episode sekali klik</td>
+    <td width="50%" valign="top"><img src="docs/images/template.webp" alt="Pilihan template video penjelasan: tutorial, tips, fakta, kutipan, perbandingan, dan berita"><br><b>Video penjelasan</b>: enam template animasi Remotion</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/video-penjelasan.webp" alt="Editor video penjelasan template Perbandingan dengan pratinjau, daftar adegan, palet warna, dan gaya gambar AI"><br><b>Editor video penjelasan</b>: pratinjau langsung, palet, caption, dan gaya gambar AI</td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 
@@ -291,7 +299,7 @@ Laporan bug, ide fitur, dan pull request sangat diterima.
 
 ## Lisensi
 
-Kode Story Maker memakai [lisensi MIT](LICENSE). Komponen pihak ketiga yang ikut terpasang memakai lisensinya sendiri:
+Kode Story Maker memakai [lisensi MIT](LICENSE), © 2026 bariskodeid. Pemegang hak cipta lengkapnya tercantum di [LICENSE](LICENSE). Komponen pihak ketiga yang ikut terpasang memakai lisensinya sendiri:
 
 | Komponen | Lisensi |
 |---|---|

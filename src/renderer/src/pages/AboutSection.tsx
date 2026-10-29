@@ -16,7 +16,7 @@ export function AboutSection() {
 
       <p>Semua proyek, gambar, video, dan suara disimpan di komputer ini.</p>
       <p>
-        Kode Story Maker dirilis dengan lisensi MIT. Aplikasi ini juga menyertakan FFmpeg (lisensi GPL) untuk merender video, whisper.cpp (lisensi MIT) untuk
+        Kode Story Maker dirilis dengan lisensi MIT, © 2026 bariskodeid. Aplikasi ini juga menyertakan FFmpeg (lisensi GPL) untuk merender video, whisper.cpp (lisensi MIT) untuk
         menyamakan caption dengan suara, dan font caption dari Google Fonts (SIL Open Font License dan Apache 2.0). Model Whisper Small (lisensi MIT) diunduh
         terpisah. File lisensinya ikut terpasang di folder aplikasi.
       </p>

@@ -1,5 +1,6 @@
 appId: com.bariskode.storymaker
 productName: Story Maker
+copyright: Copyright © 2026 bariskodeid
 directories:
   buildResources: build
   output: dist

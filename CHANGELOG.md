@@ -8,6 +8,8 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ## [Belum dirilis]
 
+## [1.1.0] - 2026-10-29
+
 ### Ditambahkan
 - **Penutup naskah cerita** di Pengaturan › Umum: ajak subscribe (bawaan), tanpa ajakan, atau ajakan sendiri.
 - Contoh ide di Beranda mengikuti template video penjelasan yang dipilih, termasuk Perbandingan dan Berita (contoh
@@ -65,39 +67,6 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 - Ringkasan episode di halaman seri bisa disunting (tersimpan otomatis); episode berikutnya ditulis dari teks itu.
 - Tombol **Ambil pemeran seri** di Storyboard episode untuk mengembalikan pemeran seri yang pernah dihapus dari
   episode itu.
-
-### Diperbaiki
-- Kartu video penjelasan di Beranda kini menampilkan durasi video yang sebenarnya (termasuk jeda masuk dan tahan tiap
-  adegan), sama dengan halaman seri.
-- Sekali klik: narasi yang gagal langsung dicoba lagi tanpa menunggu semua gambar putaran pertama selesai.
-- Di langkah Editor, tombol Lanjutkan otomatis kini tampil sebagai ikon, supaya header tidak menimpa tab langkah saat
-  tombol Ekspor video juga tampil.
-- Pemeran yang dihapus dari satu episode tidak lagi ditambahkan kembali setiap kali episode itu dibuka. Membuka
-  episode sekarang hanya menyalin lembar karakter; pemeran seri ditambahkan saat episode dibuat dan sebelum Sekali
-  klik menulis naskah atau rencana visualnya, kecuali yang pernah kamu hapus. Pemeran yang dihapus atau diganti
-  namanya di halaman seri juga tidak lagi dikembalikan dari episode.
-- Sekali klik seri menganggap episode video penjelasan selesai walaupun adegannya tidak memakai gambar AI.
-- Setelah unduhan mesin render gagal (misalnya jaringan putus), ekspor video penjelasan berikutnya tidak lagi ikut
-  gagal sampai aplikasi dibuka ulang.
-
-### Diubah
-- Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi
-  `com.bariskode.storymaker`). Folder data lama `%APPDATA%\Bang Story` dipindahkan otomatis ke
-  `%APPDATA%\Story Maker` saat pertama dibuka. Karena ID aplikasinya baru, Windows menganggapnya aplikasi lain:
-  instalasi Bang Story yang lama perlu dihapus sendiri.
-
-### Dihapus
-- Video tutorial YouTube dan tautan channel di halaman Tentang, beserta header Referer khusus embed YouTube dan izin
-  iframe YouTube di CSP.
-- Tautan referral Higgsfield di Pengaturan, diganti dengan dashboard Higgsfield Cloud.
-
-### Diperbaiki
-- Hiasan template Tips (konfeti, cakram, cincin) tidak lagi muncul di sela huruf judul atau caption; grid titik
-  Tutorial memudar di bawah teks, dan cincin di adegan penutup diganti cahaya lembut.
-- Teks adegan yang terlalu panjang tidak lagi tumpah ke caption atau keluar layar: isinya diperkecil sampai muat.
-- Caption Tips dengan palet Arang (gelap) kini terbaca (sebelumnya teks putih di kotak krem).
-
-### Ditambahkan
 - **Seri dan episode**: dari satu premis, AI menyusun bible seri (dunia, nada, aturan), pemeran tetap, dan rencana
   2–20 episode, bersambung atau antologi. Setiap episode adalah proyek biasa dengan naskah yang mengikuti bible dan
   ringkasan episode sebelumnya. Lembar karakter dibuat sekali lalu disalin ke setiap episode. Halaman seri untuk
@@ -119,9 +88,36 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   - gambar klip dan lembar karakter lewat `/v1/images/generations`, dengan lembar karakter sebagai gambar
     referensi. Video tetap dari Higgsfield.
 
+### Diubah
+- Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi
+  `com.bariskode.storymaker`). Folder data lama `%APPDATA%\Bang Story` dipindahkan otomatis ke
+  `%APPDATA%\Story Maker` saat pertama dibuka. Karena ID aplikasinya baru, Windows menganggapnya aplikasi lain:
+  instalasi Bang Story yang lama perlu dihapus sendiri.
+
 ### Diperbaiki
+- Kartu video penjelasan di Beranda kini menampilkan durasi video yang sebenarnya (termasuk jeda masuk dan tahan tiap
+  adegan), sama dengan halaman seri.
+- Sekali klik: narasi yang gagal langsung dicoba lagi tanpa menunggu semua gambar putaran pertama selesai.
+- Di langkah Editor, tombol Lanjutkan otomatis kini tampil sebagai ikon, supaya header tidak menimpa tab langkah saat
+  tombol Ekspor video juga tampil.
+- Pemeran yang dihapus dari satu episode tidak lagi ditambahkan kembali setiap kali episode itu dibuka. Membuka
+  episode sekarang hanya menyalin lembar karakter; pemeran seri ditambahkan saat episode dibuat dan sebelum Sekali
+  klik menulis naskah atau rencana visualnya, kecuali yang pernah kamu hapus. Pemeran yang dihapus atau diganti
+  namanya di halaman seri juga tidak lagi dikembalikan dari episode.
+- Sekali klik seri menganggap episode video penjelasan selesai walaupun adegannya tidak memakai gambar AI.
+- Setelah unduhan mesin render gagal (misalnya jaringan putus), ekspor video penjelasan berikutnya tidak lagi ikut
+  gagal sampai aplikasi dibuka ulang.
+- Hiasan template Tips (konfeti, cakram, cincin) tidak lagi muncul di sela huruf judul atau caption; grid titik
+  Tutorial memudar di bawah teks, dan cincin di adegan penutup diganti cahaya lembut.
+- Teks adegan yang terlalu panjang tidak lagi tumpah ke caption atau keluar layar: isinya diperkecil sampai muat.
+- Caption Tips dengan palet Arang (gelap) kini terbaca (sebelumnya teks putih di kotak krem).
 - Permintaan ke penyedia LLM mengirim User-Agent `Story Maker/<versi>`, supaya tidak diblokir Cloudflare di server
   yang di-host sendiri.
+
+### Dihapus
+- Video tutorial YouTube dan tautan channel di halaman Tentang, beserta header Referer khusus embed YouTube dan izin
+  iframe YouTube di CSP.
+- Tautan referral Higgsfield di Pengaturan, diganti dengan dashboard Higgsfield Cloud.
 
 ## [1.0.0] - 2026-10-02
 
