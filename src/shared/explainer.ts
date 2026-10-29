@@ -7,11 +7,25 @@ import type { AspectRatio, Asset, Clip, Project, WordTiming } from './types'
  * below, so the preview and the export are the same component with the same data (only the file URLs differ).
  */
 
-export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote'
-export type SceneType = 'title' | 'step' | 'tip' | 'fact' | 'quote' | 'compare' | 'outro'
+export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote' | 'compare' | 'news'
+export type SceneType =
+  | 'title'
+  | 'step'
+  | 'tip'
+  | 'fact'
+  | 'quote'
+  | 'compare'
+  | 'outro'
+  | 'versus'
+  | 'proscons'
+  | 'verdict'
+  | 'headline'
+  | 'points'
 /** Where a scene's picture comes from: none, a file the user adds (screenshots), or the AI image pipeline. */
 export type SceneImageMode = 'none' | 'upload' | 'ai'
 export type CodeKind = 'none' | 'code' | 'terminal'
+/** Which of the two options (A = left, B = right) a scene is about or favors; "both" is a tie. */
+export type SceneSide = 'none' | 'left' | 'right' | 'both'
 
 /** A box on the scene's image, as fractions of the image (0–1), drawn as an animated highlight. */
 export interface SceneHighlight {
@@ -41,17 +55,24 @@ export interface ExplainerScene {
   code: string
   /** Who said a quote, or the source of a fact. */
   author: string
+  /** Compare scenes: column titles. A-vs-B scenes: the names of option A and B. */
   leftTitle: string
+  /** Compare scenes: items per column. Versus: facts per option. Pros/cons: pros (left) and cons (right). Points: the list. */
   left: string[]
   rightTitle: string
   right: string[]
+  /** Versus scenes: the big figure or rating of each option ("Rp350 rb", "8/10"). */
+  leftValue: string
+  rightValue: string
+  /** The winner of a round or of the verdict, or the option a pros/cons scene is about. */
+  side: SceneSide
   imageMode: SceneImageMode
   /** What the AI image shows (English), when imageMode is "ai". */
   imagePrompt: string
   highlight: SceneHighlight | null
 }
 
-export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image'
+export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image' | 'values' | 'side' | 'list'
 
 export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[] = [
   { id: 'title', name: 'Judul', fields: ['label', 'heading', 'body', 'image'] },
@@ -60,11 +81,19 @@ export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[
   { id: 'fact', name: 'Fakta', fields: ['label', 'value', 'heading', 'body', 'author', 'image'] },
   { id: 'quote', name: 'Kutipan', fields: ['heading', 'author', 'body', 'image'] },
   { id: 'compare', name: 'Perbandingan', fields: ['heading', 'compare'] },
-  { id: 'outro', name: 'Penutup', fields: ['label', 'heading', 'body'] }
+  { id: 'outro', name: 'Penutup', fields: ['label', 'heading', 'body'] },
+  { id: 'versus', name: 'Ronde', fields: ['label', 'heading', 'values', 'compare', 'side'] },
+  { id: 'proscons', name: 'Plus minus', fields: ['heading', 'side', 'compare'] },
+  { id: 'verdict', name: 'Putusan', fields: ['label', 'heading', 'body', 'side', 'compare'] },
+  { id: 'headline', name: 'Berita', fields: ['label', 'heading', 'body', 'value', 'author', 'image'] },
+  { id: 'points', name: 'Poin penting', fields: ['label', 'heading', 'list'] }
 ]
 
 export const sceneTypeName = (t: SceneType): string => SCENE_TYPES.find((s) => s.id === t)?.name ?? t
 export const sceneHas = (t: SceneType, f: SceneField): boolean => !!SCENE_TYPES.find((s) => s.id === t)?.fields.includes(f)
+
+/** Whether a scene's layout shows a picture in this template; the A-vs-B title draws the two names instead. */
+export const sceneShowsImage = (templateId: string | null | undefined, t: SceneType): boolean => sceneHas(t, 'image') && !(templateId === 'compare' && t === 'title')
 
 /** A scene that should get an AI picture: it asks for one and its layout can show one (an outro cannot). */
 export const wantsAiImage = (scene: ExplainerScene | null | undefined): boolean => !!scene && scene.imageMode === 'ai' && sceneHas(scene.type, 'image')
@@ -118,6 +147,35 @@ const BASE_FONTS: { family: string; file: string; weight: number }[] = [
 
 export const getExplainerFont = (id: string | undefined): ExplainerFont => EXPLAINER_FONTS.find((f) => f.id === id) ?? EXPLAINER_FONTS[0]
 
+// ---------- captions ----------
+
+export type CaptionStyleId = 'box' | 'karaoke' | 'minimal' | 'bold'
+export type CaptionPosition = 'bottom' | 'middle' | 'top'
+
+/**
+ * Burned-in caption looks. `maxWords`/`maxChars` set how the narration is cut into lines: the big short-form
+ * style shows two or three words at a time, the small one a whole phrase.
+ */
+export const CAPTION_STYLES: { id: CaptionStyleId; name: string; blurb: string; maxWords: number; maxChars: number }[] = [
+  { id: 'box', name: 'Kotak', blurb: 'Kotak gelap, kata yang sedang diucapkan menyala', maxWords: 5, maxChars: 30 },
+  { id: 'karaoke', name: 'Karaoke', blurb: 'Warna mengisi kata demi kata mengikuti suara', maxWords: 6, maxChars: 32 },
+  { id: 'minimal', name: 'Minimal', blurb: 'Kecil dan tenang, tanpa kotak', maxWords: 8, maxChars: 44 },
+  { id: 'bold', name: 'Besar', blurb: 'Dua-tiga kata besar dan tebal ala Shorts', maxWords: 3, maxChars: 16 }
+]
+
+export const CAPTION_POSITIONS: { id: CaptionPosition; name: string }[] = [
+  { id: 'bottom', name: 'Bawah' },
+  { id: 'middle', name: 'Tengah' },
+  { id: 'top', name: 'Atas' }
+]
+
+export interface ExplainerCaption {
+  style: CaptionStyleId
+  position: CaptionPosition
+}
+
+export const getCaptionStyle = (id: CaptionStyleId) => CAPTION_STYLES.find((c) => c.id === id) ?? CAPTION_STYLES[0]
+
 // ---------- templates ----------
 
 export interface ExplainerTemplate {
@@ -133,6 +191,10 @@ export interface ExplainerTemplate {
   fonts: string[]
   /** Big numbers (step, tip, fact figures). */
   numberFont: string
+  /** Caption look until the user picks another one. */
+  captionStyle: CaptionStyleId
+  /** Color of the spoken word in captions: a palette color or a fixed one (#RRGGBB). */
+  captionLit: 'accent' | 'accent2' | 'bg' | `#${string}`
   /** Instructions for the LLM, in English. */
   guidance: string
 }
@@ -151,6 +213,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     ],
     fonts: ['poppins', 'archivo', 'bebas'],
     numberFont: 'mono',
+    captionStyle: 'box',
+    captionLit: 'accent',
     guidance: [
       'A practical how-to video. Scene 1 is "title": label = the topic area, heading = what the viewer will be able to do (max 8 words), body = the end result in one short line.',
       'Then one "step" scene per action, in the real order. value = the step number ("1", "2", ...), label = "" , heading = the instruction in the imperative (max 7 words), body = the detail or the why (max 18 words).',
@@ -173,6 +237,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     ],
     fonts: ['archivo', 'poppins', 'lilita'],
     numberFont: 'anton',
+    captionStyle: 'box',
+    captionLit: 'bg',
     guidance: [
       'A listicle ("5 tips to ..."). Scene 1 is "title": heading states the promise with the count (max 8 words), label = the topic, body = one short teaser line.',
       'Then one "tip" scene per tip. value = its number counting up ("1", "2", ...), icon = one fitting emoji, heading = the tip itself (max 6 words), body = how or why (max 16 words).',
@@ -194,6 +260,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     ],
     fonts: ['bebas', 'anton', 'archivo'],
     numberFont: 'bebas',
+    captionStyle: 'karaoke',
+    captionLit: 'accent2',
     guidance: [
       'A countdown of surprising, true facts. Scene 1 is "title": heading = the hook (max 8 words), label = the topic, body = one teaser line.',
       'Then one "fact" scene per fact, counting down: label = the rank ("#5", "#4", ... "#1"). value = the single most striking figure of the fact, short ("73%", "1,6 juta", "1912", "8 menit"); if the fact has no figure, a 1-2 word keyword. heading = the fact in max 9 words, body = context in max 18 words, author = the source if well known, else "".',
@@ -215,6 +283,8 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
     ],
     fonts: ['dmserif', 'poppins', 'bebas'],
     numberFont: 'dmserif',
+    captionStyle: 'minimal',
+    captionLit: 'accent',
     guidance: [
       'A calm motivational video built on quotes. Scene 1 is "title": heading = the theme (max 6 words), label = a short category, body = one line.',
       'Then mostly "quote" scenes: heading = the quote (max 22 words), author = who said it. Only use real quotes you are sure of, worded correctly and correctly attributed; if unsure, write an original line and set author "". body = a one-line reflection.',
@@ -222,6 +292,56 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       'You may add one "tip" scene with a practical takeaway (value "", icon one emoji).',
       'Set imageMode "ai" for a few scenes with a calm, atmospheric imagePrompt (landscapes, light, textures; no people facing the camera, no text); otherwise "none".',
       'The last scene is "outro": heading = an encouraging closing line, body = one line.'
+    ].join('\n')
+  },
+  {
+    id: 'compare',
+    name: 'Perbandingan (A vs B)',
+    blurb: 'Adu dua pilihan ronde demi ronde: layar terbelah, skor, plus minus, dan putusan.',
+    sceneTypes: ['title', 'versus', 'proscons', 'verdict', 'outro'],
+    mainType: 'versus',
+    palettes: [
+      { id: 'arena', name: 'Arena', bg: '#0E0F1A', surface: '#181A2B', ink: '#F5F5FA', muted: '#9A9CB8', accent: '#FF4D6D', accent2: '#2EC8FF', dark: true },
+      { id: 'poster', name: 'Poster', bg: '#F1ECE2', surface: '#FFFFFF', ink: '#15151C', muted: '#66636E', accent: '#E8452C', accent2: '#2457E6', dark: false },
+      { id: 'neon', name: 'Neon', bg: '#0C110D', surface: '#162018', ink: '#EEF6EA', muted: '#91A38F', accent: '#B8F23A', accent2: '#B06CFF', dark: true }
+    ],
+    fonts: ['anton', 'bebas', 'archivo'],
+    numberFont: 'anton',
+    captionStyle: 'box',
+    captionLit: '#FFD84D',
+    guidance: [
+      'A fair head-to-head comparison of exactly two options, A versus B. Pick A and B from the topic. In EVERY scene put the name of A in leftTitle and the name of B in rightTitle (1-2 words each, the same spelling every time).',
+      'Scene 1 is "title": heading = the question the video answers (max 8 words), label = the topic area (1-2 words), body = one teaser line (max 10 words).',
+      'Then 3-5 "versus" scenes, one per aspect (price, speed, comfort, ...): label = the aspect in 1-2 words, heading = the question of this round (max 7 words), leftValue and rightValue = one short figure or rating per option when a reliable one exists ("Rp350 rb", "2 jam", "8/10"), else "", left and right = 1-3 short facts about A and about B for this aspect (max 5 words each), side = the option that wins this round ("left" for A, "right" for B, "both" for a tie).',
+      'Optionally one "proscons" scene per option: side = which option ("left" or "right"), heading = a 3-6 word summary of that option, left = 2-3 pros, right = 2-3 cons (max 5 words each).',
+      'Then one "verdict" scene: label = a 1-2 word stamp such as "Pemenang", side = the overall winner ("left" or "right", "both" only when it truly depends), heading = the verdict (max 8 words), body = why (max 18 words), left = 1-2 situations to choose A, right = 1-2 situations to choose B (max 6 words each).',
+      'The last scene is "outro": heading = a question or call to action, body = one line.',
+      'Be fair and accurate. Only give figures you are confident about; otherwise compare in words and leave the values "". All scenes use imageMode "none".'
+    ].join('\n')
+  },
+  {
+    id: 'news',
+    name: 'Berita / rangkuman cepat',
+    blurb: 'Gaya meja berita: kartu judul, lower third, poin penting, tanggal dan sumber.',
+    sceneTypes: ['title', 'headline', 'points', 'fact', 'quote', 'outro'],
+    mainType: 'headline',
+    palettes: [
+      { id: 'studio', name: 'Studio', bg: '#0A1322', surface: '#132139', ink: '#F2F5FA', muted: '#8DA0BC', accent: '#E3262E', accent2: '#F6C518', dark: true },
+      { id: 'koran', name: 'Koran', bg: '#F3F0E8', surface: '#FFFFFF', ink: '#111317', muted: '#5D646E', accent: '#D21F26', accent2: '#0B57D0', dark: false },
+      { id: 'malam', name: 'Malam', bg: '#101010', surface: '#1B1B1B', ink: '#FAFAFA', muted: '#A1A1A1', accent: '#FF5A1F', accent2: '#2CC5B4', dark: true }
+    ],
+    fonts: ['archivo', 'anton', 'poppins'],
+    numberFont: 'bebas',
+    captionStyle: 'box',
+    captionLit: 'accent2',
+    guidance: [
+      'A quick news roundup in a news-desk style, built only from the topic text. Summarize what the topic text says plus well-established background; never invent events, numbers, quotes, names, dates or sources. When the topic gives a date or a source, use it; otherwise leave value and author "".',
+      'Scene 1 is "title": label = the desk or category (1-2 words, e.g. "Tekno", "Ekonomi"), heading = the main headline (max 9 words), body = a one-line standfirst (max 16 words), value = the date of the news when known (short, e.g. "29 Okt 2026"), else "", author = the main source when known, else "".',
+      'Then one "headline" scene per news item (3-5 items): label = its category (1-2 words), heading = the headline (max 9 words), body = the summary (max 22 words), author = its source when known, value = its date when known.',
+      'Then one "points" scene, also in a short video (drop a headline rather than this scene): heading = a short title such as "Poin penting", left = 3-5 key takeaways (max 8 words each), label = "".',
+      'Optionally one "fact" scene for the most striking figure: value = the figure, heading = what it means (max 9 words), author = its source. Optionally one "quote" scene for a real, verifiable statement: heading = the quote, author = who said it; skip it when unsure.',
+      'Use imageMode "ai" with a concrete, photographic imagePrompt for most headline scenes (no text, logos, maps with labels or faces of real people); otherwise imageMode "none".',
+      'The last scene is "outro": heading = a short sign-off or question, body = one line.'
     ].join('\n')
   }
 ]
@@ -241,6 +361,10 @@ export interface ExplainerTheme {
   logoAssetId?: string | null
   /** Burned-in captions of the narration; on unless switched off. */
   captions?: boolean
+  /** Caption look; unset = the template's own. */
+  captionStyle?: CaptionStyleId
+  /** Where captions sit; unset = bottom. */
+  captionPosition?: CaptionPosition
 }
 
 export interface ExplainerLook {
@@ -259,6 +383,14 @@ export function resolveLook(templateId: string | null | undefined, theme: Explai
   const heading = getExplainerFont(theme?.fontId && EXPLAINER_FONTS.some((f) => f.id === theme.fontId) ? theme.fontId : t.fonts[0])
   const number = t.numberFont === 'mono' ? ({ id: 'mono', family: 'JetBrains Mono', upper: false, scale: 0.92, weight: 700 } as const) : getExplainerFont(t.numberFont)
   return { templateId: t.id, palette, heading, number }
+}
+
+export function resolveCaption(templateId: string | null | undefined, theme: ExplainerTheme | undefined): ExplainerCaption {
+  const t = getTemplate(templateId)
+  return {
+    style: CAPTION_STYLES.some((c) => c.id === theme?.captionStyle) ? theme!.captionStyle! : t.captionStyle,
+    position: CAPTION_POSITIONS.some((c) => c.id === theme?.captionPosition) ? theme!.captionPosition! : 'bottom'
+  }
 }
 
 /** Font files a look needs, for the composition's font loader. */
@@ -288,6 +420,9 @@ export function emptyScene(type: SceneType = 'step'): ExplainerScene {
     left: [],
     rightTitle: '',
     right: [],
+    leftValue: '',
+    rightValue: '',
+    side: 'none',
     imageMode: 'none',
     imagePrompt: '',
     highlight: null
@@ -305,12 +440,12 @@ const clamp01 = (n: unknown): number => Math.min(1, Math.max(0, Number(n) || 0))
 
 /**
  * Brings a scene from the LLM, the database or an old build to the current shape. `allowed` limits the
- * type to the template's scene types (the first one is used for anything else).
+ * type to the template's scene types; anything else becomes `fallback` (the template's main type).
  */
-export function normalizeScene(raw: unknown, allowed?: SceneType[]): ExplainerScene {
+export function normalizeScene(raw: unknown, allowed?: SceneType[], fallback?: SceneType): ExplainerScene {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const types = allowed?.length ? allowed : SCENE_TYPES.map((s) => s.id)
-  const type = oneOf(r.type, types, types.includes('step') ? 'step' : types[0])
+  const type = oneOf(r.type, types, fallback && types.includes(fallback) ? fallback : types.includes('step') ? 'step' : types[0])
   const h = r.highlight as Record<string, unknown> | null | undefined
   const highlight =
     h && typeof h === 'object' && Number(h.w) > 0.01 && Number(h.h) > 0.01
@@ -333,6 +468,9 @@ export function normalizeScene(raw: unknown, allowed?: SceneType[]): ExplainerSc
     left: list(r.left),
     rightTitle: str(r.rightTitle, 40),
     right: list(r.right),
+    leftValue: str(r.leftValue, 24),
+    rightValue: str(r.rightValue, 24),
+    side: oneOf(r.side, ['none', 'left', 'right', 'both'] as const, 'none'),
     imageMode: oneOf(r.imageMode, ['none', 'upload', 'ai'] as const, 'none'),
     imagePrompt: str(r.imagePrompt, 600),
     highlight
@@ -361,7 +499,9 @@ export function explainerImagePrompt(project: Pick<Project, 'templateId'>, scene
     tutorial: 'Clean modern flat illustration, soft shading, simple shapes, plenty of empty space.',
     tips: 'Bold, playful editorial illustration with clean shapes and bright colors, simple background.',
     facts: 'Dramatic cinematic photograph, high detail, strong lighting, shallow depth of field.',
-    quote: 'Calm atmospheric photograph, soft natural light, gentle colors, lots of negative space.'
+    quote: 'Calm atmospheric photograph, soft natural light, gentle colors, lots of negative space.',
+    compare: 'Clean product-style photograph on a plain backdrop, even studio lighting.',
+    news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.'
   }
   const subject = scene.imagePrompt.trim() || [scene.heading, scene.body].filter(Boolean).join('. ')
   return [
@@ -425,6 +565,7 @@ export type ExplainerInput = {
   totalFrames: number
   look: ExplainerLook
   captions: boolean
+  caption: ExplainerCaption
   fontBase: string
   logo: string | null
   scenes: ExplainerSceneInput[]
@@ -498,6 +639,7 @@ export function buildExplainerInput(args: {
     totalFrames: Math.max(1, from),
     look,
     captions: args.captions ?? project.theme?.captions !== false,
+    caption: resolveCaption(project.templateId, project.theme),
     fontBase: args.fontBase,
     logo: logoAsset ? fileUrl(args.assetBase, logoAsset.localPath) : null,
     scenes,
@@ -549,6 +691,44 @@ export const SAMPLE_SCENES: Record<ExplainerTemplateId, ExplainerScene[]> = {
     sample({ type: 'title', label: 'Motivasi pagi', heading: 'Mulai dari yang kecil', body: 'Tiga kutipan untuk memulai hari.' }),
     sample({ type: 'quote', heading: 'Perjalanan seribu mil dimulai dengan satu langkah.', author: 'Lao Tzu', body: 'Langkah pertama tidak perlu besar.' }),
     sample({ type: 'outro', heading: 'Satu langkah hari ini sudah cukup', body: 'Sampai jumpa besok.' })
+  ],
+  compare: [
+    sample({ type: 'title', label: 'Mudik', heading: 'Mana yang lebih hemat buat mudik?', body: 'Kita adu dalam empat ronde.', leftTitle: 'Kereta', rightTitle: 'Pesawat' }),
+    sample({
+      type: 'versus',
+      label: 'Harga',
+      heading: 'Berapa ongkos sekali jalan?',
+      leftTitle: 'Kereta',
+      rightTitle: 'Pesawat',
+      leftValue: 'Rp350 rb',
+      rightValue: 'Rp1,2 jt',
+      left: ['Harga tetap', 'Bisa pesan H-45'],
+      right: ['Naik saat musim mudik', 'Belum termasuk bagasi'],
+      side: 'left'
+    }),
+    sample({
+      type: 'verdict',
+      label: 'Pemenang',
+      heading: 'Kereta menang untuk mudik hemat',
+      body: 'Lebih murah dan tetap nyaman, asal kamu tidak sedang buru-buru.',
+      leftTitle: 'Kereta',
+      rightTitle: 'Pesawat',
+      left: ['Budget terbatas', 'Jarak di bawah 800 km'],
+      right: ['Cuti cuma dua hari'],
+      side: 'left'
+    })
+  ],
+  news: [
+    sample({ type: 'title', label: 'Tekno', heading: 'Rangkuman kabar teknologi pekan ini', body: 'Tiga kabar yang perlu kamu tahu dalam satu menit.', value: '29 Okt 2026' }),
+    sample({
+      type: 'headline',
+      label: 'Gawai',
+      heading: 'Ponsel lipat makin tipis dan murah',
+      body: 'Tiga produsen merilis ponsel lipat di bawah tujuh juta rupiah dengan engsel yang lebih awet.',
+      author: 'Rilis resmi',
+      value: '28 Okt 2026'
+    }),
+    sample({ type: 'points', heading: 'Poin penting', left: ['Ponsel lipat makin terjangkau', 'Fitur AI berjalan tanpa internet', 'Baterai tahan dua hari jadi standar'] })
   ]
 }
 
@@ -573,6 +753,7 @@ export function sampleExplainerInput(templateId: ExplainerTemplateId, aspect: As
     totalFrames: from,
     look: resolveLook(templateId, theme),
     captions: false,
+    caption: resolveCaption(templateId, theme),
     fontBase,
     logo: null,
     scenes,

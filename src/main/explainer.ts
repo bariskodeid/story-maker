@@ -11,7 +11,7 @@ import {
   SCENE_LEAD_MS,
   SCENE_TAIL_MS,
   SCENE_TYPES,
-  sceneHas,
+  sceneShowsImage,
   type ExplainerScene
 } from '@shared/explainer'
 import { LANGUAGES } from '@shared/models'
@@ -54,10 +54,13 @@ function scenesSchema(types: string[]): object {
             codeLanguage: s('Language of the code, e.g. "bash", "python", or "".'),
             code: s('Exact code or commands, newline separated, or "".'),
             author: s('Quote author or fact source, or "".'),
-            leftTitle: s('Compare scenes: title of the left column, else "".'),
-            left: { type: 'array', items: { type: 'string' }, description: 'Compare scenes: 2-4 short items, else [].' },
-            rightTitle: s('Compare scenes: title of the right column, else "".'),
-            right: { type: 'array', items: { type: 'string' }, description: 'Compare scenes: 2-4 short items, else [].' },
+            leftTitle: s('Compare scenes: title of the left column. A-vs-B videos: the name of option A. Else "".'),
+            left: { type: 'array', items: { type: 'string' }, description: 'Left column / option A items / pros / key points, else [].' },
+            rightTitle: s('Compare scenes: title of the right column. A-vs-B videos: the name of option B. Else "".'),
+            right: { type: 'array', items: { type: 'string' }, description: 'Right column / option B items / cons, else [].' },
+            leftValue: s('Versus scenes: short figure or rating of option A, else "".'),
+            rightValue: s('Versus scenes: short figure or rating of option B, else "".'),
+            side: { type: 'string', enum: ['none', 'left', 'right', 'both'], description: 'Versus/verdict: the winner. Pros/cons: the option it is about. Else "none".' },
             imageMode: { type: 'string', enum: ['none', 'upload', 'ai'], description: 'Picture for this scene.' },
             imagePrompt: s('English description of the AI picture when imageMode is "ai", else "".'),
             narration: s('Voice-over for this scene in the target language, 12 to 24 spoken words.')
@@ -77,6 +80,9 @@ function scenesSchema(types: string[]): object {
             'left',
             'rightTitle',
             'right',
+            'leftValue',
+            'rightValue',
+            'side',
             'imageMode',
             'imagePrompt',
             'narration'
@@ -111,7 +117,9 @@ export async function generateExplainerScenes(projectId: string): Promise<Projec
     'Be accurate. For tutorials, commands and code must be correct and runnable.',
     `Write all on-screen text and narration in ${lang}. imagePrompt is always in English. Do not use markdown, hashtags or vocal tags.`,
     `Template "${template.name}". Allowed scene types: ${typeNames}.`,
-    template.guidance
+    template.guidance,
+    // News needs today's date to tell recent from old; the model must not guess it.
+    ...(template.id === 'news' ? [`Today is ${new Date().toISOString().slice(0, 10)}. Write dates the way ${lang} speakers write them.`] : [])
   ].join('\n\n')
   const prompt = [
     `Topic / idea:\n${project.synopsis}`,
@@ -128,12 +136,12 @@ export async function generateExplainerScenes(projectId: string): Promise<Projec
   let stepNo = 0
   let tipNo = 0
   const rows = raw.map((r) => {
-    const scene: ExplainerScene = normalizeScene(r, template.sceneTypes)
+    const scene: ExplainerScene = normalizeScene(r, template.sceneTypes, template.mainType)
     // Numbers on screen must count up even when the model skips or repeats one.
     if (scene.type === 'step') scene.value = String(++stepNo)
     if (scene.type === 'tip' && template.id === 'tips') scene.value = String(++tipNo)
-    // Layouts without a picture (compare, outro) would make an AI image nobody sees.
-    if (!sceneHas(scene.type, 'image')) scene.imageMode = 'none'
+    // Layouts without a picture (compare, outro, the A-vs-B title) would make an AI image nobody sees.
+    if (!sceneShowsImage(template.id, scene.type)) scene.imageMode = 'none'
     if (scene.imageMode === 'ai' && !scene.imagePrompt) scene.imagePrompt = [scene.heading, scene.body].filter(Boolean).join('. ')
     if (scene.imageMode !== 'ai') scene.imagePrompt = ''
     const narration = str(r.narration) || [scene.heading, scene.body].filter(Boolean).join('. ')

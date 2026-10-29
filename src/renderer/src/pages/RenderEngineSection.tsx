@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Clapperboard, Download, MonitorPlay, PlayCircle, Trash2 } from 'lucide-react'
 import type { RenderEngineStatus, RenderTestResult } from '@shared/render'
 import { Badge, Button, Progress, confirmDialog } from '../components/ui'
@@ -10,8 +10,9 @@ const sec = (ms: number): string => `${(ms / 1000).toLocaleString('id-ID', { max
 /**
  * Settings › Umum: Chrome Headless Shell, which renders explainer videos. It downloads by itself on the first
  * export too; this section lets the user fetch it ahead of time and check the engine with a short test render.
+ * `license` is the optional Remotion Company License key field (Settings passes its KeyForm).
  */
-export function RenderEngineSection() {
+export function RenderEngineSection({ license }: { license?: ReactNode }) {
   const [status, setStatus] = useState<RenderEngineStatus | null>(null)
   const [testing, setTesting] = useState(false)
   const [test, setTest] = useState<{ ok: RenderTestResult } | { error: string } | null>(null)
@@ -62,7 +63,7 @@ export function RenderEngineSection() {
       </div>
 
       <p className="text-[13px] leading-relaxed text-ink-2">
-        Video penjelasan (tutorial, tips, fakta, kutipan) digambar oleh browser tanpa jendela, lalu disatukan dengan suaranya jadi MP4. Mesinnya diunduh
+        Video penjelasan (tutorial, tips, fakta, kutipan, perbandingan, berita) digambar oleh browser tanpa jendela, lalu disatukan dengan suaranya jadi MP4. Mesinnya diunduh
         sekali ke folder data aplikasi, otomatis saat ekspor pertama atau dari sini. Proyek cerita tidak membutuhkannya.
       </p>
 
@@ -97,6 +98,7 @@ export function RenderEngineSection() {
           </Button>
         )}
       </div>
+      {license && <div className="border-t border-line pt-4">{license}</div>}
     </section>
   )
 }

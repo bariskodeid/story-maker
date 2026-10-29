@@ -18,7 +18,9 @@ const PLACEHOLDERS: Record<ExplainerTemplateId, string> = {
   tutorial: 'Cara membuat repositori Git pertama dan menyimpan perubahan kode untuk pemula…',
   tips: '5 trik supaya tetap fokus saat kerja dari rumah…',
   facts: 'Fakta mengejutkan tentang matahari yang jarang diketahui orang…',
-  quote: 'Kutipan tokoh dunia tentang memulai dari langkah kecil…'
+  quote: 'Kutipan tokoh dunia tentang memulai dari langkah kecil…',
+  compare: 'Kereta atau pesawat untuk mudik Jakarta–Surabaya: mana yang lebih hemat dan nyaman?',
+  news: 'Rangkum kabar ini jadi berita singkat: (tempel isi berita, tanggal, dan sumbernya di sini)…'
 }
 
 /** Explainer step 1: topic, template, length, format, narrator and the AI image model. */

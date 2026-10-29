@@ -1,10 +1,12 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { AbsoluteFill, Html5Audio, Img, interpolate, random, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
-import { captionAt, chunkWords } from '@shared/captions'
-import { lookFonts, type ExplainerInput, type ExplainerSceneInput } from '@shared/explainer'
+import { lookFonts, type ExplainerInput, type ExplainerSceneInput, type SceneType } from '@shared/explainer'
 import { useFonts } from '../fonts'
-import { alpha, BODY_FONT, enter, frameOf, type Frame } from './layout'
+import { Captions } from './captions'
+import { alpha, distToRect, enter, frameOf, holeMask, overlaps, textZones, type Frame, type Rect } from './layout'
+import { HeadlineScene, NewsBackdrop, NewsChrome, NewsCut, NewsTitleScene, PointsScene } from './news'
 import { CompareScene, FactScene, OutroScene, QuoteScene, StepScene, TipScene, TitleScene, type SceneProps } from './scenes'
+import { ProsConsScene, VerdictScene, VersusBackdrop, VersusCut, VersusProgress, VersusScene, VersusTitleScene } from './versus'
 
 /**
  * The explainer video. The app's Player and the MP4 render both mount this component with props from
@@ -23,7 +25,102 @@ const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.9 0'/></filter><rect width='240' height='240' filter='url(#n)'/></svg>"
 )}")`
 
+/** Logo and progress graphics: decorations keep out of them too. */
+function chromeZones(input: ExplainerInput, f: Frame): Rect[] {
+  const { u, portrait } = f
+  const zones: Rect[] = []
+  if (input.logo) zones.push({ x: f.right - 240 * u, y: (portrait ? 96 : 30) * u, w: 240 * u, h: 64 * u })
+  if (input.templateId === 'tips') zones.push({ x: 0, y: f.height - 20 * u, w: f.width, h: 20 * u })
+  return zones
+}
+
 // ---------- background ----------
+
+/**
+ * The tips template's playful shapes. Each one is placed and sized from the text zones (content box and
+ * caption band), so no dot or ring ever sits between the letters of a heading or a caption.
+ */
+function TipsDecor({ input, f }: { input: ExplainerInput; f: Frame }) {
+  const frame = useCurrentFrame()
+  const p = input.look.palette
+  const { u, portrait, width: W, height: H } = f
+  const text = [...textZones(f), ...chromeZones(input, f).slice(0, input.logo ? 1 : 0)]
+  const keep = [...textZones(f), ...chromeZones(input, f)]
+  const margin = 26 * u
+  const wobble = 22 * u
+  // A big disc beyond the bottom-right corner, as large as it can be without reaching any text (it may pass
+  // under the progress bar, which is drawn on top of it).
+  const bc = { x: W + 40 * u, y: H + 40 * u }
+  const br = Math.min(560 * u, ...text.map((z) => distToRect(bc.x, bc.y, z) - margin - wobble))
+  // A dashed ring around the top-left corner, sized the same way.
+  const rc = { x: -40 * u, y: -40 * u }
+  const rr = Math.min(320 * u, ...text.map((z) => distToRect(rc.x, rc.y, z) - margin))
+  const pieces: { x: number; y: number; s: number; r: Rect; i: number }[] = []
+  for (let i = 0; i < 10; i++) {
+    const s = ((portrait ? 12 : 14) + random(`s${i}`) * (portrait ? 12 : 16)) * u
+    // A turning square needs √2 of its side; the float adds 10 units above and below.
+    const box = s * 1.42
+    for (let k = 0; k < 40; k++) {
+      const x = random(`x${i}-${k}`) * (W - box)
+      const y = 10 * u + random(`y${i}-${k}`) * (H - box - 20 * u)
+      const r = { x, y: y - 10 * u, w: box, h: box + 20 * u }
+      const nearDisc = br > 0 && Math.hypot(x + box / 2 - bc.x, y + box / 2 - bc.y) < br + wobble + box
+      if (nearDisc || keep.some((z) => overlaps(r, z, 16 * u)) || pieces.some((q) => overlaps(r, q.r, 24 * u))) continue
+      pieces.push({ x, y, s, r, i })
+      break
+    }
+  }
+  const colors = [p.accent, p.ink, p.surface]
+  return (
+    <>
+      {br > 60 * u && (
+        <div
+          style={{
+            position: 'absolute',
+            width: br * 2,
+            height: br * 2,
+            borderRadius: '50%',
+            left: bc.x - br,
+            top: bc.y - br,
+            background: p.accent2,
+            opacity: p.dark ? 0.55 : 0.9,
+            transform: `translate(${Math.sin(frame / 70) * 20 * u}px, ${Math.cos(frame / 90) * 16 * u}px)`
+          }}
+        />
+      )}
+      {rr > 60 * u && (
+        <div
+          style={{
+            position: 'absolute',
+            width: rr * 2,
+            height: rr * 2,
+            borderRadius: '50%',
+            left: rc.x - rr,
+            top: rc.y - rr,
+            border: `${5 * u}px dashed ${alpha(p.ink, 0.35)}`,
+            transform: `rotate(${frame * 0.25}deg)`
+          }}
+        />
+      )}
+      {pieces.map(({ x, y, s, i }) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: x + (s * 0.42) / 2,
+            top: y + (s * 0.42) / 2 + Math.sin(frame / 30 + i) * 10 * u,
+            width: s,
+            height: s,
+            borderRadius: i % 2 ? '50%' : 3 * u,
+            background: colors[i % 3],
+            opacity: 0.6,
+            transform: `rotate(${frame * (i % 2 ? 1 : -1) + i * 30}deg)`
+          }}
+        />
+      ))}
+    </>
+  )
+}
 
 function Backdrop({ input, f }: { input: ExplainerInput; f: Frame }) {
   const frame = useCurrentFrame()
@@ -35,7 +132,15 @@ function Backdrop({ input, f }: { input: ExplainerInput; f: Frame }) {
   if (input.templateId === 'tutorial') {
     return (
       <>
-        <div style={{ ...fill, backgroundImage: `radial-gradient(${alpha(p.ink, p.dark ? 0.1 : 0.12)} ${1.6 * u}px, transparent ${1.9 * u}px)`, backgroundSize: `${44 * u}px ${44 * u}px` }} />
+        {/* The dot grid fades out under text, so no dot shows between letters. */}
+        <div
+          style={{
+            ...fill,
+            backgroundImage: `radial-gradient(${alpha(p.ink, p.dark ? 0.1 : 0.12)} ${1.6 * u}px, transparent ${1.9 * u}px)`,
+            backgroundSize: `${44 * u}px ${44 * u}px`,
+            ...holeMask(f.width, f.height, textZones(f), 34 * u)
+          }}
+        />
         <div
           style={{
             ...fill,
@@ -46,62 +151,9 @@ function Backdrop({ input, f }: { input: ExplainerInput; f: Frame }) {
       </>
     )
   }
-  if (input.templateId === 'tips') {
-    const d = 760 * u
-    return (
-      <>
-        <div
-          style={{
-            position: 'absolute',
-            width: d,
-            height: d,
-            borderRadius: '50%',
-            right: -d * 0.28,
-            bottom: -d * 0.42,
-            background: p.accent2,
-            opacity: p.dark ? 0.55 : 0.9,
-            transform: `translate(${Math.sin(frame / 70) * 20 * u}px, ${Math.cos(frame / 90) * 16 * u}px)`
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: d * 0.62,
-            height: d * 0.62,
-            borderRadius: '50%',
-            left: -d * 0.2,
-            top: -d * 0.24,
-            border: `${5 * u}px dashed ${alpha(p.ink, 0.35)}`,
-            transform: `rotate(${frame * 0.25}deg)`
-          }}
-        />
-        {Array.from({ length: 7 }, (_, i) => {
-          // Confetti stays in the side margins, where it cannot sit between the letters of a heading.
-          const side = i % 2 ? random(`x${i}`) * 0.08 : 0.92 + random(`x${i}`) * 0.06
-          const x = side * f.width
-          const y = random(`y${i}`) * f.height
-          const s = (14 + random(`s${i}`) * 18) * u
-          const colors = [p.accent, p.ink, p.surface]
-          return (
-            <div
-              key={i}
-              style={{
-                position: 'absolute',
-                left: x,
-                top: y + Math.sin(frame / 30 + i) * 10 * u,
-                width: s,
-                height: s,
-                borderRadius: i % 2 ? '50%' : 3 * u,
-                background: colors[i % 3],
-                opacity: 0.55,
-                transform: `rotate(${frame * (i % 2 ? 1 : -1) + i * 30}deg)`
-              }}
-            />
-          )
-        })}
-      </>
-    )
-  }
+  if (input.templateId === 'tips') return <TipsDecor input={input} f={f} />
+  if (input.templateId === 'compare') return <VersusBackdrop input={input} f={f} />
+  if (input.templateId === 'news') return <NewsBackdrop input={input} f={f} />
   if (input.templateId === 'facts') {
     return (
       <>
@@ -127,14 +179,26 @@ function Backdrop({ input, f }: { input: ExplainerInput; f: Frame }) {
 
 // ---------- scenes and transitions ----------
 
-const SCENES: Record<string, (p: SceneProps) => ReactNode> = {
+const SCENES: Record<SceneType, (p: SceneProps) => ReactNode> = {
   title: TitleScene,
   step: StepScene,
   tip: TipScene,
   fact: FactScene,
   quote: QuoteScene,
   compare: CompareScene,
-  outro: OutroScene
+  outro: OutroScene,
+  versus: VersusScene,
+  proscons: ProsConsScene,
+  verdict: VerdictScene,
+  headline: HeadlineScene,
+  points: PointsScene
+}
+
+/** A scene's layout; the A-vs-B and news templates open with their own title layouts. */
+function sceneFor(input: ExplainerInput, type: SceneType): (p: SceneProps) => ReactNode {
+  if (type === 'title' && input.templateId === 'compare') return VersusTitleScene
+  if (type === 'title' && input.templateId === 'news') return NewsTitleScene
+  return SCENES[type] ?? StepScene
 }
 
 /** How a scene arrives and leaves; each template moves in its own way. */
@@ -150,15 +214,17 @@ function SceneShell({ input, item, children }: { input: ExplainerInput; item: Ex
   else if (input.templateId === 'facts') style = { opacity: Math.min(1, e * 1.6) * (1 - x), transform: `scale(${1.06 - 0.06 * e})` }
   else if (input.templateId === 'quote')
     style = { opacity: interpolate(frame, [0, 18], [0, 1], { extrapolateRight: 'clamp' }) * (1 - x), transform: `scale(${1.02 - 0.02 * e})` }
+  else if (input.templateId === 'compare') style = { opacity: Math.min(1, e * 1.8) * (1 - x), transform: `scale(${1.03 - 0.03 * e})` }
+  else if (input.templateId === 'news') style = { opacity: Math.min(1, e * 1.6) * (1 - x), transform: `translateX(${(1 - e) * 50 * u - x * 40 * u}px)` }
   else style = { opacity: Math.min(1, e * 1.5) * (1 - x), transform: `translateY(${(1 - e) * 40 * u - x * 34 * u}px)` }
   return <AbsoluteFill style={style}>{children}</AbsoluteFill>
 }
 
-/** A colored panel (tips) or a flash (facts) right over each cut. */
+/** A colored panel (tips), a flash (facts), a clash of the two colors (compare) or a ticker band (news) over each cut. */
 function Cuts({ input }: { input: ExplainerInput }) {
   const frame = useCurrentFrame()
   const p = input.look.palette
-  if (input.templateId !== 'tips' && input.templateId !== 'facts') return null
+  if (input.templateId === 'tutorial' || input.templateId === 'quote') return null
   for (const s of input.scenes.slice(1)) {
     const d = frame - s.from
     if (input.templateId === 'tips' && d >= -7 && d <= 7) {
@@ -173,58 +239,21 @@ function Cuts({ input }: { input: ExplainerInput }) {
     if (input.templateId === 'facts' && d >= -2 && d <= 6) {
       return <AbsoluteFill style={{ background: '#FFFFFF', opacity: interpolate(d, [-2, 0, 6], [0, 0.5, 0], { extrapolateRight: 'clamp' }) }} />
     }
+    if (input.templateId === 'compare' && d >= -7 && d <= 7) return <VersusCut input={input} d={d} />
+    if (input.templateId === 'news' && d >= -8 && d <= 8) return <NewsCut input={input} d={d} next={s.scene.label} />
   }
   return null
 }
 
 // ---------- overlays ----------
 
-function Captions({ input, f }: { input: ExplainerInput; f: Frame }) {
-  const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
-  if (!input.captions) return null
-  const item = input.scenes.find((s) => frame >= s.from && frame < s.from + s.frames)
-  if (!item || !item.words.length) return null
-  const hit = captionAt(chunkWords(item.words), (frame - item.from) / fps)
-  if (!hit) return null
-  const p = input.look.palette
-  const { u, portrait } = f
-  const boxed = input.templateId === 'tutorial' || input.templateId === 'tips'
-  const lit = input.templateId === 'tips' ? p.bg : input.templateId === 'facts' ? p.accent2 : p.accent
-  const style: CSSProperties = {
-    display: 'inline-block',
-    maxWidth: f.width * (portrait ? 0.86 : 0.74),
-    padding: boxed ? `${14 * u}px ${30 * u}px` : 0,
-    borderRadius: 20 * u,
-    background: boxed ? (input.templateId === 'tips' ? p.ink : alpha('#05070A', 0.82)) : undefined,
-    fontFamily: BODY_FONT,
-    fontWeight: input.templateId === 'quote' ? 600 : 800,
-    fontSize: (portrait ? 52 : 46) * u,
-    lineHeight: 1.3,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    textTransform: input.templateId === 'facts' ? 'uppercase' : 'none',
-    textShadow: boxed ? undefined : `0 ${3 * u}px ${14 * u}px rgba(0,0,0,0.85), 0 0 ${3 * u}px rgba(0,0,0,0.9)`
-  }
-  return (
-    <div style={{ position: 'absolute', left: 0, right: 0, bottom: (portrait ? 330 : 78) * u, display: 'flex', justifyContent: 'center' }}>
-      <div style={style}>
-        {hit.chunk.words.map((w, i) => (
-          <span key={i} style={{ color: i === hit.word ? lit : undefined, whiteSpace: 'pre' }}>
-            {w.text}
-            {i < hit.chunk.words.length - 1 ? ' ' : ''}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function Progress({ input, f, logoRoom }: { input: ExplainerInput; f: Frame; logoRoom: number }) {
   const frame = useCurrentFrame()
   const p = input.look.palette
   const { u, portrait } = f
   const total = input.totalFrames
+  if (input.templateId === 'compare') return <VersusProgress input={input} f={f} />
+  if (input.templateId === 'news') return <NewsChrome input={input} f={f} logoRoom={logoRoom} />
   if (input.templateId === 'tutorial') {
     const top = (portrait ? 120 : 50) * u
     const width = f.right - f.left - logoRoom
@@ -294,7 +323,7 @@ export function ExplainerVideo(input: ExplainerInput) {
       <Backdrop input={input} f={f} />
       {input.scenes.map((item) => {
         counts[item.scene.type] = (counts[item.scene.type] ?? 0) + 1
-        const Scene = SCENES[item.scene.type] ?? StepScene
+        const Scene = sceneFor(input, item.scene.type)
         const nth = { n: counts[item.scene.type], total: totals[item.scene.type] }
         return (
           <Sequence key={item.id} from={item.from} durationInFrames={item.frames} premountFor={input.fps} name={`${item.scene.type} ${nth.n}`}>

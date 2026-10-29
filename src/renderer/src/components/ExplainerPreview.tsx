@@ -1,8 +1,19 @@
-import { forwardRef, useMemo, type CSSProperties } from 'react'
+import { forwardRef, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Player, Thumbnail, type PlayerRef } from '@remotion/player'
-import { ChartNoAxesColumn, Check, Lightbulb, ListOrdered, Quote } from 'lucide-react'
-import { buildExplainerInput, EXPLAINER_TEMPLATES, sampleExplainerInput, type ExplainerInput, type ExplainerTemplateId } from '@shared/explainer'
+import { ChartNoAxesColumn, Check, Lightbulb, ListOrdered, Newspaper, Quote, Swords } from 'lucide-react'
+import {
+  buildExplainerInput,
+  CAPTION_STYLES,
+  EXPLAINER_TEMPLATES,
+  sampleExplainerInput,
+  type CaptionStyleId,
+  type ExplainerInput,
+  type ExplainerLook,
+  type ExplainerTemplateId
+} from '@shared/explainer'
+import { CaptionLine } from '@video/explainer/captions'
 import { ExplainerVideo } from '@video/explainer/ExplainerVideo'
+import { CAPTION_METRICS } from '@video/explainer/layout'
 import { useProject } from '../store/project'
 import { cx } from './ui'
 
@@ -83,6 +94,84 @@ export function settledFrame(input: ExplainerInput, index: number): number {
   return s.from + Math.min(Math.round(input.fps * 2.4), Math.max(0, s.frames - 12))
 }
 
+/** A frame of scene `index` where its captions are on screen (a moment into its first spoken line). */
+export function captionFrame(input: ExplainerInput, index: number): number {
+  const s = input.scenes[index]
+  if (!s) return 0
+  const first = s.words[0]
+  if (!first) return settledFrame(input, index)
+  return s.from + Math.min(s.frames - 1, Math.round((first.start + 0.7) * input.fps))
+}
+
+const SAMPLE_WORDS = ['Kata', 'demi', 'kata']
+
+/**
+ * Caption look as square tiles, each drawn by the composition's own CaptionLine on the video's colors, plus
+ * an "off" tile. Picking one updates the Player, which shows the real result.
+ */
+export function CaptionPicker({
+  look,
+  templateId,
+  value,
+  onChange
+}: {
+  look: ExplainerLook
+  templateId: ExplainerTemplateId
+  value: CaptionStyleId | 'off'
+  onChange: (v: CaptionStyleId | 'off') => void
+}) {
+  const tile = (id: CaptionStyleId | 'off', name: string, preview: ReactNode) => {
+    const on = id === value
+    return (
+      <button
+        key={id}
+        type="button"
+        role="radio"
+        aria-checked={on}
+        onClick={() => onChange(id)}
+        className={cx(
+          'flex min-w-0 flex-col overflow-hidden rounded-xl text-left',
+          on ? 'border-2 border-accent bg-sun-soft' : 'border border-line bg-surface hover:border-line-3'
+        )}
+      >
+        <span className="pointer-events-none flex aspect-square w-full items-center justify-center overflow-hidden px-1" style={{ background: look.palette.bg }}>
+          {preview}
+        </span>
+        <span className="truncate px-2 py-1.5 text-xs font-semibold">{name}</span>
+      </button>
+    )
+  }
+  // The tile is about 90 px wide: a 1080-unit frame at roughly a twelfth of its size, so sizes stay in proportion.
+  const k = 0.2
+  return (
+    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Gaya caption">
+      {tile('off', 'Mati', <span className="text-center text-xs font-semibold" style={{ color: look.palette.muted }}>Tanpa caption</span>)}
+      {CAPTION_STYLES.map((c) => {
+        const m = CAPTION_METRICS[c.id]
+        const size = m.size[0] * k * (c.id === 'bold' ? look.heading.scale * 0.8 : 1)
+        return tile(
+          c.id,
+          c.name,
+          <CaptionLine
+            words={SAMPLE_WORDS}
+            active={1}
+            progress={0.55}
+            appear={1}
+            style={c.id}
+            look={look}
+            templateId={templateId}
+            size={size}
+            lineHeight={m.line}
+            padX={m.padX * k}
+            padY={m.padY * k}
+            maxWidth={86}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 /** Template choice as a grid of square cards, each with a real frame of the template's sample video. */
 export function TemplatePicker({ value, onChange, columns = 4 }: { value: ExplainerTemplateId; onChange: (id: ExplainerTemplateId) => void; columns?: 2 | 4 }) {
   const samples = useMemo(() => Object.fromEntries(EXPLAINER_TEMPLATES.map((t) => [t.id, sampleExplainerInput(t.id, '16:9', PREVIEW_FONT_BASE)])), [])
@@ -122,7 +211,14 @@ export function TemplatePicker({ value, onChange, columns = 4 }: { value: Explai
   )
 }
 
-const TEMPLATE_ICONS: Record<ExplainerTemplateId, typeof ListOrdered> = { tutorial: ListOrdered, tips: Lightbulb, facts: ChartNoAxesColumn, quote: Quote }
+const TEMPLATE_ICONS: Record<ExplainerTemplateId, typeof ListOrdered> = {
+  tutorial: ListOrdered,
+  tips: Lightbulb,
+  facts: ChartNoAxesColumn,
+  quote: Quote,
+  compare: Swords,
+  news: Newspaper
+}
 
 /** Project card cover for an explainer without a picture: the template's colors and mark. */
 export function TemplateSwatch({ templateId, className }: { templateId: string | null; className?: string }) {

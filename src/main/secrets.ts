@@ -4,7 +4,7 @@ import { getDb } from './db'
 import { endpointUrl, isEndpointProvider } from '@shared/models'
 import { getSettings } from './settings'
 
-const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'elevenlabs', 'openrouter', 'groq', 'ninerouter', 'custom']
+const PROVIDERS: ApiProvider[] = ['higgsfield', 'gemini', 'elevenlabs', 'openrouter', 'groq', 'ninerouter', 'custom', 'remotion']
 
 export const PROVIDER_NAMES: Record<ApiProvider, string> = {
   higgsfield: 'Higgsfield',
@@ -13,7 +13,8 @@ export const PROVIDER_NAMES: Record<ApiProvider, string> = {
   openrouter: 'OpenRouter',
   groq: 'Groq',
   ninerouter: '9Router',
-  custom: 'endpoint custom'
+  custom: 'endpoint custom',
+  remotion: 'Lisensi Remotion'
 }
 
 interface SecretRow {

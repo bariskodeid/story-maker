@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { ExplainerInput, ExplainerSceneInput } from '@shared/explainer'
 import { alpha, BODY_FONT, BOUNCY, EMOJI_FONT, enter, fitSize, headingStyle, numberStyle, onColor, type Frame } from './layout'
-import { CodeWindow, Picture, Pill, Rise, Words } from './parts'
+import { Kicker } from './news'
+import { CodeWindow, FitBox, Picture, Pill, Rise, Words } from './parts'
 
 export interface SceneProps {
   item: ExplainerSceneInput
@@ -20,10 +21,12 @@ const body = (u: number, size: number, color: string): CSSProperties => ({
   color
 })
 
-/** Content box of a scene, positioned in the frame's safe area. */
-function Area({ f, children, style }: { f: Frame; children: ReactNode; style?: CSSProperties }) {
+/** Content box of a scene: the frame's safe area, clear of the captions. Too-tall content shrinks to fit. */
+export function Area({ f, children, style }: { f: Frame; children: ReactNode; style?: CSSProperties }) {
   return (
-    <div style={{ position: 'absolute', left: f.left, top: f.top, width: f.contentWidth, height: f.contentHeight, display: 'flex', ...style }}>{children}</div>
+    <FitBox x={f.left} y={f.top} w={f.contentWidth} h={f.contentHeight} style={style}>
+      {children}
+    </FitBox>
   )
 }
 
@@ -56,6 +59,20 @@ function Label({ text, input, u, delay = 0, center = false }: { text: string; in
         }}
       >
         {text}
+      </span>
+    )
+  if (input.templateId === 'news')
+    return (
+      <span style={{ alignSelf: center ? 'center' : 'flex-start' }}>
+        <Kicker text={text} look={look} u={u} delay={delay} />
+      </span>
+    )
+  if (input.templateId === 'compare')
+    return (
+      <span style={{ alignSelf: center ? 'center' : 'flex-start', opacity: a, transform: `scale(${0.85 + 0.15 * a})` }}>
+        <Pill look={look} u={u} style={{ background: p.ink, color: p.bg }}>
+          {text}
+        </Pill>
       </span>
     )
   if (input.templateId === 'quote')
@@ -360,10 +377,13 @@ export function FactScene({ item, input, f }: SceneProps) {
     </div>
   )
   if (!img) return <Area f={f} style={{ alignItems: 'center' }}>{text}</Area>
-  // The picture bleeds off the frame edge and melts into the background, like a film still.
+  // The picture bleeds off the frame edge and melts into the background, like a film still. In 9:16 it gives up
+  // height when captions sit higher, so the text below keeps room for the figure and the fact.
+  const shotH = Math.max(f.height * 0.24, Math.min(f.height * 0.46, f.bottom - 640 * u))
+  const textTop = Math.max(f.top, shotH - f.height * 0.02)
   const zoom = interpolate(frame, [0, item.frames], [1.12, 1.0])
   const panel: CSSProperties = portrait
-    ? { position: 'absolute', left: 0, top: 0, width: f.width, height: f.height * 0.46 }
+    ? { position: 'absolute', left: 0, top: 0, width: f.width, height: shotH }
     : { position: 'absolute', left: 0, top: 0, width: f.width * 0.5, height: f.height }
   const fade = portrait
     ? `linear-gradient(to bottom, ${alpha(p.bg, 0)} 45%, ${p.bg} 100%)`
@@ -376,9 +396,13 @@ export function FactScene({ item, input, f }: SceneProps) {
         <div style={{ position: 'absolute', inset: 0, background: fade }} />
       </div>
       {portrait ? (
-        <div style={{ position: 'absolute', left: f.left, width: f.contentWidth, top: f.height * 0.44, bottom: f.height - f.bottom, display: 'flex', alignItems: 'center' }}>{text}</div>
+        <FitBox x={f.left} y={textTop} w={f.contentWidth} h={f.bottom - textTop} style={{ alignItems: 'center' }}>
+          {text}
+        </FitBox>
       ) : (
-        <div style={{ position: 'absolute', left: f.width * 0.5 + 40 * u, right: f.width - f.right, top: f.top, bottom: f.height - f.bottom, display: 'flex', alignItems: 'center' }}>{text}</div>
+        <FitBox x={f.width * 0.5 + 40 * u} y={f.top} w={f.right - (f.width * 0.5 + 40 * u)} h={f.contentHeight} style={{ alignItems: 'center' }}>
+          {text}
+        </FitBox>
       )}
     </>
   )
@@ -513,29 +537,28 @@ export function OutroScene({ item, input, f }: SceneProps) {
   const { u, portrait } = f
   const look = input.look
   const p = look.palette
-  const ring = (delay: number) => {
-    const t = interpolate(frame - delay, [0, 40], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  // A soft pulse of light behind the closing line: no hard edge ever runs through the letters.
+  const glow = (delay: number) => {
+    const t = interpolate(frame - delay, [0, 46], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
     return (
       <div
         style={{
           position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: 900 * u,
-          height: 900 * u,
-          marginLeft: -450 * u,
-          marginTop: -450 * u,
+          left: (f.left + f.right) / 2 - 600 * u,
+          top: (f.top + f.bottom) / 2 - 600 * u,
+          width: 1200 * u,
+          height: 1200 * u,
           borderRadius: '50%',
-          border: `${3 * u}px solid ${alpha(p.accent, 0.5 * (1 - t))}`,
-          transform: `scale(${0.3 + 0.9 * t})`
+          background: `radial-gradient(circle, ${alpha(p.accent, (p.dark ? 0.2 : 0.16) * (1 - 0.6 * t))} 0%, transparent 62%)`,
+          transform: `scale(${0.45 + 0.7 * t})`
         }}
       />
     )
   }
   return (
     <>
-      {ring(0)}
-      {ring(12)}
+      {glow(0)}
+      {glow(14)}
       <Area f={f} style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36 * u, textAlign: 'center' }}>
         {input.logo && (
           <Img src={input.logo} style={{ height: 120 * u, maxWidth: 420 * u, objectFit: 'contain', opacity: enter(frame, fps, 0), transform: `scale(${enter(frame, fps, 0, BOUNCY)})` }} />

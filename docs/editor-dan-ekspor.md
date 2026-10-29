@@ -89,8 +89,9 @@ Aturan edit (`renderer/src/pages/project/editor/Timeline.tsx`):
 
 Proyek video penjelasan tidak memakai timeline, `motion.ts`, atau exporter FFmpeg di atas. Editornya berisi
 Remotion Player untuk seluruh video, daftar adegan (klik untuk melompat ke adegan), dan panel Tampilan (template,
-palet, warna aksen, font judul, caption, logo, musik). Pratinjau dan ekspor memakai komponen Remotion yang sama;
-detailnya di [remotion.md](remotion.md).
+palet, warna aksen, font judul, gaya dan posisi caption, logo, musik). Memilih gaya atau posisi caption memindahkan
+Player yang sedang berhenti ke kalimat yang sedang diucapkan di adegan itu. Pratinjau dan ekspor memakai komponen
+Remotion yang sama; detailnya di [remotion.md](remotion.md).
 
 ## Menambah fitur di editor: daftar periksa
 

@@ -89,6 +89,8 @@ function handle(channel: string, fn: Handler): void {
 }
 
 async function testProvider(provider: ApiProvider, key?: string): Promise<KeyTestResult> {
+  // Remotion has no way to check a license key without recording a render, so the key is only stored here.
+  if (provider === 'remotion') return { ok: true, message: 'Kunci lisensi tersimpan dan dipakai di setiap render video penjelasan.' }
   if (provider === 'higgsfield') return hf.testCredentials(key)
   if (provider === 'elevenlabs') return eleven.testKey(key)
   return llm.testLlm(provider, key)

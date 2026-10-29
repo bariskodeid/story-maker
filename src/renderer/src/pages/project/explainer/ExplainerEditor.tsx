@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { PlayerRef } from '@remotion/player'
 import { Image as ImageIcon, Music, RotateCcw, Trash2, Upload } from 'lucide-react'
-import { EXPLAINER_FONTS, EXPLAINER_TEMPLATES, getTemplate, resolveLook, sceneTypeName, type ExplainerTemplateId, type ExplainerTheme } from '@shared/explainer'
-import { ExplainerPlayer, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
+import {
+  CAPTION_POSITIONS,
+  EXPLAINER_FONTS,
+  EXPLAINER_TEMPLATES,
+  getTemplate,
+  resolveCaption,
+  resolveLook,
+  sceneTypeName,
+  type CaptionPosition,
+  type ExplainerTemplateId,
+  type ExplainerTheme
+} from '@shared/explainer'
+import { CaptionPicker, ExplainerPlayer, captionFrame, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
 import { Select } from '../../../components/Select'
-import { Button, Switch, cx } from '../../../components/ui'
+import { Button, Segmented, Switch, cx } from '../../../components/ui'
 import { errorText, mmss } from '../../../lib/format'
 import { useApp } from '../../../store/app'
 import { useProject } from '../../../store/project'
@@ -44,6 +55,13 @@ export function ExplainerEditor() {
   const music = project.editor.musicAssetId ? assets[project.editor.musicAssetId] : null
   const logo = theme.logoAssetId ? assets[theme.logoAssetId] : null
 
+  const caption = resolveCaption(project.templateId, theme)
+  // A new caption look is shown right away: a paused Player jumps to a spoken line of the current scene.
+  const showCaption = (): void => {
+    const p = player.current
+    if (!p || p.isPlaying()) return
+    p.seekTo(captionFrame(input, Math.max(0, current)))
+  }
   const seekTo = (i: number): void => {
     select(clips[i]?.id ?? null)
     player.current?.pause()
@@ -161,10 +179,28 @@ export function ExplainerEditor() {
           />
         </Group>
         <Group title="Caption">
+          <CaptionPicker
+            look={look}
+            templateId={template.id}
+            value={theme.captions === false ? 'off' : caption.style}
+            onChange={(v) => {
+              setTheme(v === 'off' ? { captions: false } : { captions: true, captionStyle: v })
+              if (v !== 'off') showCaption()
+            }}
+          />
           <div className="flex items-center gap-3">
-            <span className="flex-1 text-sm">Tampilkan caption narasi</span>
-            <Switch on={theme.captions !== false} onChange={(v) => setTheme({ captions: v })} label="Tampilkan caption narasi" />
+            <span className="flex-1 text-sm">Posisi</span>
+            <Segmented<CaptionPosition>
+              size="sm"
+              value={caption.position}
+              onChange={(v) => {
+                setTheme({ captionPosition: v })
+                showCaption()
+              }}
+              options={CAPTION_POSITIONS.map((c) => ({ id: c.id, label: c.name, disabled: theme.captions === false }))}
+            />
           </div>
+          <p className="text-[12.5px] text-muted">Isi adegan otomatis bergeser supaya tidak tertutup caption.</p>
         </Group>
         <Group title="Logo">
           {logo ? (
