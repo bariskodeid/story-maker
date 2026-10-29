@@ -15,6 +15,7 @@ Mulai dari [AGENTS.md](../AGENTS.md): ringkasan proyek, perintah, peta kode, dan
 | [remotion.md](remotion.md) | Video penjelasan: template, komposisi Remotion, bundle, paket installer, Chrome Headless Shell, server aset, cara menambah template |
 | [layanan-ai.md](layanan-ai.md) | LLM, TTS, Higgsfield, 9Router, Whisper, kunci API, cara menambah penyedia/model |
 | [pengembangan.md](pengembangan.md) | Setup, perintah, dev harness, cara menguji, debugging, build installer, rilis |
+| [uji-windows.md](uji-windows.md) | Daftar periksa singkat untuk menguji installer dan fitur utama di Windows sebelum rilis |
 | [konvensi.md](konvensi.md) | Gaya kode, bahasa, design token, komponen, aturan UI |
 | [keputusan-teknis.md](keputusan-teknis.md) | Kenapa sesuatu dibuat begitu (dan bug apa yang muncul kalau diubah) |
 | [masalah-diketahui.md](masalah-diketahui.md) | Masalah yang belum selesai, batasan, dan ide pengembangan |

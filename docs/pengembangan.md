@@ -147,7 +147,7 @@ selama ekspor berjalan.
 2. Catat perubahan di `CHANGELOG.md`.
 3. `npm run typecheck` dan `npm run build`.
 4. `npm run dist` → `dist/StoryMaker-Setup-<versi>.exe`. Build pertama mengunduh alat NSIS dan winCodeSign ke
-   cache electron-builder.
+   cache electron-builder. Uji installer-nya dengan [uji-windows.md](uji-windows.md).
 5. Buat release di GitHub dengan tag `v<versi>`. Upload hanya file `.exe`. File `.blockmap` dan `latest.yml` baru
    berguna kalau nanti ada fitur update otomatis.
 
