@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { EVENTS } from '@shared/api'
+import type { RenderEngineStatus } from '@shared/render'
 import type { Asset, CharacterPatchEvent, ClipPatchEvent, Job, WhisperStatus } from '@shared/types'
 
 function send(channel: string, payload: unknown): void {
@@ -13,5 +14,6 @@ export const emit = {
   clip: (e: ClipPatchEvent): void => send(EVENTS.clip, e),
   character: (e: CharacterPatchEvent): void => send(EVENTS.character, e),
   asset: (asset: Asset): void => send(EVENTS.asset, asset),
-  whisper: (status: WhisperStatus): void => send(EVENTS.whisper, status)
+  whisper: (status: WhisperStatus): void => send(EVENTS.whisper, status),
+  renderEngine: (status: RenderEngineStatus): void => send(EVENTS.renderEngine, status)
 }

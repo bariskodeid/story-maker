@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, FolderOpen, Layers, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, Wand2 } from 'lucide-react'
+import { explainerSceneCount, getTemplate, type ExplainerTemplateId } from '@shared/explainer'
 import { isNineRouterImage } from '@shared/imageModels'
 import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
 import { MAX_EPISODES, MIN_EPISODES } from '@shared/series'
@@ -9,12 +10,14 @@ import type {
   AppSettings,
   AspectRatio,
   KeyStatus,
+  ProjectKind,
   ProjectStatus,
   ProjectSummary,
   SeriesContinuity,
   SeriesSummary,
   TtsProvider
 } from '@shared/types'
+import { TemplatePicker, TemplateSwatch } from '../components/ExplainerPreview'
 import { Logo } from '../components/Logo'
 import { Select, type SelectOption } from '../components/Select'
 import { StyleSwatch } from '../components/StyleArt'
@@ -61,6 +64,12 @@ const SUGGESTIONS = [
   'Kenapa kucing suka masuk ke dalam kotak?'
 ]
 
+const EXPLAINER_SUGGESTIONS = [
+  'Cara membuat repositori Git pertama untuk pemula',
+  '5 trik supaya tetap fokus saat kerja dari rumah',
+  'Fakta mengejutkan tentang matahari'
+]
+
 const ASPECTS: SelectOption<AspectRatio>[] = [
   { value: '16:9', label: '16:9 · YouTube', icon: <span className="block h-[10px] w-[17px] rounded-[2px] border-[1.5px] border-ink" /> },
   { value: '9:16', label: '9:16 · Shorts', icon: <span className="mx-[3px] block h-[16px] w-[10px] rounded-[2px] border-[1.5px] border-ink" /> }
@@ -84,6 +93,9 @@ export function Home() {
   const [styleId, setStyleId] = useState('stickman')
   const [tts, setTts] = useState<TtsProvider>('gemini')
   const [creating, setCreating] = useState<'manual' | 'auto' | null>(null)
+  const [kind, setKind] = useState<ProjectKind>('story')
+  const [templateId, setTemplateId] = useState<ExplainerTemplateId>('tutorial')
+  const explainer = kind === 'explainer'
   const autopilots = useAutopilot((s) => s.runs)
   const seriesRuns = useSeriesAutopilot((s) => s.runs)
   const seriesPlanning = useSeriesAutopilot((s) => s.planning)
@@ -161,7 +173,7 @@ export function Home() {
   const start = async (auto: boolean, exportAfter = false): Promise<void> => {
     setCreating(auto ? 'auto' : 'manual')
     try {
-      const b = await window.api.projects.create({ synopsis, durationSec, language, aspectRatio, styleId, ttsProvider: tts })
+      const b = await window.api.projects.create({ synopsis, durationSec, language, aspectRatio, styleId, ttsProvider: tts, kind, templateId })
       if (auto) startAutopilot(b.project.id, { exportAfter })
       go({ name: 'project', id: b.project.id })
     } catch (e) {
@@ -171,7 +183,9 @@ export function Home() {
   }
 
   // One-click generate needs every service up front; the manual flow can still start and fix keys later.
-  const autoMissing = appSettings && keys.length ? missingServices(appSettings, keys, { story: true, imageModel: appSettings.imageModel, tts }) : []
+  // Explainer scenes work without pictures, so one-click only needs the writer and the narrator.
+  const autoMissing =
+    appSettings && keys.length ? missingServices(appSettings, keys, { story: true, imageModel: explainer ? null : appSettings.imageModel, tts }) : []
   const autoBlocked = !synopsis.trim()
     ? mode === 'series'
       ? 'Tulis premis serinya dulu.'
@@ -183,9 +197,16 @@ export function Home() {
   const startAuto = async (): Promise<void> => {
     const viaNineRouter = isNineRouterImage(appSettings?.imageModel ?? '')
     let exportAfter = appSettings?.autoExport ?? false
+    const imagesReady = !!appSettings && missingServices(appSettings, keys, { story: false, imageModel: appSettings.imageModel, tts: null }).length === 0
     const ok = await confirmDialog({
       title: 'Buat video sekali klik?',
-      body:
+      body: explainer
+        ? `Sekitar ${explainerSceneCount(durationSec)} adegan ${getTemplate(templateId).name.toLowerCase()} dan narasinya dibuat otomatis, lalu proyeknya terbuka di editor. ` +
+          (imagesReady
+            ? `Gambar AI hanya dibuat untuk adegan yang membutuhkannya${viaNineRouter ? ' (lewat 9Router)' : ' (memakai kredit Higgsfield)'}. `
+            : 'Layanan gambar belum diatur, jadi adegan tampil tanpa gambar AI. ') +
+          'Screenshot untuk tutorial bisa kamu tambahkan sendiri di langkah Adegan.'
+        :
         `Naskah, rencana visual, lembar karakter, sekitar ${clipCountFor(durationSec)} gambar klip, narasi, dan caption dibuat otomatis, ` +
         `lalu proyeknya terbuka di editor. ` +
         (viaNineRouter ? 'Gambar dibuat lewat 9Router. ' : 'Gambar dibuat lewat Higgsfield dan memakai kredit. ') +
@@ -261,6 +282,8 @@ export function Home() {
     refresh()
   }
 
+  const suggestions = explainer ? EXPLAINER_SUGGESTIONS : SUGGESTIONS
+
   const remove = async (p: ProjectSummary): Promise<void> => {
     const ok = await confirmDialog({
       title: 'Hapus proyek?',
@@ -327,17 +350,32 @@ export function Home() {
           <div className="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-ink bg-surface py-5 pl-6 pr-5 shadow-ink-lg">
             <div className="flex items-center gap-3">
               <label htmlFor="ide" className="flex-1 text-[13px] font-semibold text-ink-2">
-                {mode === 'series' ? 'Premis seri' : 'Ide cerita atau sinopsis'}
+                {explainer ? 'Topik video penjelasan' : mode === 'series' ? 'Premis seri' : 'Ide cerita atau sinopsis'}
               </label>
-              <Segmented
+              <Segmented<ProjectKind>
                 size="sm"
-                value={mode}
-                onChange={setMode}
+                value={kind}
+                onChange={(k) => {
+                  setKind(k)
+                  // Series are made of story episodes for now.
+                  if (k === 'explainer') setMode('single')
+                }}
                 options={[
-                  { id: 'single', label: 'Satu video' },
-                  { id: 'series', label: 'Seri', title: 'Beberapa episode dengan dunia dan pemeran yang sama' }
+                  { id: 'story', label: 'Cerita' },
+                  { id: 'explainer', label: 'Video penjelasan' }
                 ]}
               />
+              {!explainer && (
+                <Segmented
+                  size="sm"
+                  value={mode}
+                  onChange={setMode}
+                  options={[
+                    { id: 'single', label: 'Satu video' },
+                    { id: 'series', label: 'Seri', title: 'Beberapa episode dengan dunia dan pemeran yang sama' }
+                  ]}
+                />
+              )}
             </div>
             <textarea
               id="ide"
@@ -345,8 +383,10 @@ export function Home() {
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
               placeholder={
-                mode === 'series'
-                  ? 'Contoh: Si Kancil yang cerdik tinggal di hutan Jawa. Setiap kali hewan lain dalam bahaya, dia memakai akalnya, tapi suatu hari dia bertemu lawan yang sama cerdiknya…'
+                explainer
+                  ? 'Contoh: cara membuat repositori Git pertama dan menyimpan perubahan kode, untuk pemula…'
+                  : mode === 'series'
+                    ? 'Contoh: Si Kancil yang cerdik tinggal di hutan Jawa. Setiap kali hewan lain dalam bahaya, dia memakai akalnya, tapi suatu hari dia bertemu lawan yang sama cerdiknya…'
                   : 'Contoh: Gajah Mada bersumpah tidak akan menikmati palapa sebelum Nusantara bersatu. Para menteri menertawakannya, tapi dia membuktikannya…'
               }
               className="resize-none bg-transparent text-lg leading-relaxed outline-none placeholder:text-muted/70"
@@ -374,7 +414,7 @@ export function Home() {
                 menuWidth={200}
               />
               <Select variant="pill" label="Format" value={aspectRatio} onChange={setAspectRatio} options={ASPECTS} menuWidth={200} />
-              <StyleMenu value={styleId} onChange={setStyleId} />
+              {!explainer && <StyleMenu value={styleId} onChange={setStyleId} />}
               <Select variant="pill" label="Suara narator" value={tts} onChange={setTts} options={ttsOptions} menuWidth={280} />
               <div className="flex-1" />
               <span title={autoBlocked ?? undefined}>
@@ -409,9 +449,10 @@ export function Home() {
               )}
             </div>
           </div>
+          {explainer && <TemplatePicker value={templateId} onChange={setTemplateId} />}
           <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
             <span>Coba ide ini:</span>
-            {SUGGESTIONS.map((s) => (
+            {suggestions.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -446,6 +487,7 @@ export function Home() {
                 type="button"
                 onClick={() => {
                   // A series needs a premise first, so this goes to the composer instead of creating anything.
+                  setKind('story')
                   setMode('series')
                   const field = document.getElementById('ide')
                   field?.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -531,11 +573,13 @@ export function Home() {
                     <div className="relative aspect-video w-full overflow-hidden border-b border-line">
                       {p.coverUrl ? (
                         <img src={p.coverUrl} alt="" className="size-full object-cover" />
+                      ) : p.kind === 'explainer' ? (
+                        <TemplateSwatch templateId={p.templateId} className="size-full" />
                       ) : (
                         <StyleSwatch styleId={p.styleId} className="size-full" iconSize={40} />
                       )}
                       <span className="absolute left-2.5 top-2.5 rounded-full border border-ink bg-surface px-2.5 py-[3px] text-xs font-semibold">
-                        {getStyle(p.styleId).name}
+                        {p.kind === 'explainer' ? getTemplate(p.templateId).name : getStyle(p.styleId).name}
                       </span>
                       {p.totalMs > 0 && (
                         <span className="absolute bottom-2.5 right-2.5 rounded-md bg-ink px-2 py-[3px] font-mono text-xs text-paper">

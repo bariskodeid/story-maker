@@ -210,6 +210,20 @@ dan intonasinya konsisten. (Rekaman per klip menghasilkan suara yang sedikit ber
 LLM membuat `{ title, style, exclude, description, reason }` untuk dipakai di Suno, Udio, atau ElevenLabs Music.
 Hasilnya disimpan di `editor.musicPrompt`. File musik hasil AI itu lalu dipilih lewat tab Musik.
 
+## Video penjelasan (`src/main/explainer.ts`)
+
+1. **Ide → adegan** (`generateExplainerScenes`): topik + template + durasi + bahasa → `{title, scenes[]}` lewat
+   `generateJson`. Prompt dalam bahasa Inggris; teks layar dan narasi dalam bahasa proyek. Skema datar untuk mode
+   strict OpenAI dan Gemini: satu objek adegan dengan `type` (enum jenis adegan template) dan semua field wajib,
+   string kosong/array kosong kalau tidak dipakai. Hasilnya dinormalkan (`normalizeScene`), nomor langkah/tips
+   diurutkan ulang, lalu `replaceScenes` mengganti semua klip (`scene_json` + `narration`).
+2. **Gambar** (opsional per adegan): `upload` dari pengguna (`assets:pickSceneImage`) atau `ai` lewat
+   `generateClipImage` dengan cabang prompt `explainerImagePrompt` (tanpa pemeran, gaya sesuai template, 16:9,
+   tanpa teks). `generate:missingImages` hanya membuat gambar untuk adegan `imageMode: 'ai'`.
+3. **Narasi**: `generate:narration` yang sama dengan proyek cerita (satu rekaman lalu dipotong per adegan).
+4. **Sekali klik** (`explainerMedia` di `autopilot.ts`): adegan → gambar AI (dilewati kalau layanan gambar belum
+   diatur) → narasi → editor → ekspor opsional lewat `export:start`.
+
 ## Menambah atau mengubah prompt
 
 - Prompt LLM ada di `story.ts`; prompt gambar dan video di `generation.ts`.

@@ -33,6 +33,9 @@ Story Maker adalah aplikasi desktop untuk kreator konten. Tulis satu ide, misaln
 
 Hasilnya video MP4 yang siap diunggah ke YouTube, Shorts, Reels, atau TikTok.
 
+Selain video cerita, ada juga **Video penjelasan**: tutorial langkah demi langkah, tips & trik, fakta/countdown, dan
+kutipan/motivasi dengan tampilan yang didesain (tipografi, kode, screenshot, angka besar), dirender dengan Remotion.
+
 Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunci API sendiri (*bring your own key*), jadi biaya AI dibayar langsung ke penyedianya, tanpa server perantara.
 
 ## Fitur
@@ -55,6 +58,19 @@ Semua proyek, gambar, video, dan suara disimpan di komputermu. Kamu memakai kunc
   ulang di semua episode supaya wajah pemerannya konsisten.
 - **Buat semua episode sekali klik**: episode dibuat satu per satu, bisa dihentikan dan dilanjutkan, dan opsional
   diekspor ke satu folder seri (`E01-….mp4`, `E02-….mp4`, …). Episode baru bisa ditambah kapan saja.
+
+**Video penjelasan**
+- Pilih **Video penjelasan** di Beranda, tulis topiknya, lalu pilih template: **Tutorial langkah demi langkah**,
+  **Tips & trik**, **Fakta / countdown**, atau **Kutipan / motivasi**.
+- AI menulis adegan (judul, langkah, tips, fakta, kutipan, perbandingan, penutup) beserta narasinya. Setiap adegan
+  bisa diedit dengan pratinjau langsung: teks, nomor, emoji, kode atau perintah terminal, kutipan dan tokohnya.
+- Gambar per adegan opsional: unggah screenshot (lengkap dengan kotak sorotan yang tinggal kamu seret) atau buat
+  gambar AI lewat Higgsfield atau 9Router.
+- Editor dengan pratinjau video utuh, pilihan palet warna, warna aksen, font judul, caption, logo, dan musik latar.
+- Ekspor MP4 720p/1080p/4K, volume −14 LUFS, dan file `.srt` opsional. **Sekali klik** juga berlaku untuk video
+  penjelasan.
+- Mesin render (Chrome Headless Shell, unduhan ±100 MB) diunduh sekali saat ekspor pertama, atau dari Pengaturan ›
+  Umum.
 
 **1. Ide cerita**
 - Tulis ide atau sinopsis, lalu atur:
@@ -223,6 +239,7 @@ npm run dist         # installer Windows ke folder dist/
 | Tampilan | React 19, Tailwind CSS 4, Zustand |
 | Penyimpanan | SQLite (better-sqlite3) dan file lokal |
 | Video dan audio | FFmpeg (ffmpeg-static), caption ASS/libass |
+| Video penjelasan | Remotion 4 (Player di aplikasi, render dengan Chrome Headless Shell) |
 | Caption akurat | whisper.cpp dengan model Whisper Small |
 | Layanan AI | Higgsfield, Google Gemini, OpenRouter, Groq, ElevenLabs |
 
@@ -230,7 +247,8 @@ npm run dist         # installer Windows ke folder dist/
 src/
   main/       proses utama: database, layanan AI, FFmpeg, Whisper, file
   preload/    jembatan aman window.api
-  shared/     aturan yang dipakai pratinjau dan ekspor (gerak kamera, caption, timeline, model)
+  shared/     aturan yang dipakai pratinjau dan ekspor (gerak kamera, caption, timeline, model, video penjelasan)
+  remotion/   komposisi Remotion untuk video penjelasan
   renderer/   tampilan React
 resources/    font caption, whisper.cpp, file lisensi
 docs/         dokumentasi pengembang
@@ -266,5 +284,14 @@ Kode Story Maker memakai [lisensi MIT](LICENSE). Komponen pihak ketiga yang ikut
 | Model Whisper Small (diunduh terpisah) | MIT |
 | 15 font caption dari Google Fonts | SIL Open Font License 1.1 dan Apache 2.0 |
 | LobeHub Icons (logo penyedia) | MIT |
+| Remotion (render video penjelasan) | [Remotion License](https://www.remotion.dev/docs/license), *source-available* |
+| Chrome Headless Shell (diunduh terpisah) | BSD-3-Clause dan lisensi komponen Chromium |
+| JetBrains Mono (font kode) | SIL Open Font License 1.1 |
+
+**Catatan tentang Remotion.** Remotion bukan open source berlisensi OSI, melainkan *source-available*. Lisensinya
+gratis untuk perorangan, organisasi nirlaba, dan perusahaan dengan paling banyak 3 karyawan. **Perusahaan dengan
+lebih dari 3 orang yang memakai aplikasi ini perlu membeli Remotion Company License sendiri** sebelum memakai fitur
+Video penjelasan. Ketentuan lengkapnya: [remotion.dev/docs/license](https://www.remotion.dev/docs/license). Fitur
+video cerita tidak memakai Remotion.
 
 Teks lisensinya ada di `resources/licenses`. Lisensi FFmpeg disalin dari paket `ffmpeg-static` saat installer dibuat. Logo penyedia layanan adalah merek milik pemiliknya masing-masing.

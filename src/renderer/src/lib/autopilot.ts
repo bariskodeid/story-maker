@@ -1,10 +1,12 @@
 import { create } from 'zustand'
+import { wantsAiImage } from '@shared/explainer'
 import { needsVisual } from '@shared/script'
-import type { Clip, Job, ProjectBundle } from '@shared/types'
+import type { Clip, Job, ProjectBundle, ProjectKind } from '@shared/types'
 import { useApp } from '../store/app'
 import { useProject } from '../store/project'
 import { defaultExportOptions } from './exportOptions'
 import { errorText } from './format'
+import { missingServices } from './keys'
 
 /**
  * One-click generate: runs idea → script → visual plan → sheets and clip images + narration (Whisper runs inside
@@ -48,7 +50,8 @@ interface AutopilotState {
 export const useAutopilot = create<AutopilotState>(() => ({ runs: {} }))
 
 /** What a run would still make for these clips, in the order it makes them, mirroring the skips in `pipeline`. */
-export function remainingWork(clips: Clip[]): { parts: string[]; story: boolean; images: boolean; voice: boolean } {
+export function remainingWork(clips: Clip[], kind: ProjectKind = 'story'): { parts: string[]; story: boolean; images: boolean; voice: boolean } {
+  if (kind === 'explainer') return explainerWork(clips)
   if (!clips.length) return { parts: ['naskah', 'rencana visual', 'gambar', 'narasi'], story: true, images: true, voice: true }
   const stale = clips.filter(needsVisual).length
   const noImage = clips.filter((c) => !c.imageAssetId).length
@@ -58,6 +61,17 @@ export function remainingWork(clips: Clip[]): { parts: string[]; story: boolean;
   if (noImage) parts.push(`${noImage} gambar klip`)
   if (noVoice) parts.push(`narasi ${noVoice} klip`)
   return { parts, story: stale > 0, images: noImage > 0, voice: noVoice > 0 }
+}
+
+/** Explainers: scenes, then AI pictures only for scenes that ask for one, then the narration. */
+function explainerWork(clips: Clip[]): { parts: string[]; story: boolean; images: boolean; voice: boolean } {
+  if (!clips.length) return { parts: ['adegan', 'narasi'], story: true, images: true, voice: true }
+  const noImage = clips.filter((c) => wantsAiImage(c.scene) && !c.imageAssetId).length
+  const noVoice = clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
+  const parts: string[] = []
+  if (noImage) parts.push(`${noImage} gambar AI`)
+  if (noVoice) parts.push(`narasi ${noVoice} adegan`)
+  return { parts, story: false, images: noImage > 0, voice: noVoice > 0 }
 }
 
 /** The "export too" switch of the start dialogs, starting from the remembered choice. */
@@ -165,6 +179,63 @@ function failureText(id: string, missingImages: number, missingVoices: number): 
   return `${parts.join(' dan ')} belum berhasil dibuat.${lastError ? ` Penyebab terakhir: ${lastError}` : ''}`
 }
 
+/**
+ * Explainer media: scenes from the idea, AI pictures for the scenes that ask for one (skipped when no image
+ * service is set up; those scenes are designed without a picture), and the narration.
+ */
+async function explainerMedia(id: string, start: ProjectBundle): Promise<ProjectBundle> {
+  let b = start
+  if (!b.clips.length) {
+    patch(id, { stage: 'script' })
+    b = await window.api.explainer.scenes(id)
+    apply(id, b)
+  }
+  checkStop(id)
+  patch(id, { stage: 'media' })
+  const [settings, keys] = await Promise.all([window.api.settings.get(), window.api.settings.keys()])
+  const images = missingServices(settings, keys, { story: false, imageModel: b.project.imageModel ?? settings.imageModel, tts: null }).length === 0
+  const wantsImage = (c: Clip): boolean => images && wantsAiImage(c.scene) && !c.imageAssetId
+  for (let round = 0; round < MEDIA_ROUNDS; round++) {
+    await flushIfOpen(id)
+    b = await window.api.projects.get(id)
+    const started: Job[] = []
+    if (b.clips.some(wantsImage)) started.push(...(await window.api.generate.missingImages(id)))
+    if (b.clips.some((c) => c.narration.trim() && !c.audioAssetId)) started.push(await window.api.generate.narration(id, 'missing'))
+    if (!started.length) break
+    track(id, started)
+    await waitFor(
+      id,
+      started.map((j) => j.id)
+    )
+    checkStop(id)
+  }
+  b = await window.api.projects.get(id)
+  const missingImages = b.clips.filter(wantsImage).length
+  const missingVoices = b.clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
+  if (missingImages || missingVoices) throw new Error(failureText(id, missingImages, missingVoices))
+  return b
+}
+
+/** Opens the editor, exports when asked, and ends the run: the last stages of every kind of project. */
+async function finishRun(id: string, b: ProjectBundle): Promise<'done'> {
+  patch(id, { stage: 'finish' })
+  await openEditor(id)
+  checkStop(id)
+
+  const exported = runOf(id)?.exportAfter ?? false
+  if (exported) await exportVideo(id)
+
+  // A series run reports once for all its episodes.
+  const quiet = runOf(id)?.quiet ?? false
+  useAutopilot.setState((s) => {
+    const { [id]: _done, ...rest } = s.runs
+    return { runs: rest }
+  })
+  // An export brings its own "Video selesai diekspor" toast with a button to open the folder (App.tsx).
+  if (!exported && !quiet) useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
+  return 'done'
+}
+
 async function pipeline(id: string): Promise<AutopilotResult> {
   const off = window.api.on.job((j) => {
     if (j.projectId === id) patch(id, (r) => ({ jobs: { ...r.jobs, [j.id]: j } }))
@@ -172,6 +243,8 @@ async function pipeline(id: string): Promise<AutopilotResult> {
   try {
     await flushIfOpen(id)
     let b = await window.api.projects.get(id)
+
+    if (b.project.kind === 'explainer') return await finishRun(id, await explainerMedia(id, b))
 
     if (!b.clips.length) {
       patch(id, { stage: 'script' })
@@ -209,21 +282,7 @@ async function pipeline(id: string): Promise<AutopilotResult> {
     const missingVoices = b.clips.filter((c) => c.narration.trim() && !c.audioAssetId).length
     if (missingImages || missingVoices) throw new Error(failureText(id, missingImages, missingVoices))
 
-    patch(id, { stage: 'finish' })
-    await openEditor(id)
-    checkStop(id)
-
-    const exported = runOf(id)?.exportAfter ?? false
-    if (exported) await exportVideo(id)
-
-    const quiet = runOf(id)?.quiet ?? false
-    useAutopilot.setState((s) => {
-      const { [id]: _done, ...rest } = s.runs
-      return { runs: rest }
-    })
-    // An export brings its own "Video selesai diekspor" toast with a button to open the folder (App.tsx).
-    if (!exported && !quiet) useApp.getState().toast('success', `“${b.project.title}” siap di editor. Cek hasilnya, lalu ekspor videonya.`)
-    return 'done'
+    return await finishRun(id, b)
   } catch (e) {
     if (e instanceof Stopped || runOf(id)?.stopping) {
       patch(id, { state: 'stopped', stopping: false, error: null })

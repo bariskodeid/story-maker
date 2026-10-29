@@ -39,7 +39,7 @@ function outputSize(aspect: '16:9' | '9:16', res: ExportOptions['resolution']): 
 }
 
 /** Runs ffmpeg in `cwd`, reporting progress from its `time=` output against `totalSec`. */
-function runFfmpeg(args: string[], cwd: string, signal: AbortSignal, totalSec?: number, onProgress?: (f: number) => void): Promise<void> {
+export function runFfmpeg(args: string[], cwd: string, signal: AbortSignal, totalSec?: number, onProgress?: (f: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn(ffmpegPath(), ['-hide_banner', '-y', ...args], { cwd, windowsHide: true })
     let tail = ''
@@ -238,7 +238,7 @@ function captionEvents(track: CaptionTrack, w: number, h: number): string[] {
   return lines
 }
 
-function buildSrt(chunks: CaptionChunk[]): string {
+export function buildSrt(chunks: CaptionChunk[]): string {
   return (
     chunks
       .map((c, i) => {

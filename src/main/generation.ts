@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { estimateWordTimings } from '@shared/captions'
+import { explainerImagePrompt, wantsAiImage } from '@shared/explainer'
 import { stripVoiceTags } from '@shared/speech'
 import { getImageModel, getVideoModel, imageBody, maxRefs, promptLimit, videoBody, type HfModel } from '@shared/higgsfield'
 import { imageRefLimit, isNineRouterImage, nineRouterModel } from '@shared/imageModels'
@@ -98,6 +99,8 @@ function splitAvoid(visual: string): { scene: string; avoid: string } {
  * character can change out of the outfit on their reference sheet (no spacesuit indoors).
  */
 function clipPrompt(project: Project, clip: Clip, chars: Character[], refNames: string[], limit: number): string {
+  // An explainer scene is not a story frame: no cast, no art style of the story, just the scene's own picture.
+  if (project.kind === 'explainer' && clip.scene) return explainerImagePrompt(project, clip.scene).slice(0, limit)
   const style = getStyle(project.styleId)
   const { scene, avoid } = splitAvoid(clip.visualPrompt)
   const wardrobe = /^\s*wardrobe\s*:/im.test(scene)
@@ -123,6 +126,11 @@ function clipPrompt(project: Project, clip: Clip, chars: Character[], refNames: 
   if (full.length <= limit) return full
   // Models with short prompt limits get the scene first, so trimming only loses style detail.
   return [scene, chars.map(characterLine).join('; '), avoid && `Must not appear: ${avoid}.`, style.prompt].filter(Boolean).join('\n\n')
+}
+
+/** Explainer pictures sit in landscape frames in every layout, so they are always made 16:9. */
+function imageAspect(project: Project): AspectRatio {
+  return project.kind === 'explainer' ? '16:9' : project.aspectRatio
 }
 
 function sheetPrompt(project: Project, c: Character): string {
@@ -311,7 +319,7 @@ function nineRouterClipImage(clipId: string, projectId: string, imageModel: stri
     const { sheets, names } = await sheetsFor(chars, imageRefLimit(imageModel), ctx.signal)
     const refs = await Promise.all(sheets.map((s) => nr.inlineReference(assetAbsPath(s.projectId, s.localPath))))
     const prompt = clipPrompt(project, fresh, chars, names, NINEROUTER_PROMPT_LIMIT)
-    return { payload: { target: 'clip-image', model: nineRouterModel(imageModel), prompt }, aspect: project.aspectRatio, refs }
+    return { payload: { target: 'clip-image', model: nineRouterModel(imageModel), prompt }, aspect: imageAspect(project), refs }
   })
 }
 
@@ -341,7 +349,7 @@ export function generateClipImage(clipId: string): Job {
     const prompt = clipPrompt(project, fresh, chars, refs.names, promptLimit(model))
     return {
       endpoint: model.id,
-      body: imageBody(model, prompt, project.aspectRatio, refs.urls),
+      body: imageBody(model, prompt, imageAspect(project), refs.urls),
       payload: { target: 'clip-image', model: model.id, prompt }
     }
   })
@@ -459,6 +467,8 @@ export function generateMissingImages(projectId: string): Job[] {
     }
   }
   for (const clip of clipsOf(projectId)) {
+    // Explainer scenes only get an AI picture when the scene asks for one; the others are designed without.
+    if (project.kind === 'explainer' && !wantsAiImage(clip.scene)) continue
     if (!clip.imageAssetId) jobs.push(generateClipImage(clip.id))
   }
   return jobs

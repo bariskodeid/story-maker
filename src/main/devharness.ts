@@ -4,11 +4,12 @@ import { dirname } from 'node:path'
 import { app, type BrowserWindow } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { estimateWordTimings } from '@shared/captions'
+import { SAMPLE_SCENES, type ExplainerTemplateId } from '@shared/explainer'
 import { anchorPoint } from '@shared/overlays'
-import { startExport } from './exporter'
+import { addSceneImage, exportProject } from './explainer'
 import { assetAbsPath, binPath } from './paths'
 import { probeDurationMs } from './services/audio'
-import { createProject, getBundle, insertAsset, patchClip, replaceStory, saveSnapshot, touchProject } from './repo'
+import { clipsOf, createProject, getBundle, insertAsset, listProjects, patchClip, replaceScenes, replaceStory, saveSnapshot, touchProject } from './repo'
 import { recordCheck, setSecret } from './secrets'
 import type { ApiProvider } from '@shared/types'
 
@@ -165,6 +166,38 @@ function seedDemo(): string {
   return p.id
 }
 
+/** An explainer project from the template's sample scenes with synthetic voices, to test its steps and export offline. */
+function seedExplainer(templateId: ExplainerTemplateId): string {
+  const ff = binPath(ffmpegStatic!)
+  const p = createProject({ synopsis: `Demo ${templateId}`, durationSec: 30, language: 'id', kind: 'explainer', templateId })
+  const scenes = SAMPLE_SCENES[templateId]
+  replaceScenes(
+    p.id,
+    `Demo ${templateId}`,
+    scenes.map((scene) => ({ scene, narration: [scene.heading, scene.body].filter(Boolean).join('. '), durationMs: 4000 }))
+  )
+  getBundle(p.id).clips.forEach((clip, i) => {
+    const rel = `audio/demo-${i}.wav`
+    mkdirSync(dirname(assetAbsPath(p.id, rel)), { recursive: true })
+    const sec = 2.6 + i * 0.5
+    execFileSync(ff, ['-y', '-f', 'lavfi', '-i', `sine=frequency=${260 + i * 70}:duration=${sec}`, '-ar', '24000', '-ac', '1', assetAbsPath(p.id, rel)], {
+      windowsHide: true
+    })
+    const audio = insertAsset({
+      projectId: p.id,
+      clipId: clip.id,
+      kind: 'audio',
+      provider: 'demo',
+      prompt: clip.narration,
+      localPath: rel,
+      durationMs: Math.round(sec * 1000),
+      meta: { words: estimateWordTimings(clip.narration, sec), estimatedTimings: true }
+    })
+    patchClip(clip.id, { audioAssetId: audio.id, durationMs: Math.round(sec * 1000) + 400 })
+  })
+  return p.id
+}
+
 /**
  * For harness runs: keep painting and timers going while the test window sits behind other windows, so
  * screenshots show the current state. Must run before the app is ready.
@@ -195,7 +228,12 @@ export function attachDevHarness(win: BrowserWindow): void {
   const planPath = process.env.STUDIO_CAPTURE_PLAN
   if (!planPath) return
   let plan: {
-    main?: 'seed' | 'export' | 'key' | 'overlays' | 'speech' | 'videos'
+    main?: 'seed' | 'seedExplainer' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos'
+    /** For main "sceneImage": put this image file on scene `clipIndex` of `projectId` (default: the latest project). */
+    file?: string
+    clipIndex?: number
+    /** For main "seedExplainer": which template (default tutorial). */
+    template?: ExplainerTemplateId
     exportTo?: string
     /** For main "export": an existing project instead of the seeded demo. */
     projectId?: string
@@ -226,6 +264,12 @@ export function attachDevHarness(win: BrowserWindow): void {
     for (const step of plan) {
       try {
         if (step.main === 'seed') demoId = seedDemo()
+        if (step.main === 'seedExplainer') demoId = seedExplainer(step.template ?? 'tutorial')
+        if (step.main === 'sceneImage' && step.file) {
+          // A file dialog cannot be driven from the harness, so the picked file is handed over directly.
+          const clip = clipsOf(step.projectId ?? listProjects()[0].id)[step.clipIndex ?? 0]
+          if (clip) await addSceneImage(clip.id, step.file)
+        }
         if (step.main === 'overlays' && demoId) addDemoOverlays(demoId)
         if (step.main === 'videos' && demoId) addDemoVideos(demoId)
         if (step.main === 'speech' && demoId) await addDemoSpeech(demoId)
@@ -234,7 +278,7 @@ export function attachDevHarness(win: BrowserWindow): void {
           recordCheck(step.provider, step.ok !== false, step.ok === false ? 'Kunci ditolak (uji)' : 'Terhubung (uji)')
         }
         if (step.main === 'export' && (step.projectId ?? demoId)) {
-          startExport((step.projectId ?? demoId)!, {
+          exportProject((step.projectId ?? demoId)!, {
             fileName: 'demo-export',
             resolution: 1080,
             fps: 30,

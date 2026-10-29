@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, FolderOpen, RotateCcw } from 'lucide-react'
+import { explainerTotalMs } from '@shared/explainer'
+import type { RenderEngineStatus } from '@shared/render'
 import type { ExportOptions, Job } from '@shared/types'
 import { Button, Modal, Progress, Switch, cx, inputCls } from '../../components/ui'
 import { defaultExportOptions } from '../../lib/exportOptions'
@@ -14,10 +16,18 @@ const RESOLUTIONS: { id: ExportOptions['resolution']; label: string; sub: string
 ]
 
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { project, clips, jobs, flush } = useProject()
+  const { project, clips, jobs, assets, flush } = useProject()
   const { toast } = useApp()
   const [opts, setOpts] = useState<ExportOptions | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
+  const [engine, setEngine] = useState<RenderEngineStatus | null>(null)
+  const explainer = project?.kind === 'explainer'
+
+  useEffect(() => {
+    if (!open || !explainer) return
+    void window.api.renderEngine.status().then(setEngine)
+    return window.api.on.renderEngine(setEngine)
+  }, [open, explainer])
 
   useEffect(() => {
     if (!open || !project) return
@@ -29,10 +39,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   if (!project || !opts) return null
   const job: Job | null = jobId ? (jobs[jobId] ?? null) : null
   const running = isRunning(job)
-  const totalMs = clips.reduce((n, c) => n + c.durationMs, 0)
-  const missing = clips
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !(c.imageAssetId || (c.motionType === 'video' && c.videoAssetId)))
+  const totalMs = explainer ? explainerTotalMs(clips, assets) : clips.reduce((n, c) => n + c.durationMs, 0)
+  // Explainer scenes are designed and render without pictures, so only story clips need one.
+  const missing = explainer
+    ? []
+    : clips.map((c, i) => ({ c, i })).filter(({ c }) => !(c.imageAssetId || (c.motionType === 'video' && c.videoAssetId)))
   const noVoice = clips.filter((c) => !c.audioAssetId).length
   const res = RESOLUTIONS.find((r) => r.id === opts.resolution)!
   const sizeMb = Math.round((totalMs / 1000) * res.mb * (opts.fps === 60 ? 1.5 : 1))
@@ -50,12 +61,19 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   const toggles: { key: keyof ExportOptions; title: string; desc: string; disabled?: boolean }[] = [
-    {
-      key: 'burnCaptions',
-      title: 'Tempel caption ke video',
-      desc: project.editor.captionStyle === 'none' ? 'Gaya caption diatur ke Tanpa caption' : 'Caption jadi bagian dari gambar',
-      disabled: project.editor.captionStyle === 'none'
-    },
+    explainer
+      ? {
+          key: 'burnCaptions',
+          title: 'Tempel caption ke video',
+          desc: project.theme?.captions === false ? 'Caption dimatikan di Tampilan video' : 'Caption narasi jadi bagian dari gambar',
+          disabled: project.theme?.captions === false
+        }
+      : {
+          key: 'burnCaptions',
+          title: 'Tempel caption ke video',
+          desc: project.editor.captionStyle === 'none' ? 'Gaya caption diatur ke Tanpa caption' : 'Caption jadi bagian dari gambar',
+          disabled: project.editor.captionStyle === 'none'
+        },
     { key: 'writeSrt', title: 'Simpan juga file subtitle (.srt)', desc: 'Untuk diunggah terpisah ke YouTube' },
     { key: 'normalizeAudio', title: 'Samakan volume suara', desc: 'Normalisasi ke −14 LUFS, standar YouTube' },
     {
@@ -101,10 +119,22 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
               </span>
             </div>
           )}
+          {explainer && engine && engine.state !== 'ready' && !running && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-line bg-sand px-3.5 py-2.5 text-[13px] text-ink-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>
+                {engine.state === 'downloading'
+                  ? 'Mesin render sedang diunduh. Ekspor bisa dimulai, dan menunggu unduhannya selesai.'
+                  : 'Ekspor video penjelasan pertama mengunduh mesin render (Chrome Headless Shell, sekitar 100 MB) satu kali.'}
+              </span>
+            </div>
+          )}
           {missing.length === 0 && noVoice > 0 && (
             <div className="flex items-start gap-2.5 rounded-xl border border-line bg-sand px-3.5 py-2.5 text-[13px] text-ink-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span>{noVoice} klip belum punya suara narasi. Klip itu akan tampil tanpa suara dan tanpa caption.</span>
+              <span>
+                {noVoice} {explainer ? 'adegan' : 'klip'} belum punya suara narasi. {explainer ? 'Adegan' : 'Klip'} itu akan tampil tanpa suara dan tanpa caption.
+              </span>
             </div>
           )}
           <label className="flex flex-col gap-1.5">

@@ -8,6 +8,23 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ## [Belum dirilis]
 
+### Ditambahkan
+- **Video penjelasan**, jenis proyek baru di samping cerita. Pilih di Beranda, tulis topiknya, lalu pilih satu dari
+  empat template: **Tutorial langkah demi langkah**, **Tips & trik**, **Fakta / countdown**, dan **Kutipan /
+  motivasi**. AI menulis adegan yang didesain (judul, langkah dengan kode atau perintah terminal, tips dengan emoji,
+  fakta dengan angka besar, kutipan, perbandingan, penutup) beserta narasinya.
+  - Langkah **Adegan**: ubah teks, jenis adegan, dan narasi dengan pratinjau langsung; unggah screenshot per adegan
+    dan tandai bagian pentingnya dengan kotak sorotan; atau buat gambar AI (Higgsfield/9Router).
+  - Langkah **Editor**: pratinjau video utuh dengan Remotion Player, palet warna, warna aksen, font judul, caption,
+    logo, dan musik latar yang mengecil saat narasi.
+  - Ekspor dengan Remotion (720p, 1080p, 4K), lalu volume disamakan ke −14 LUFS; `.srt` opsional. Sekali klik dan
+    ekspor otomatis juga berlaku.
+- **Mesin render video penjelasan** di Pengaturan › Umum: Chrome Headless Shell (unduhan ±100 MB, terpasang
+  ±250 MB) diunduh sekali ke folder data aplikasi, otomatis saat ekspor pertama atau dari sini, dengan tombol
+  **Uji render**.
+- Catatan lisensi Remotion di halaman Tentang dan README: gratis untuk perorangan dan perusahaan sampai 3 karyawan;
+  perusahaan yang lebih besar perlu Remotion Company License sendiri.
+
 ### Diubah
 - Nama aplikasi menjadi **Story Maker** (installer `StoryMaker-Setup-<versi>.exe`, ID aplikasi
   `com.bariskode.storymaker`). Folder data lama `%APPDATA%\Bang Story` dipindahkan otomatis ke

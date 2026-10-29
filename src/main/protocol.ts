@@ -15,7 +15,8 @@ const TYPES: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.m4a': 'audio/mp4',
   '.ogg': 'audio/ogg',
-  '.ttf': 'font/ttf'
+  '.ttf': 'font/ttf',
+  '.woff2': 'font/woff2'
 }
 
 export function registerSchemes(): void {

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ImageIcon, Wand2 } from 'lucide-react'
+import { wantsAiImage } from '@shared/explainer'
 import { isNineRouterImage } from '@shared/imageModels'
 import { Button, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
 import {
@@ -73,11 +74,14 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
   const sheetJobs = [...new Map(jobs.filter((j) => j.kind === 'sheet').map((j) => [j.characterId ?? j.id, j])).values()]
   const narration = jobs.filter((j) => j.kind === 'narration').sort((a, b) => b.createdAt - a.createdAt)[0]
   const exportJob = jobs.filter((j) => j.kind === 'export').at(-1)
-  const withImage = clips.filter((c) => c.imageAssetId).length
+  const explainer = project.kind === 'explainer'
+  // Explainer scenes only get a picture when they ask for an AI one.
+  const pictured = explainer ? clips.filter((c) => wantsAiImage(c.scene)) : clips
+  const withImage = pictured.filter((c) => c.imageAssetId).length
   const toVoice = clips.filter((c) => c.narration.trim())
   const voiced = toVoice.filter((c) => c.audioAssetId).length
   const media = stageState(run, 'media')
-  const imagesDone = clips.length > 0 && withImage === clips.length
+  const imagesDone = pictured.length > 0 && withImage === pictured.length
   const voicesDone = toVoice.length > 0 && voiced === toVoice.length
   const portrait = project.aspectRatio === '9:16'
 
@@ -99,30 +103,37 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
         </div>
 
         <ol className="flex flex-col gap-4 rounded-2xl border border-line bg-surface px-5 py-5">
-          <Row state={stageState(run, 'script')} title="Naskah" detail={clips.length ? `${clips.length} adegan` : 'Menyusun adegan dan narasi'} />
           <Row
-            state={stageState(run, 'visuals')}
-            title="Rencana visual"
-            detail={characters.length ? `${characters.length} pemeran, prompt gambar, dan gerak kamera` : 'Prompt gambar, pemeran, dan gerak kamera'}
+            state={stageState(run, 'script')}
+            title={explainer ? 'Adegan' : 'Naskah'}
+            detail={clips.length ? `${clips.length} adegan` : explainer ? 'Menulis teks layar dan narasi tiap adegan' : 'Menyusun adegan dan narasi'}
           />
+          {!explainer && (
+            <Row
+              state={stageState(run, 'visuals')}
+              title="Rencana visual"
+              detail={characters.length ? `${characters.length} pemeran, prompt gambar, dan gerak kamera` : 'Prompt gambar, pemeran, dan gerak kamera'}
+            />
+          )}
+          {(!explainer || pictured.length > 0) && (
           <Row
             state={mediaRow(imagesDone)}
             title="Gambar"
             detail={
               <>
-                {clips.length ? `${withImage}/${clips.length} gambar klip` : 'Gambar klip'}
+                {pictured.length ? `${withImage}/${pictured.length} ${explainer ? 'gambar AI' : 'gambar klip'}` : 'Gambar klip'}
                 {sheetJobs.length > 0 && ` · ${sheetJobs.filter((j) => j.status === 'done').length}/${sheetJobs.length} lembar karakter`}
               </>
             }
           >
-            {clips.length > 0 && media !== 'pending' && (
-              <div className={cx('grid gap-1.5', portrait ? 'grid-cols-8' : 'grid-cols-6')}>
-                {clips.map((c, i) => {
+            {pictured.length > 0 && media !== 'pending' && (
+              <div className={cx('grid gap-1.5', portrait && !explainer ? 'grid-cols-8' : 'grid-cols-6')}>
+                {pictured.map((c, i) => {
                   const url = c.imageAssetId ? assets[c.imageAssetId]?.url : null
                   return (
                     <div
                       key={c.id}
-                      className={cx('relative overflow-hidden rounded-md border border-line bg-sand', portrait ? 'aspect-[9/16]' : 'aspect-video')}
+                      className={cx('relative overflow-hidden rounded-md border border-line bg-sand', portrait && !explainer ? 'aspect-[9/16]' : 'aspect-video')}
                       title={c.title}
                     >
                       {url ? (
@@ -139,6 +150,7 @@ export function AutopilotPanel({ run }: { run: AutopilotRun }) {
               </div>
             )}
           </Row>
+          )}
           <Row
             state={mediaRow(voicesDone)}
             title="Narasi dan caption"
@@ -210,11 +222,13 @@ export function AutopilotButton() {
   const { toast, go } = useApp()
   const [busy, setBusy] = useState(false)
   if (!project) return null
-  const work = remainingWork(clips)
+  const work = remainingWork(clips, project.kind)
+  const explainer = project.kind === 'explainer'
   if (!work.parts.length) return null
 
   const start = async (): Promise<void> => {
-    if (!clips.length && !project.synopsis.trim()) return toast('error', 'Tulis ide ceritanya dulu di langkah Ide cerita.')
+    if (!clips.length && !project.synopsis.trim())
+      return toast('error', explainer ? 'Tulis topik videonya dulu di langkah 1.' : 'Tulis ide ceritanya dulu di langkah Ide cerita.')
     setBusy(true)
     try {
       await useProject.getState().flush()
@@ -222,7 +236,8 @@ export function AutopilotButton() {
       const imageModel = project.imageModel ?? settings.imageModel
       const missing = missingServices(settings, keys, {
         story: work.story,
-        imageModel: work.images ? imageModel : null,
+        // Explainer scenes can do without AI pictures; the run skips them when no image service is set up.
+        imageModel: work.images && !explainer ? imageModel : null,
         tts: work.voice ? project.ttsProvider : null
       })
       if (missing.length) {
@@ -238,7 +253,7 @@ export function AutopilotButton() {
         body:
           `Yang akan dibuat: ${joinList(work.parts)}. Bagian yang sudah jadi tidak diulang, lalu proyek terbuka di editor. ` +
           (work.images && !isNineRouterImage(imageModel) ? 'Gambar Higgsfield memakai kredit. ' : '') +
-          'Video AI tidak dibuat.',
+          (explainer ? 'Screenshot tutorial tetap kamu tambahkan sendiri.' : 'Video AI tidak dibuat.'),
         confirm: 'Lanjutkan otomatis',
         option: exportOption(exportAfter, (on) => (exportAfter = on))
       })

@@ -112,3 +112,33 @@ atau `chooseCuts`. Bagiannya dibatasi 1.000 karakter karena Edge TTS (lewat Bing
 panjang. Setiap adegan diakhiri tanda titik supaya ada jeda di batas adegan. Teks untuk suara `edge-tts/` di-escape
 (`&`, `<`, `>`) karena 9Router memasukkannya ke SSML tanpa escape. Semua permintaan memakai `User-Agent` sendiri:
 9Router yang dipasang di balik Cloudflare menantang user agent bawaan fetch (`node`) dengan halaman 403.
+
+### Video penjelasan dirender dengan Remotion, bukan FFmpeg
+Adegan penjelasan berisi tipografi beranimasi, kode yang diketik, kotak sorotan, dan angka yang menghitung naik.
+Membuatnya dengan filter FFmpeg/ASS berarti menulis ulang tata letak di dua tempat. Dengan Remotion, satu komponen
+React (`src/remotion/explainer`) dipakai Player di aplikasi dan render MP4, dengan props dari `buildExplainerInput`
+yang sama, jadi pratinjau dan ekspor identik (diuji dengan membandingkan screenshot Player dan frame MP4 yang sama).
+Proyek cerita tetap memakai exporter FFmpeg. Lisensi Remotion: lihat [remotion.md](remotion.md#lisensi-remotion).
+
+### Chrome Headless Shell diunduh ke folder data, dari working directory sementara
+Remotion memilih folder unduhan browser dari `process.cwd()`. Aplikasi terpasang bisa berjalan dengan working
+directory `C:\Program Files\...` (tidak bisa ditulis), dan kalau ada `package.json` di folder induk, browser bisa
+terunduh ke tempat yang tidak terduga. `ensureRenderBrowser` menjalankan `ensureBrowser` dari
+`<folder data>/render-browser` (berisi `package.json` kecil) lalu memberi `browserExecutable` ke setiap render.
+
+### Bundle Remotion tanpa source map
+Kalau `bundle.js` menyebut `bundle.js.map`, `@remotion/renderer` membaca file itu secara sinkron sebelum render.
+Saat `.map` tidak ikut terpasang, render gagal dengan `ENOENT`. Bundle dibuat dengan `devtool: false`.
+
+### Komposisi membawa reset CSS sendiri
+Preflight Tailwind milik aplikasi ikut berlaku di dalam Remotion Player, tapi tidak di browser render. Tanpa reset
+`.sm-x` (box-sizing, margin, line-height, gambar block), ukuran kotak dan jarak baris di pratinjau berbeda dari MP4.
+
+### Player tanpa shared audio tags
+`@remotion/player` menyiapkan elemen audio dengan `data:audio/mp3`, yang diblokir CSP (`media-src`). Electron tidak
+butuh gestur pengguna untuk memutar media, jadi Player memakai `numberOfSharedAudioTags={0}` dan CSP tidak dilonggarkan.
+
+### Server aset sementara untuk render
+Browser render tidak mengenal `studio://`. Membuka akses `file://` ke seluruh disk lebih berisiko, jadi setiap
+render mendapat server HTTP di `127.0.0.1` dengan port dan prefix acak yang hanya menyajikan folder proyek dan
+font, lalu ditutup.

@@ -9,6 +9,9 @@ import { useApp } from '../../store/app'
 import { useProject } from '../../store/project'
 import { AutopilotButton, AutopilotPanel } from './AutopilotPanel'
 import { EditorStep } from './EditorStep'
+import { ExplainerEditor } from './explainer/ExplainerEditor'
+import { ExplainerIdeaStep } from './explainer/ExplainerIdeaStep'
+import { ScenesStep } from './explainer/ScenesStep'
 import { ExportDialog } from './ExportDialog'
 import { IdeaStep } from './IdeaStep'
 import { ProjectHeader } from './ProjectHeader'
@@ -64,10 +67,13 @@ export function ProjectPage({ id }: { id: string }) {
       </div>
     )
 
+  const explainer = project.kind === 'explainer'
   const done: Step[] = []
   if (clips.length) done.push(1)
-  if (clips.length && !clips.some(needsVisual)) done.push(2)
-  if (clips.length && clips.every((c) => c.imageAssetId)) done.push(3)
+  // An explainer's scenes are done once every narration has a voice; story steps follow visuals and images.
+  if (explainer && clips.length && clips.every((c) => !c.narration.trim() || c.audioAssetId)) done.push(2)
+  if (!explainer && clips.length && !clips.some(needsVisual)) done.push(2)
+  if (!explainer && clips.length && clips.every((c) => c.imageAssetId)) done.push(3)
 
   return (
     <div className="flex h-full flex-col">
@@ -90,6 +96,12 @@ export function ProjectPage({ id }: { id: string }) {
       <div className="min-h-0 flex-1">
         {autopilot ? (
           <AutopilotPanel run={autopilot} />
+        ) : explainer ? (
+          <>
+            {project.step === 1 && <ExplainerIdeaStep />}
+            {(project.step === 2 || project.step === 3) && <ScenesStep />}
+            {project.step === 4 && <ExplainerEditor />}
+          </>
         ) : (
           <>
             {project.step === 1 && <IdeaStep />}

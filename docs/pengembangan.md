@@ -26,7 +26,8 @@ Electron 44 mengunduh programnya saat pertama dipakai. Kalau `node_modules/elect
 |---|---|
 | `npm run dev` | mode pengembangan dengan hot reload renderer (main/preload dibuild ulang saat berubah) |
 | `npm run typecheck` | TypeScript untuk main+preload+shared (`tsconfig.node.json`) dan renderer+shared (`tsconfig.web.json`) |
-| `npm run build` | build produksi ke `out/` |
+| `npm run build` | build produksi ke `out/`, lalu bundle Remotion ke `out/remotion` |
+| `npm run bundle:remotion` | hanya bundle Remotion (`scripts/bundle-remotion.mjs`); `npm run dev` menjalankannya dengan `--if-stale` |
 | `npm run preview` | jalankan hasil build |
 | `npm run dist` | build + installer Windows NSIS ke `dist/StoryMaker-Setup-<versi>.exe` |
 
@@ -83,6 +84,8 @@ node_modules\electron\dist\electron.exe .
 | Langkah | Fungsi |
 |---|---|
 | `main: "seed"` | membuat proyek demo 4 klip dari gambar dan suara sintetis (tanpa API) |
+| `main: "seedExplainer"` + `template` | proyek video penjelasan dari contoh adegan template dengan suara sintetis (tanpa API) |
+| `main: "sceneImage"` + `file`, `clipIndex`, `projectId` | memasang file gambar ke adegan (pengganti dialog pilih file) |
 | `main: "speech"` | mengganti suara demo dengan ucapan sungguhan (Windows SAPI) + waktu kata perkiraan |
 | `main: "videos"` | memberi semua klip video uji 6 detik (klip 1 diberi zoom kuat) |
 | `main: "overlays"` | menambah logo dan teks overlay demo |
@@ -147,9 +150,12 @@ selama ekspor berjalan.
 5. Buat release di GitHub dengan tag `v<versi>`. Upload hanya file `.exe`. File `.blockmap` dan `latest.yml` baru
    berguna kalau nanti ada fitur update otomatis.
 
-Yang ikut dipaketkan (lihat `electron-builder.yml`): `out/`, FFmpeg (di luar asar), `resources/fonts` → `fonts`,
-`resources/whisper` → `whisper`, `resources/licenses` → `licenses`, dan lisensi FFmpeg →
-`licenses/FFmpeg-LICENSE.txt`. Ikon aplikasi dan installer diambil otomatis dari `build/icon.ico` (folder
+Yang ikut dipaketkan (lihat `electron-builder.yml`): `out/` (tanpa `out/remotion`), FFmpeg (di luar asar),
+`resources/fonts` → `fonts`, `resources/whisper` → `whisper`, `resources/licenses` → `licenses`, lisensi FFmpeg →
+`licenses/FFmpeg-LICENSE.txt`, bundle Remotion `out/remotion` → `remotion`, lisensi Remotion →
+`licenses/Remotion-LICENSE.md`, dan compositor Remotion untuk OS yang sedang membangun (di luar asar). Karena
+compositor dipasang npm sesuai OS, installer Windows harus dibangun di Windows. Chrome Headless Shell tidak ikut
+dipaketkan; aplikasi mengunduhnya saat pertama dipakai ([remotion.md](remotion.md#chrome-headless-shell)). Ikon aplikasi dan installer diambil otomatis dari `build/icon.ico` (folder
 `buildResources`). Kalau logo berubah, buat ulang `icon.ico` (16–256 px) dan `icon.png` (1024 px) dari logo yang baru.
 
 Installer hanya untuk Windows dan belum ditandatangani (*code signing*), jadi Windows SmartScreen menampilkan

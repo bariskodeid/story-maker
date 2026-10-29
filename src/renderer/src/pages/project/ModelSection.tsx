@@ -102,13 +102,16 @@ export function ModelSection({
   clipCount,
   perClip,
   onChange,
-  onOpenSettings
+  onOpenSettings,
+  imageOnly = false
 }: {
   project: Project
   clipCount: number
   perClip: number
   onChange: (patch: { imageModel?: string; videoModel?: string; videoResolution?: string | null }) => void
   onOpenSettings?: () => void
+  /** Explainer projects: only the image model, for the scenes that ask for an AI picture. */
+  imageOnly?: boolean
 }) {
   const image = getImageModel(project.imageModel)
   const viaNineRouter = isNineRouterImage(project.imageModel)
@@ -155,15 +158,17 @@ export function ModelSection({
       <div className="flex items-baseline gap-2">
         <span className="text-sm font-semibold">Model AI</span>
         <span className="text-[13px] text-muted">
-          {source === 'ninerouter'
+          {imageOnly
+            ? 'Untuk adegan yang memakai gambar AI'
+            : source === 'ninerouter'
             ? `Gambar lewat 9Router, ${VIDEO_OPTIONS.length} model video dari Higgsfield`
             : `${IMAGE_OPTIONS.length} model gambar dan ${VIDEO_OPTIONS.length} model video dari Higgsfield`}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className={imageOnly ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3'}>
         <Card
           icon={<ImageIcon className="size-4" />}
-          title="Gambar klip"
+          title={imageOnly ? 'Gambar AI' : 'Gambar klip'}
           action={
             <Segmented
               size="sm"
@@ -197,12 +202,14 @@ export function ModelSection({
                   )}
                 </Cost>
               </p>
-              <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
-                <Users className="mt-px size-3.5 shrink-0" />
-                {maxRefs(image)
-                  ? 'Pakai lembar karakter, jadi wajah dan kostum tokoh tetap sama di tiap klip.'
-                  : 'Tanpa lembar karakter, jadi tampilan tokoh bisa sedikit berubah antar klip.'}
-              </p>
+              {!imageOnly && (
+                <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
+                  <Users className="mt-px size-3.5 shrink-0" />
+                  {maxRefs(image)
+                    ? 'Pakai lembar karakter, jadi wajah dan kostum tokoh tetap sama di tiap klip.'
+                    : 'Tanpa lembar karakter, jadi tampilan tokoh bisa sedikit berubah antar klip.'}
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -235,13 +242,16 @@ export function ModelSection({
                   'Tanpa kredit Higgsfield. Biayanya mengikuti akun yang kamu hubungkan di 9Router.'
                 )}
               </p>
-              <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
-                <Users className="mt-px size-3.5 shrink-0" />
-                Lembar karakter ikut dikirim sebagai referensi, tapi tidak semua model di 9Router memakainya, jadi wajah pemeran bisa kurang konsisten antar klip.
-              </p>
+              {!imageOnly && (
+                <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted">
+                  <Users className="mt-px size-3.5 shrink-0" />
+                  Lembar karakter ikut dikirim sebagai referensi, tapi tidak semua model di 9Router memakainya, jadi wajah pemeran bisa kurang konsisten antar klip.
+                </p>
+              )}
             </>
           )}
         </Card>
+        {!imageOnly && (
         <Card icon={<Film className="size-4" />} title="Video AI">
           <ModelPicker
             value={video.id}
@@ -282,6 +292,7 @@ export function ModelSection({
             Hanya untuk klip yang kamu jadikan Video AI. Gerak kamera tetap gratis.
           </p>
         </Card>
+        )}
       </div>
     </div>
   )

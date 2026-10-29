@@ -60,3 +60,30 @@ export function seriesFileUrl(seriesId: string, localPath: string): string {
 export function binPath(p: string): string {
   return p.replace('app.asar', 'app.asar.unpacked')
 }
+
+/**
+ * The prebuilt Remotion bundle (scripts/bundle-remotion.mjs). It ships as an extra resource, not inside
+ * app.asar, because the renderer serves it from disk to the headless browser.
+ */
+export function remotionBundleDir(): string {
+  return app.isPackaged ? join(process.resourcesPath, 'remotion') : join(app.getAppPath(), 'out', 'remotion')
+}
+
+const COMPOSITORS: Record<string, string> = {
+  'win32-x64': 'compositor-win32-x64-msvc',
+  'linux-x64': 'compositor-linux-x64-gnu',
+  'linux-arm64': 'compositor-linux-arm64-gnu',
+  'darwin-x64': 'compositor-darwin-x64',
+  'darwin-arm64': 'compositor-darwin-arm64'
+}
+
+/**
+ * Folder of Remotion's compositor (and its own FFmpeg) for this platform. Executables cannot run from inside
+ * app.asar, so the installed app points Remotion at the unpacked copy; in development Remotion finds it itself.
+ */
+export function remotionBinariesDir(): string | null {
+  if (!app.isPackaged) return null
+  const pkg = COMPOSITORS[`${process.platform}-${process.arch}`]
+  if (!pkg) throw new Error(`Render video belum didukung di ${process.platform}-${process.arch}.`)
+  return join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@remotion', pkg)
+}

@@ -7,6 +7,8 @@ files:
   - out/**
   - package.json
   - '!**/*.map'
+  # The Remotion bundle ships as an extra resource (below), not inside app.asar.
+  - '!out/remotion/**'
   - '!node_modules/ffmpeg-static/{README.md,example.js,install.js,ffmpeg.exe.README}'
 extraResources:
   - from: resources/fonts
@@ -15,10 +17,16 @@ extraResources:
     to: licenses/FFmpeg-LICENSE.txt
   - from: resources/licenses
     to: licenses
+  - from: node_modules/remotion/LICENSE.md
+    to: licenses/Remotion-LICENSE.md
   - from: resources/whisper
     to: whisper
+  - from: out/remotion
+    to: remotion
 asarUnpack:
   - node_modules/ffmpeg-static/**
+  # Remotion's compositor and its FFmpeg are executables, which cannot run from inside app.asar.
+  - node_modules/@remotion/compositor-*/**
   - '**/*.node'
 win:
   target:

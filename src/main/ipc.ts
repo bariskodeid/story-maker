@@ -18,7 +18,7 @@ import type {
   VoiceOption,
   WordTiming
 } from '@shared/types'
-import { startExport } from './exporter'
+import { clearClipImage, exportProject, generateExplainerScenes, pickSceneImage } from './explainer'
 import {
   estimateCredits,
   forgetEstimates,
@@ -35,6 +35,7 @@ import { cancelJob } from './jobs'
 import { generateNarration, syncCaptions } from './narration'
 import { cancelDownload, downloadModel, openModelFolder, removeModel, whisperStatus } from './whisper'
 import { assetAbsPath } from './paths'
+import { ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
 import { detachVoice, splitClip } from './editing'
 import { emit } from './events'
 import {
@@ -124,6 +125,7 @@ export function registerIpc(): void {
   handle('story:script', (projectId: string) => generateScript(projectId))
   handle('story:musicPrompt', (projectId: string) => generateMusicPrompt(projectId))
   handle('story:visuals', (projectId: string, mode: 'missing' | 'all') => generateVisuals(projectId, mode === 'all' ? 'all' : 'missing'))
+  handle('explainer:scenes', (projectId: string) => generateExplainerScenes(projectId))
 
   handle('generate:clipImage', (clipId: string) => generateClipImage(clipId))
   handle('generate:clipVideo', (clipId: string) => generateClipVideo(clipId))
@@ -143,6 +145,13 @@ export function registerIpc(): void {
   handle('whisper:cancel', () => cancelDownload())
   handle('whisper:remove', () => removeModel())
   handle('whisper:openFolder', () => openModelFolder())
+  handle('renderEngine:status', () => renderEngineStatus())
+  // Like the Whisper model, the download runs in the background and reports through events.
+  handle('renderEngine:install', () => {
+    void ensureRenderBrowser().catch(() => {})
+  })
+  handle('renderEngine:remove', () => removeRenderBrowser())
+  handle('renderEngine:test', () => renderTest())
   handle('generate:cancel', (jobId: string) => cancelJob(jobId))
   handle('generate:estimate', (kind: 'image' | 'video', modelId: string, aspect: AspectRatio, seconds?: number, resolution?: string | null) =>
     estimateCredits(kind, modelId, aspect, seconds, resolution)
@@ -152,6 +161,8 @@ export function registerIpc(): void {
   handle('assets:setActive', (clipId: string, assetId: string) => setActiveAsset(clipId, assetId))
   handle('clips:split', (clipId: string, atMs: number) => splitClip(clipId, Number(atMs)))
   handle('clips:detachVoice', (clipId: string) => detachVoice(clipId))
+  handle('clips:clearImage', (clipId: string) => clearClipImage(clipId))
+  handle('assets:pickSceneImage', (clipId: string) => pickSceneImage(clipId))
   // Caption text fixed by hand in the editor; the words keep their times.
   handle('assets:setWords', (assetId: string, words: WordTiming[]) => {
     const a = getAsset(assetId)
@@ -261,7 +272,7 @@ export function registerIpc(): void {
     return eleven.listVoices()
   })
 
-  handle('export:start', (projectId: string, opts: ExportOptions) => startExport(projectId, opts))
+  handle('export:start', (projectId: string, opts: ExportOptions) => exportProject(projectId, opts))
   handle('export:defaultFolder', () => defaultExportFolder())
   handle('export:pickFolder', async () => {
     const win = BrowserWindow.getFocusedWindow()

@@ -168,6 +168,13 @@ const MIGRATIONS: string[] = [
   ALTER TABLE projects ADD COLUMN episode_no INTEGER;
   ALTER TABLE projects ADD COLUMN episode_summary TEXT NOT NULL DEFAULT '';
   CREATE INDEX projects_series ON projects(series_id, episode_no);
+  `,
+  // Explainer videos: project kind and template with its look, and the designed scene of each clip.
+  `
+  ALTER TABLE projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'story';
+  ALTER TABLE projects ADD COLUMN template_id TEXT;
+  ALTER TABLE projects ADD COLUMN theme_json TEXT NOT NULL DEFAULT '{}';
+  ALTER TABLE clips ADD COLUMN scene_json TEXT NOT NULL DEFAULT '{}';
   `
 ]
 

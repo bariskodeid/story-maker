@@ -24,6 +24,7 @@ import { ModelPicker } from '../components/ModelPicker'
 import { ProviderLogo, type ProviderLogoId } from '../components/ProviderLogo'
 import { Select } from '../components/Select'
 import { AboutSection } from './AboutSection'
+import { RenderEngineSection } from './RenderEngineSection'
 import { WhisperSection } from './WhisperSection'
 import { Badge, Button, Field, IconButton, confirmDialog, cx, inputCls } from '../components/ui'
 import { errorText, relativeTime } from '../lib/format'
@@ -761,6 +762,7 @@ export function Settings() {
                     </div>
                   </Field>
                 </section>
+                <RenderEngineSection />
               </>
             )}
 

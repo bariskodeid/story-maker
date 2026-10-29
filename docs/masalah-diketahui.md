@@ -15,6 +15,16 @@
 | Caption sulit digeser utuh | Potongan caption berdempetan, jadi menyeret badannya sering tidak punya ruang. | Tarik tepinya; atau izinkan geser yang ikut mendorong potongan tetangga. |
 | Tidak semua model sudah diuji langsung | Katalog Higgsfield berisi 48 model; sebagian besar baru diuji lewat body permintaan, belum lewat generate sungguhan. Penyedia LLM selain Gemini juga belum semuanya diuji. | Uji model yang sering dipakai, lalu catat model yang bermasalah. |
 
+### Video penjelasan
+
+| Masalah | Keterangan | Petunjuk |
+|---|---|---|
+| Belum diuji di Windows | Bundle, compositor dari `app.asar.unpacked`, unduhan Chrome ke `%APPDATA%`, dan render sudah diuji di Linux (mode pengembangan dan build terpaket `--dir`), belum di Windows. | Ikuti daftar periksa Windows di [remotion.md](remotion.md#menguji). |
+| Unduhan mesin render tidak bisa dibatalkan | `ensureBrowser` milik Remotion tidak menerima sinyal batal. | Kalau perlu, unduh sendiri dari URL `getChromeDownloadUrl` lalu pakai `browserExecutable`. |
+| Emoji memakai font emoji sistem | Windows: Segoe UI Emoji. Di Linux tanpa font emoji berwarna, emoji tampil sebagai kotak. | Paketkan font emoji (mis. Noto Color Emoji, ±10 MB) kalau aplikasi dibuat untuk Linux. |
+| Model gambar AI tidak bisa diganti per proyek setelah langkah 1 | Pemilih model gambar ada di langkah Ide & template. | Tambahkan pemilih model di panel gambar adegan. |
+| Tanpa kunci lisensi Remotion | Aplikasi tidak mengirim `licenseKey`; perusahaan berlisensi Company License belum bisa memasukkan kuncinya. | Tambahkan isian kunci di Pengaturan dan teruskan ke `renderMedia({ licenseKey })`. |
+
 ## Ide pengembangan
 
 - Undo/redo dan riwayat versi per klip di editor.

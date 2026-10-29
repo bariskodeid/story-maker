@@ -85,6 +85,13 @@ Aturan edit (`renderer/src/pages/project/editor/Timeline.tsx`):
   `layoutCaptionLines` yang sama dengan pratinjau.
 - Kata yang sedang diucapkan diwarnai lewat event per kata (`\c`).
 
+## Video penjelasan
+
+Proyek video penjelasan tidak memakai timeline, `motion.ts`, atau exporter FFmpeg di atas. Editornya berisi
+Remotion Player untuk seluruh video, daftar adegan (klik untuk melompat ke adegan), dan panel Tampilan (template,
+palet, warna aksen, font judul, caption, logo, musik). Pratinjau dan ekspor memakai komponen Remotion yang sama;
+detailnya di [remotion.md](remotion.md).
+
 ## Menambah fitur di editor: daftar periksa
 
 - Aturan baru yang memengaruhi hasil? Tulis di `src/shared/` dan pakai di Player **dan** exporter.

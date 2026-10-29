@@ -21,6 +21,11 @@ export function AboutSection() {
         terpisah. File lisensinya ikut terpasang di folder aplikasi.
       </p>
       <p>
+        Video penjelasan dirender dengan Remotion dan Chrome Headless Shell (diunduh terpisah). Remotion bukan open source berlisensi OSI: gratis untuk
+        perorangan, organisasi nirlaba, dan perusahaan dengan paling banyak 3 karyawan. Perusahaan yang lebih besar perlu membeli Remotion Company License
+        sendiri.
+      </p>
+      <p>
         Logo Gemini, OpenRouter, Groq, ElevenLabs, dan Higgsfield adalah merek milik pemiliknya masing-masing, dipakai hanya untuk menandai layanan yang
         terhubung. Ikon penyedia berasal dari LobeHub Icons (lisensi MIT).
       </p>
