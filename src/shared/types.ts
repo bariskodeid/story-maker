@@ -101,6 +101,8 @@ export type Overlay = ImageOverlay | TextOverlay
 
 export interface Project {
   id: string
+  /** Optional until the storage layer fills it (narrator task 2); readers fall back to DEFAULT_NARRATOR. */
+  narrator?: NarratorSettings
   title: string
   synopsis: string
   durationSec: number
@@ -143,6 +145,8 @@ export interface Character {
 
 export interface Clip {
   id: string
+  /** One expression per spoken sentence; optional until the storage layer fills it. */
+  narratorCues?: NarratorExpression[]
   projectId: string
   sort: number
   title: string
@@ -180,6 +184,16 @@ export interface Clip {
 }
 
 export type AssetKind = 'image' | 'video' | 'audio' | 'music' | 'overlay' | 'export'
+
+export type NarratorExpression = 'neutral' | 'happy' | 'sad' | 'surprised' | 'serious' | 'thinking'
+
+/** Where the animated narrator sits in a video and whether it shows. */
+export interface NarratorSettings {
+  id: string | null
+  anchor: 'bottomLeft' | 'bottomRight'
+  size: 'small' | 'medium' | 'large'
+  enabled: boolean
+}
 
 export interface WordTiming {
   text: string
@@ -405,6 +419,8 @@ export interface SeriesBible {
 
 export interface Series {
   id: string
+  /** Default narrator for the series episodes; optional until the storage layer fills it. */
+  narrator?: NarratorSettings
   kind: SeriesKind
   title: string
   premise: string
