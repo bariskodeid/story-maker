@@ -5,7 +5,7 @@ import { NARRATOR_EXPRESSIONS } from '@shared/narrator'
 import { VISUAL_STYLES } from '@shared/styles'
 import type { Job, Narrator } from '@shared/types'
 import { errorText } from '../lib/format'
-import { EXPRESSION_LABEL } from '../lib/narrators'
+import { EXPRESSION_LABEL, narratorDialogOpened } from '../lib/narrators'
 import { useApp } from '../store/app'
 import { ImageStylePicker } from './ImageStylePicker'
 import { MagicButton, useMagic } from './Magic'
@@ -14,6 +14,13 @@ import { Button, Field, Modal, Progress, Segmented, confirmDialog, cx, inputCls 
 
 type Style = Narrator['style']
 type Patch = { name?: string; description?: string; style?: Style }
+
+/** The project's own style id may be one narrators do not know (e.g. the explainer's 'auto'); fall back to the first of its kind. */
+function validStyle(s: Style): Style {
+  const known = s.kind === 'explainer' ? EXPLAINER_IMAGE_STYLES.some((x) => x.id === s.id) : VISUAL_STYLES.some((x) => x.id === s.id)
+  if (known) return s
+  return { kind: s.kind, id: s.kind === 'explainer' ? EXPLAINER_IMAGE_STYLES[0].id : VISUAL_STYLES[0].id }
+}
 
 /** Six cells on a checkerboard so a clean cut-out is visible against the transparency. */
 function SpriteStrip({ narrator }: { narrator: Narrator }) {
@@ -56,20 +63,31 @@ export function NarratorDialog({
   const [current, setCurrent] = useState<Narrator | null>(narrator)
   const [name, setName] = useState(narrator?.name ?? '')
   const [description, setDescription] = useState(narrator?.description ?? '')
-  const [style, setStyle] = useState<Style>(narrator?.style ?? defaultStyle)
+  const [style, setStyle] = useState<Style>(narrator?.style ?? validStyle(defaultStyle))
   const [job, setJob] = useState<Job | null>(null)
   const [busy, setBusy] = useState(false)
   const mounted = useRef(true)
   const currentId = useRef<string | null>(narrator?.id ?? null)
+  // A narrator made in this dialog is only picked once its sprites exist; picking an empty one would show nothing.
+  const selectWhenReady = useRef(false)
   const changed = useRef(onChanged)
   changed.current = onChanged
   const preset = !!current?.preset
 
   useEffect(() => {
     mounted.current = true
+    const closed = narratorDialogOpened()
+    // Reopened while its sheet is still being drawn: pick the progress up instead of offering a second run.
+    if (narrator && !narrator.preset) {
+      void window.api.narrators.activeJob(narrator.id).then((j) => {
+        if (j && mounted.current) setJob((prev) => prev ?? j)
+      })
+    }
     return () => {
       mounted.current = false
+      closed()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // The sheet job belongs to no project, so it arrives as a bare job event matched by narrator id.
@@ -81,7 +99,8 @@ export function NarratorDialog({
         void window.api.narrators.get(j.characterId).then((n) => {
           if (!mounted.current) return
           setCurrent(n)
-          changed.current()
+          changed.current(selectWhenReady.current && n.status === 'ready' ? n.id : undefined)
+          selectWhenReady.current = false
         })
       }
     })
@@ -150,7 +169,8 @@ export function NarratorDialog({
       const n = await window.api.narrators.create({ name: name.trim() || 'Narator baru', description: description.trim(), style })
       setCurrent(n)
       currentId.current = n.id
-      changed.current(n.id)
+      selectWhenReady.current = true
+      changed.current()
       setJob(await window.api.narrators.generate(n.id))
     } catch (e) {
       toast('error', errorText(e))
@@ -162,6 +182,8 @@ export function NarratorDialog({
   const duplicate = async (): Promise<void> => {
     if (!current) return
     try {
+      // The copy is made from what is saved, so an edit still waiting for its autosave must land first.
+      await flushNow()
       const copy = await window.api.narrators.duplicate(current.id)
       changed.current(copy.id)
       toast('success', `Salinan "${copy.name}" dibuat dan dipilih. Kamu bisa mengubahnya.`)
@@ -192,7 +214,7 @@ export function NarratorDialog({
 
   const switchKind = (kind: Style['kind']): void => {
     if (kind === style.kind) return
-    const next: Style = kind === defaultStyle.kind ? defaultStyle : { kind, id: kind === 'story' ? VISUAL_STYLES[0].id : EXPLAINER_IMAGE_STYLES[0].id }
+    const next: Style = kind === defaultStyle.kind ? validStyle(defaultStyle) : { kind, id: kind === 'story' ? VISUAL_STYLES[0].id : EXPLAINER_IMAGE_STYLES[0].id }
     setStyle(next)
     schedule({ style: next })
   }

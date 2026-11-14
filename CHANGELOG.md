@@ -9,6 +9,11 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- **Narator animasi**: tokoh di pojok video (kiri atau kanan bawah, tiga ukuran) yang membuka mulut dan berganti ekspresi
+  mengikuti ucapan, di video cerita maupun video penjelasan. Buat narator sendiri dari deskripsi dan gaya gambar (satu gambar
+  menghasilkan enam ekspresi dengan mulut tertutup dan terbuka), atau pilih salah satu dari empat narator bawaan (Ilmuwan muda,
+  Maskot kancil, Host modern, Tiramisu). Ekspresi dipilih AI per kalimat dan bisa kamu ubah. Pengaturannya ada di langkah Ide
+  dan di pengaturan seri; caption bawah otomatis bergeser agar tidak tertutup narator.
 - **Delapan gaya gambar AI baru untuk video penjelasan** (peta kuno, ukiran ensiklopedia, lukisan sejarah, relief candi,
   diagram buku pelajaran, mikroskopis, luar angkasa, sketsa penemu), **palet Perkamen dan Laboratorium/Kosmos** di tiap template,
   dan **thumbnail contoh** di pemilih gaya gambar AI supaya kamu bisa melihat hasil tiap gaya sebelum memilih.

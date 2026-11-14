@@ -31,6 +31,7 @@ const api: StudioApi = {
     remove: call('narrators:remove'),
     duplicate: call('narrators:duplicate'),
     generate: call('narrators:generate'),
+    activeJob: call('narrators:activeJob'),
     assignCues: call('narrators:assignCues')
   },
   series: {

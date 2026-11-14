@@ -358,6 +358,11 @@ export async function startAssetServer(projectId: string | null): Promise<AssetS
       res.writeHead(403).end()
       return
     }
+    // Narrator folders also hold the original sheet and temp files; the render only ever needs the sprites.
+    if ((parts[1] === 'narrator' || parts[1] === 'narratorpreset') && extname(abs).toLowerCase() !== '.png') {
+      res.writeHead(403).end()
+      return
+    }
     let size: number
     try {
       const st = statSync(abs)

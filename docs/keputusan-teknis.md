@@ -192,3 +192,36 @@ Saat diuji, model menulis `hook` tiap episode sebagai *cliffhanger* di akhir epi
 sesudahnya). Karena akhir episode N dibuat dari `hook` episode N+1, pelajaran 1 jadi menggoda isi yang baru ada di
 pelajaran 3. Deskripsi skema (`OUTLINE_PROPS`, `EXPLAINER_OUTLINE_PROPS`) sekarang menyebut bahwa `hook` membahas
 episode itu sendiri dan tidak boleh menggoda episode sesudahnya; setelah perubahan ini hook kembali sesuai.
+
+## Narator animasi
+
+### Tanpa napas dan pantulan di pratinjau maupun ekspor (R3)
+Narator hanya berganti sprite (ekspresi dan mulut). Napas (skala) dan pantulan saat bicara tidak digambar. FFmpeg tidak bisa
+menerapkan transformasi per frame dengan murah pada layer yang dibangun dari daftar `ffconcat`, dan aturan 1 melarang
+pratinjau punya gerak yang tidak ada di ekspor. Video penjelasan (Remotion) ikut tidak memakainya agar kedua jenis video
+konsisten. Harganya: narator sedikit kurang hidup. Kalau suatu hari ekspor cerita bisa menerapkan transform per frame,
+tambahkan di `narratorSpriteAt` dan dua sisinya sekaligus.
+
+### Caption landscape video penjelasan menyempit, tidak naik (R4)
+Di video cerita, caption bawah yang menutupi narator naik di atasnya (`captionShiftAbove`). Di video penjelasan 16:9 naik berarti
+masuk ke area konten adegan, jadi `frameOf` menyisihkan sisi narator dan menyempitkan pita caption ke sisi yang bebas. Portrait
+tetap menurunkan batas bawah konten dan menaikkan caption. Posisi caption di 16:9 karena itu berbeda dari video cerita.
+
+### Satu lembar 4x3 dengan latar hijau atau magenta
+Dua belas sprite dibuat dari satu gambar supaya tokohnya sama persis di semua sel (dua belas gambar terpisah akan sedikit
+berbeda). Latar rata satu warna dibuang dengan chroma key, karena model gambar tidak bisa dipercaya menghasilkan alfa. Warna
+latar dipilih per narator (hijau atau magenta) agar tidak sama dengan warna tokoh; despill FFmpeg hanya mengenal hijau dan biru,
+jadi magenta dikunci lewat negasi. Garis tepi yang beranti-alias terhadap warna latar meninggalkan cincin buram bernuansa
+latar, sehingga tepi dikikis 1 piksel dan kecenderungan warna latar di 4 piksel terluar dibuang (hanya kelebihan di atas
+kecenderungan interior). Mulut terbuka tidak boleh diminta dengan kata dalam tanda kutip ("ah"): model menggambar teksnya.
+
+### URL sprite diberi `?v=<mtime>`
+URL sprite tetap sama setelah **Buat ulang**, dan Chromium memakai gambar lama dari cache sampai aplikasi dimulai ulang. Akibatnya
+dialog, pemilih, dan Player menampilkan sprite lama, dan `useNarratorSprites` menyimpan rasio lama padahal ekspor sudah membaca
+ukuran PNG baru (pratinjau dan ekspor jadi berbeda). `filesOf` (`narrators.ts`) menambahkan mtime file ke URL sprite dan thumbnail;
+handler `studio://` dan server aset render hanya membaca path, jadi query diabaikan. `useNarratorSprites` juga memuat ulang saat
+job lembar narator itu selesai.
+
+### Narator tidak boleh menggagalkan ekspor
+Sprite yang rusak atau hilang di tengah jalan (`pngSize` melempar) membuat narator mati untuk ekspor itu, di ekspor cerita
+(`prepareNarrator`) maupun video penjelasan (`narratorForRender`), bukan ekspor yang gagal.

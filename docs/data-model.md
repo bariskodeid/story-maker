@@ -17,6 +17,7 @@ Tipe TypeScript-nya ada di `src/shared/types.ts`; skema SQLite di `src/main/db/i
 | `cache` | cache bebas (daftar model, estimasi kredit, daftar suara), dengan `updated_at` |
 | `series` | satu baris per seri: jenis, premis, alur, bible (`bible_json`), pengaturan untuk episode baru |
 | `series_characters` | pemeran bersama seri + path lembar karakternya di folder seri (`sheet_path`) |
+| `narrators` | koleksi narator animasi milik pengguna (preset bawaan tidak ada di tabel); file sprite ada di disk |
 
 Relasi `project_id` memakai `ON DELETE CASCADE`. Tidak ada foreign key antara klip dan aset; klip menunjuk aset
 lewat `image_asset_id`, `video_asset_id`, `audio_asset_id`. Aset lama tetap tersimpan sebagai riwayat versi.
@@ -39,6 +40,7 @@ dalam transaksi, lalu `user_version` dinaikkan.
 | 9 | `projects.kind`, `template_id`, `theme_json`; `clips.scene_json` (video penjelasan) |
 | 10 | `series.template_id`, `series.theme_json` (seri video penjelasan); `series.cast_removed_json` dan `projects.cast_removed_json` (pemeran yang dihapus manual) |
 | 11 | `series.video_resolution` (resolusi video AI untuk episode baru seri cerita; null = bawaan model) |
+| 12 | Tabel `narrators`; `projects.narrator_json`, `series.narrator_json`, `clips.narrator_cues` (narator animasi) |
 
 **Aturan:** tambahkan migrasi baru di akhir. Jangan mengubah migrasi yang sudah ada, karena pengguna lama sudah
 menjalankannya.
@@ -139,6 +141,28 @@ Tambahkan di semua tempat berikut, atau data akan hilang diam-diam:
 6. `CLIP_COLS` di `repo.ts` kalau proses utama perlu mengubahnya lewat `patchClip`
 7. Nilai bawaan di `addClip` (`renderer/src/store/project.ts`)
 8. `StoryClip` di `repo.ts` (daftar `Omit`) kalau kolom tidak berasal dari naskah AI
+
+## Narator animasi (`Narrator`, `NarratorSettings`)
+
+Tokoh yang muncul di pojok video dan berganti sprite mengikuti ucapan (aturan gambar di
+[editor-dan-ekspor.md](editor-dan-ekspor.md#narator-animasi-video-cerita), alur pembuatan di
+[alur-produksi.md](alur-produksi.md#narator-animasi)).
+
+- **Tabel `narrators`**: `id`, `name`, `description` (bahasa Inggris, masuk ke prompt gambar), `style_kind` (`story` atau
+  `explainer`) + `style_id` (gaya gambar yang sama dengan proyek), `key_color` (`#00FF00` atau `#FF00FF`, warna latar
+  lembar), `status` (`empty` atau `ready`; `ready` hanya setelah 12 sprite berhasil ditulis), `created_at`.
+- **File sprite** tidak ada di database: `<userData>/narrators/<id>/` berisi `sheet.png` (lembar asli yang sudah
+  dinormalkan), 12 sprite `<ekspresi>-<closed|open>.png` (`neutral`, `happy`, `sad`, `surprised`, `serious`,
+  `thinking`), dan `thumb.png`. `Narrator.spriteUrls` diturunkan dari isi folder (`studio://narrator/<id>/<file>`).
+- **Preset** (`src/shared/narratorPresets.ts`) tidak punya baris di tabel: `listNarrators` menurunkannya dari
+  `resources/narrators/<id>/` (di aplikasi terpasang: folder `narrators` di resources, lihat `extraResources`), selalu
+  `status: 'ready'`, `preset: true`, hanya baca. Preset yang folder asetnya belum ada disembunyikan.
+- **`projects.narrator_json`** dan **`series.narrator_json`**: `NarratorSettings` = `{ id, anchor (bottomLeft |
+  bottomRight), size (small | medium | large), enabled }`. Kosong atau rusak dibaca sebagai bawaan lewat
+  `normalizeNarratorSettings` (mati). `id` yang menunjuk narator terhapus berarti tanpa narator. Episode baru
+  menyalin pengaturan seri; narator itu sendiri tidak disalin.
+- **`clips.narrator_cues`**: JSON array ekspresi, satu per kalimat narasi klip (`splitSentences`); `normalizeCues`
+  membuang nilai tak dikenal. Kosong = netral. Disentuh di semua tempat kolom klip (aturan 4 di AGENTS.md).
 
 ## Aset (`Asset`)
 

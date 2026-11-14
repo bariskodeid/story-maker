@@ -154,7 +154,8 @@ process** (`src/main/renderBrowserWorker.ts`), dan membatalkan berarti mematikan
 
 Browser render tidak bisa membuka `studio://`. Selama render, `startAssetServer(projectId)` membuka server HTTP di
 `127.0.0.1` dengan port acak dan prefix path acak (16 byte heksadesimal). Server hanya menyajikan folder proyek
-itu (`/asset/...`) dan font bawaan (`/fonts/...`), menolak path di luar folder, mendukung Range, dan memberi header
+itu (`/asset/...`), font bawaan (`/fonts/...`), dan sprite narator (`/narrator/...` milik pengguna, `/narratorpreset/...` bawaan;
+hanya file `.png`, karena folder narator juga berisi lembar asli dan file sementara), menolak path di luar folder, mendukung Range, dan memberi header
 `Access-Control-Allow-Origin: *` (font dimuat lintas origin dari server bundle milik Remotion). Server ditutup
 setelah render selesai, gagal, atau dibatalkan.
 
@@ -364,5 +365,7 @@ Player diberi `acknowledgeRemotionLicense` supaya tidak mencetak peringatan lise
 `NarratorLayer` (`src/remotion/explainer/narrator.tsx`): di atas adegan, di bawah caption. Hanya ganti sprite (tanpa
 napas/pantulan, sama dengan video cerita). Sprite dimuat lewat URL aset (`studio://narrator/...` di Player,
 `narratorBase`/`narratorPresetBase` server aset di ekspor). `frameOf` memberi ruang: landscape menyisihkan sisi
-narator dan menyempitkan pita caption; portrait menurunkan batas bawah konten dan menaikkan caption lewat
-`captionShiftAbove`. Narator mati atau tanpa sprite: `narrator` tidak ada dan hasilnya sama dengan sebelumnya.
+narator dan menyempitkan pita caption ke sisi yang bebas (keputusan sengaja R4: di 16:9 caption tidak naik seperti di video cerita,
+karena naik akan menutupi konten adegan, jadi posisinya berbeda dari video cerita); portrait menurunkan batas bawah konten dan menaikkan caption lewat
+`captionShiftAbove`. Narator mati atau tanpa sprite: `narrator` tidak ada dan hasilnya sama dengan sebelumnya. Sprite yang tidak terbaca saat ekspor
+(`narratorForRender` menangkap semua galat) juga berarti tanpa narator, bukan ekspor yang gagal; ekspor cerita sama.

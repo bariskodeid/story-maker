@@ -489,7 +489,14 @@ async function renderProject(ctx: TaskCtx, projectId: string, opts: ExportOption
       .map((o) => ({ o, asset: assetOf(bundle, o.assetId) }))
       .filter((x): x is { o: ImageOverlay; asset: Asset } => !!x.asset && existsSync(assetAbsPath(projectId, x.asset.localPath)))
     const useAss = burn || texts.length > 0
-    const nar = prepareNarrator(bundle, segs, size, opts.fps, total, tmp)
+    // Unreadable sprites mean no narrator, never a failed export.
+    const nar = (() => {
+      try {
+        return prepareNarrator(bundle, segs, size, opts.fps, total, tmp)
+      } catch {
+        return null
+      }
+    })()
     if (useAss) {
       const captions = burn
         ? {

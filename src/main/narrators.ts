@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, statSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { EXPLAINER_IMAGE_STYLES } from '@shared/explainer'
@@ -25,14 +25,24 @@ export interface NarratorPatch {
 
 /** Sprite and thumbnail URLs of whatever files exist in a folder; null when no sprite is there yet. */
 function filesOf(dir: string, url: (file: string) => string): Pick<Narrator, 'spriteUrls' | 'thumbUrl'> {
+  // The URL of a file never changes when "Buat ulang" rewrites it, so Chromium would keep serving the cached old
+  // picture; the mtime in the query makes a rewritten sprite a new URL (the protocol handlers read only the path).
+  const versioned = (file: string): string | null => {
+    try {
+      return `${url(file)}?v=${Math.round(statSync(join(dir, file)).mtimeMs)}`
+    } catch {
+      return null
+    }
+  }
   const spriteUrls: Record<string, string> = {}
   for (const { expression, mouth } of NARRATOR_GRID) {
     const key = `${expression}-${mouth}`
-    if (existsSync(join(dir, `${key}.png`))) spriteUrls[key] = url(`${key}.png`)
+    const u = versioned(`${key}.png`)
+    if (u) spriteUrls[key] = u
   }
   return {
     spriteUrls: Object.keys(spriteUrls).length ? spriteUrls : null,
-    thumbUrl: existsSync(join(dir, 'thumb.png')) ? url('thumb.png') : null
+    thumbUrl: versioned('thumb.png')
   }
 }
 
@@ -199,6 +209,12 @@ function updateLoose(jobId: string, patch: Parameters<typeof updateJob>[1]): Job
   const next: Job = { ...cur, ...rest, updatedAt: Date.now() }
   jobStore.set(jobId, next)
   return next
+}
+
+/** The sheet job that is queued or running for this narrator, so a dialog opened mid-run can show its progress. */
+export function activeNarratorJob(id: string): Job | null {
+  const jobId = activeByNarrator.get(id)
+  return (jobId && jobStore.get(jobId)) || null
 }
 
 /** Draws a new sprite sheet with the image model in settings and cuts it. One run per narrator at a time. */

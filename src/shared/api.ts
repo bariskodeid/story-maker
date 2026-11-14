@@ -62,6 +62,8 @@ export interface StudioApi {
      * friendly message and leaves the existing sprites alone.
      */
     generate(id: string): Promise<Job>
+    /** The sheet job still queued or running for a narrator, or null; lets a reopened dialog pick the progress up again. */
+    activeJob(id: string): Promise<Job | null>
     /**
      * Picks an expression for every sentence of every clip with one LLM request and saves them. On a bad reply every
      * sentence is saved as neutral and the call rejects with a friendly message.

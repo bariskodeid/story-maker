@@ -59,7 +59,7 @@ export function buildSheetPrompt(n: Narrator): string {
   const key = n.keyColor
   const cells = NARRATOR_GRID.map(
     ({ expression, mouth }, i) =>
-      `${i + 1}. ${EXPRESSION_HINT[expression]}, mouth ${mouth === 'open' ? 'open as if saying "ah"' : 'closed, lips together'}`
+      `${i + 1}. ${EXPRESSION_HINT[expression]}, mouth ${mouth === 'open' ? 'open, relaxed, as if speaking (the picture contains no written word)' : 'closed, lips together'}`
   ).join('\n')
   return [
     styleLine(n),
@@ -151,12 +151,13 @@ function measure(png: Buffer, spillPng: Buffer): Cut {
     }
     comps.push(c)
   }
-  const biggest = Math.max(0, ...comps.map((c) => c.size))
+  // Plain loops: a spread of a very noisy cell's thousands of components can overflow the argument limit.
+  const biggest = comps.reduce((m, c) => Math.max(m, c.size), 0)
   const parts = comps.filter((c) => c.size >= biggest * SUBJECT_PART)
-  const x0 = parts.length ? Math.min(...parts.map((c) => c.x0)) : -1
-  const x1 = parts.length ? Math.max(...parts.map((c) => c.x1)) : -1
-  const y0 = parts.length ? Math.min(...parts.map((c) => c.y0)) : -1
-  const y1 = parts.length ? Math.max(...parts.map((c) => c.y1)) : -1
+  const x0 = parts.reduce((m, c) => Math.min(m, c.x0), parts.length ? w : -1)
+  const x1 = parts.reduce((m, c) => Math.max(m, c.x1), -1)
+  const y0 = parts.reduce((m, c) => Math.min(m, c.y0), parts.length ? h : -1)
+  const y1 = parts.reduce((m, c) => Math.max(m, c.y1), -1)
   const ok = x0 >= 0 && y0 >= 0
   const top = ok && y0 < EDGE_TOUCH_PX
   const left = ok && x0 < EDGE_TOUCH_PX
@@ -170,6 +171,32 @@ function measure(png: Buffer, spillPng: Buffer): Cut {
 }
 
 const FILL_RADIUS = 3
+// How many pixels the silhouette is shaved before the edge is recolored. The model's own anti-aliasing against the
+// key color leaves a ring that is fully opaque yet still tinted (dark green, pink), which no alpha rule can tell
+// from a real outline; shaving it costs a pixel of a drawn line, which is invisible at video size.
+const ERODE_PX = 1
+// The tint can reach a few pixels past the soft rim, so the outer ring this deep gets its key-colored lean removed.
+const RING_PX = 4
+// A bit of lean is natural in art (a warm green leaf); only the part above this is treated as key spill.
+const LEAN_TOLERANCE = 6
+
+/** Drops the outermost ring of the silhouette, ERODE_PX times, together with every partly transparent pixel. */
+function erode(c: Cut): void {
+  const { w, h, px } = c
+  for (let pass = 0; pass < ERODE_PX; pass++) {
+    const drop: number[] = []
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const a = px[(y * w + x) * 4 + 3]
+        if (a === 0) continue
+        const open = a < 255 || x === 0 || y === 0 || x === w - 1 || y === h - 1 || px[(y * w + x - 1) * 4 + 3] === 0 || px[(y * w + x + 1) * 4 + 3] === 0 || px[((y - 1) * w + x) * 4 + 3] === 0 || px[((y + 1) * w + x) * 4 + 3] === 0
+        if (!open) continue
+        drop.push((y * w + x) * 4)
+      }
+    }
+    for (const o of drop) px.fill(0, o, o + 4)
+  }
+}
 
 /**
  * Recolors the soft edge of a sprite. Pixels the key left partly transparent still carry a mix of subject and key
@@ -180,6 +207,7 @@ const FILL_RADIUS = 3
  */
 function cleanEdges(c: Cut, key: Narrator['keyColor']): void {
   const { w, h, px, spill } = c
+  erode(c)
   const alphaAt = (x: number, y: number): number => px[(y * w + x) * 4 + 3]
   const inside = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h
   const solid = new Uint8Array(w * h)
@@ -234,7 +262,72 @@ function cleanEdges(c: Cut, key: Narrator['keyColor']): void {
     }
   }
   out.copy(px)
+  neutralizeRing(c, key)
 }
+
+/**
+ * Removes the key-colored lean from the outer RING_PX pixels. A line drawn against the key color keeps fully opaque
+ * pixels that are the line's color plus a bit of key (dark green around a dark outline); alpha says nothing about
+ * them, but subtracting the excess of the key channel turns them back into the neutral dark of the line. Interior
+ * pixels are never touched, so a teal or yellow subject keeps its true colors. Works on premultiplied data.
+ */
+function neutralizeRing(c: Cut, key: Narrator['keyColor']): void {
+  const { w, h, px } = c
+  const depth = new Uint8Array(w * h)
+  const clear = (x: number, y: number): boolean => x < 0 || y < 0 || x >= w || y >= h || px[(y * w + x) * 4 + 3] === 0
+  for (let d = 1; d <= RING_PX; d++) {
+    const next: number[] = []
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x
+        if (depth[i] || px[i * 4 + 3] === 0) continue
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx
+            const ny = y + dy
+            // A neighbour counts as outside when it is transparent or already part of an outer layer.
+            if (clear(nx, ny) || (nx >= 0 && ny >= 0 && nx < w && ny < h && depth[ny * w + nx] > 0 && depth[ny * w + nx] < d)) {
+              next.push(i)
+              dx = 2
+              dy = 2
+            }
+          }
+        }
+      }
+    }
+    for (const i of next) depth[i] = d
+  }
+  const leanAt = (o: number): number => (key === '#00FF00' ? px[o + 1] - Math.max(px[o + 2], px[o]) : Math.min(px[o + 2], px[o]) - px[o + 1])
+  // A subject that really is purple or green leans toward the key everywhere; its edge must keep that lean, so the
+  // reference is the average lean of the nearest interior pixels and only the excess above it is removed.
+  const REF_R = RING_PX + 3
+  for (let i = 0; i < w * h; i++) {
+    if (!depth[i]) continue
+    const x = i % w
+    const y = (i - x) / w
+    let sum = 0
+    let n = 0
+    for (let dy = -REF_R; dy <= REF_R; dy++) {
+      for (let dx = -REF_R; dx <= REF_R; dx++) {
+        const nx = x + dx
+        const ny = y + dy
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+        const j = ny * w + nx
+        if (depth[j] || px[j * 4 + 3] !== 255) continue
+        sum += leanAt(j * 4)
+        n++
+      }
+    }
+    const o = i * 4
+    const ref = n ? Math.max(0, sum / n) : 0
+    const excess = leanAt(o) - ref - LEAN_TOLERANCE
+    if (excess <= 0) continue
+    if (key === '#00FF00') px[o + 1] -= excess
+    else {
+      px[o] -= excess
+      px[o + 2] -= excess
+    }
+  }}
 
 function toPng(w: number, h: number, bitmap: Buffer): Buffer {
   return nativeImage.createFromBitmap(bitmap, { width: w, height: h }).toPNG()
