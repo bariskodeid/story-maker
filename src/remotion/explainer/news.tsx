@@ -35,7 +35,7 @@ export function Kicker({ text, look, u, delay = 0, extra }: { text: string; look
   const tab: CSSProperties = { padding: `${9 * u}px ${18 * u}px`, fontFamily: BODY_FONT, fontWeight: 800, fontSize: 26 * u, letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.1 }
   return (
     <div style={{ display: 'inline-flex', alignItems: 'stretch', opacity: a, clipPath: `inset(0 ${(1 - a) * 100}% 0 0)` }}>
-      {text && <span style={{ ...tab, background: p.accent, color: '#FFFFFF' }}>{text}</span>}
+      {text && <span style={{ ...tab, background: p.accent, color: onColor(p.accent) }}>{text}</span>}
       {extra && <span style={{ ...tab, background: p.dark ? '#05080F' : p.ink, color: p.dark ? p.ink : p.bg, fontFamily: MONO_FONT, fontWeight: 700, letterSpacing: '0.04em' }}>{extra}</span>}
     </div>
   )
@@ -309,7 +309,7 @@ export function PointsScene({ item, input, f }: SceneProps) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 background: p.accent,
-                color: '#FFFFFF',
+                color: onColor(p.accent),
                 ...numberStyle(look, 54 * u),
                 lineHeight: 1,
                 transform: `scale(${0.6 + 0.4 * tick})`
@@ -377,7 +377,7 @@ export function NewsChrome({ input, f, logoRoom }: { input: ExplainerInput; f: F
   const tab: CSSProperties = { padding: `${8 * u}px ${16 * u}px`, fontFamily: BODY_FONT, fontWeight: 800, fontSize: 24 * u, letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.15 }
   const bug = (desk || date) && (
     <div style={{ position: 'absolute', left: f.left, top: (portrait ? 112 : 38) * u, display: 'flex', opacity: bugIn, transform: `translateY(${(1 - bugIn) * -20 * u}px)`, maxWidth: f.contentWidth - logoRoom }}>
-      {desk && <span style={{ ...tab, background: p.accent, color: '#FFFFFF' }}>{desk}</span>}
+      {desk && <span style={{ ...tab, background: p.accent, color: onColor(p.accent) }}>{desk}</span>}
       {date && <span style={{ ...tab, background: p.dark ? '#05080F' : p.ink, color: p.dark ? p.ink : p.bg, fontFamily: MONO_FONT, fontWeight: 700, letterSpacing: '0.04em' }}>{date}</span>}
     </div>
   )
