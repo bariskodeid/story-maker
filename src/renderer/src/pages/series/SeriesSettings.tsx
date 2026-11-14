@@ -5,6 +5,7 @@ import { DURATIONS, LANGUAGES, clipCountFor } from '@shared/models'
 import type { KeyStatus, SeriesBundle, SeriesSettingsPatch, TtsProvider } from '@shared/types'
 import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
 import { TemplatePicker } from '../../components/ExplainerPreview'
+import { NarratorPicker } from '../../components/NarratorPicker'
 import { Select } from '../../components/Select'
 import { StyleMenu } from '../../components/StyleMenu'
 import { Button, Modal, Segmented, Spinner, cx } from '../../components/ui'
@@ -174,6 +175,12 @@ export function SeriesSettingsModal({ bundle, onClose, onChange }: { bundle: Ser
           />
         </div>
       </Row>
+
+      <NarratorPicker
+        value={series.narrator}
+        onChange={(narrator) => save({ narrator })}
+        defaultStyle={explainer ? { kind: 'explainer', id: series.theme.imageStyleId ?? 'auto' } : { kind: 'story', id: series.styleId }}
+      />
 
       {/* Explainer scenes never use AI video, so only a story series picks a video model and resolution. */}
       <ModelSection

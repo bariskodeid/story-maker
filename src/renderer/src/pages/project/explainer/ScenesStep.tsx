@@ -20,6 +20,7 @@ import { AutoTextarea } from '../../../components/AutoTextarea'
 import { ExplainerStill, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
 import { ImageStylePicker } from '../../../components/ImageStylePicker'
 import { MagicButton, useMagic } from '../../../components/Magic'
+import { NarratorCues } from '../../../components/NarratorCues'
 import { Select } from '../../../components/Select'
 import { Badge, Button, Field, IconButton, Menu, Progress, Segmented, confirmDialog, cx, inputCls } from '../../../components/ui'
 import { errorText } from '../../../lib/format'
@@ -409,6 +410,7 @@ function SceneForm({ clip, scene, allowed, templateId }: { clip: Clip; scene: Ex
       >
         <AutoTextarea minRows={3} value={clip.narration} onChange={(e) => updateClip(clip.id, { narration: e.target.value })} className={cx(inputCls, 'py-2.5 text-[15px] leading-relaxed')} />
       </Field>
+      <NarratorCues clip={clip} />
     </div>
   )
 }

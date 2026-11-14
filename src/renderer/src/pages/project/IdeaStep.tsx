@@ -7,6 +7,7 @@ import type { KeyStatus, LlmProvider, TtsProvider, VoiceOption } from '@shared/t
 import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
 import { MagicButton, useMagic } from '../../components/Magic'
 import { ModelPicker } from '../../components/ModelPicker'
+import { NarratorPicker } from '../../components/NarratorPicker'
 import { Select } from '../../components/Select'
 import { StylePicker } from '../../components/StylePicker'
 import { Button, Chip, Field, Segmented, confirmDialog, cx } from '../../components/ui'
@@ -357,6 +358,8 @@ export function IdeaStep() {
                 </span>
               )}
             </div>
+
+            <NarratorPicker value={project.narrator} onChange={(narrator) => updateProject({ narrator })} defaultStyle={{ kind: 'story', id: project.styleId }} />
 
             <ModelSection
               project={project}

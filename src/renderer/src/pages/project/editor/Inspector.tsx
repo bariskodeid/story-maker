@@ -17,6 +17,7 @@ import { voiceSpan } from '@shared/timeline'
 import type { Asset, Clip, WordTiming } from '@shared/types'
 import { Select } from '../../../components/Select'
 import { AutoTextarea } from '../../../components/AutoTextarea'
+import { NarratorCues } from '../../../components/NarratorCues'
 import { Button, Segmented, Switch, cx, inputCls } from '../../../components/ui'
 import { clipNumber, errorText, secLabel, timecode } from '../../../lib/format'
 import { useApp } from '../../../store/app'
@@ -273,6 +274,7 @@ function VoiceTab({ clip, index }: { clip: Clip; index: number }) {
           </span>
         )}
       </Section>
+      <NarratorCues clip={clip} className="border-b border-line px-[18px] py-4" />
       {voice && (
         <Section title="Volume klip ini">
           <DbSlider label="Volume suara klip ini" value={clip.voiceGainDb ?? 0} min={-12} max={12} onChange={(v) => updateClip(clip.id, { voiceGainDb: v })} />

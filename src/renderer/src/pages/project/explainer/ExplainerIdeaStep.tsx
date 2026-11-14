@@ -6,6 +6,7 @@ import type { KeyStatus, LlmProvider } from '@shared/types'
 import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
 import { TemplatePicker } from '../../../components/ExplainerPreview'
 import { MagicButton, useMagic } from '../../../components/Magic'
+import { NarratorPicker } from '../../../components/NarratorPicker'
 import { Select } from '../../../components/Select'
 import { Button, Chip, Field, Segmented, confirmDialog, cx } from '../../../components/ui'
 import { errorText } from '../../../lib/format'
@@ -209,6 +210,12 @@ export function ExplainerIdeaStep() {
               </span>
             )}
           </div>
+
+          <NarratorPicker
+            value={project.narrator}
+            onChange={(narrator) => updateProject({ narrator })}
+            defaultStyle={{ kind: 'explainer', id: project.theme?.imageStyleId ?? 'auto' }}
+          />
 
           <ModelSection
             imageOnly
