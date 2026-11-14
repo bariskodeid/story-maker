@@ -8,7 +8,7 @@ import type { AspectRatio, Asset, Clip, NarratorSettings, Project, WordTiming } 
  * below, so the preview and the export are the same component with the same data (only the file URLs differ).
  */
 
-export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote' | 'compare' | 'news'
+export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote' | 'compare' | 'news' | 'history' | 'science'
 export type SceneType =
   | 'title'
   | 'step'
@@ -22,6 +22,8 @@ export type SceneType =
   | 'verdict'
   | 'headline'
   | 'points'
+  | 'timeline'
+  | 'chart'
 /** Where a scene's picture comes from: none, a file the user adds (screenshots), or the AI image pipeline. */
 export type SceneImageMode = 'none' | 'upload' | 'ai'
 export type CodeKind = 'none' | 'code' | 'terminal'
@@ -34,6 +36,27 @@ export interface SceneHighlight {
   y: number
   w: number
   h: number
+}
+
+export type ChartKind = 'bar' | 'line' | 'donut' | 'bubble'
+
+export interface TimelinePoint {
+  /** Free short text ("1945", "abad ke-14", "65 jt SM"), never parsed as a date. */
+  date: string
+  title: string
+}
+
+export interface ChartItem {
+  label: string
+  value: number
+}
+
+/** "No chart" is an empty `items`, not a special kind. */
+export interface ExplainerChart {
+  kind: ChartKind
+  /** Short unit shown next to values ("°C", "juta km", "%"). */
+  unit: string
+  items: ChartItem[]
 }
 
 /**
@@ -71,9 +94,13 @@ export interface ExplainerScene {
   /** What the AI image shows (English), when imageMode is "ai". */
   imagePrompt: string
   highlight: SceneHighlight | null
+  /** Timeline scenes: the points, oldest first. */
+  timeline: TimelinePoint[]
+  /** Chart scenes: the data. */
+  chart: ExplainerChart
 }
 
-export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image' | 'values' | 'side' | 'list'
+export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image' | 'values' | 'side' | 'list' | 'timeline' | 'chart'
 
 export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[] = [
   { id: 'title', name: 'Judul', fields: ['label', 'heading', 'body', 'image'] },
@@ -87,7 +114,10 @@ export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[
   { id: 'proscons', name: 'Plus minus', fields: ['heading', 'side', 'compare'] },
   { id: 'verdict', name: 'Putusan', fields: ['label', 'heading', 'body', 'side', 'compare'] },
   { id: 'headline', name: 'Berita', fields: ['label', 'heading', 'body', 'value', 'author', 'image'] },
-  { id: 'points', name: 'Poin penting', fields: ['label', 'heading', 'list'] }
+  { id: 'points', name: 'Poin penting', fields: ['label', 'heading', 'list'] },
+  // No 'image' on these two: data stays readable and no AI image credit is spent on them.
+  { id: 'timeline', name: 'Linimasa', fields: ['label', 'heading', 'body', 'author', 'timeline'] },
+  { id: 'chart', name: 'Grafik', fields: ['label', 'heading', 'body', 'author', 'chart'] }
 ]
 
 export const sceneTypeName = (t: SceneType): string => SCENE_TYPES.find((s) => s.id === t)?.name ?? t
@@ -371,6 +401,63 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       'Use imageMode "ai" with a concrete, photographic imagePrompt for most headline scenes (no text, logos, maps with labels or faces of real people); otherwise imageMode "none".',
       'The last scene is "outro": heading = a short sign-off or question, body = one line.'
     ].join('\n')
+  },
+  {
+    id: 'history',
+    name: 'Sejarah / linimasa',
+    blurb: 'Kisah masa lalu berurutan: linimasa, peristiwa kunci, tokoh, dan kutipan.',
+    sceneTypes: ['title', 'timeline', 'fact', 'quote', 'points', 'outro'],
+    mainType: 'timeline',
+    palettes: [
+      { id: 'perkamen', name: 'Perkamen', bg: '#EFE2C6', surface: '#FBF3E0', ink: '#241710', muted: '#6A5238', accent: '#A3301F', accent2: '#1F6B73', dark: false },
+      { id: 'tinta', name: 'Tinta', bg: '#14100C', surface: '#211A13', ink: '#F1E6D0', muted: '#B5A488', accent: '#D9A441', accent2: '#6FB3B8', dark: true },
+      { id: 'peta', name: 'Peta tua', bg: '#E4E0D2', surface: '#F4F1E6', ink: '#1B2433', muted: '#566073', accent: '#9C2F2F', accent2: '#2F5D8A', dark: false },
+      { id: 'marmer', name: 'Marmer', bg: '#E9E7E2', surface: '#F7F6F2', ink: '#1F1F24', muted: '#5C5C66', accent: '#8A5A2B', accent2: '#3E6B5A', dark: false },
+      { id: 'sogan', name: 'Sogan', bg: '#2A1810', surface: '#3A2418', ink: '#F5E7D3', muted: '#C4A98C', accent: '#E0A94A', accent2: '#D9705A', dark: true },
+      { id: 'malam', name: 'Malam', bg: '#0F1B2D', surface: '#182840', ink: '#EEF1F5', muted: '#9FB0C8', accent: '#E0B35A', accent2: '#7FB8C9', dark: true }
+    ],
+    fonts: ['dmserif', 'poppins', 'archivo'],
+    numberFont: 'dmserif',
+    captionStyle: 'minimal',
+    captionLit: 'accent',
+    guidance: [
+      'A history video told in chronological order for curious viewers. Use only well-established facts, dates and numbers that are widely documented; round numbers; when unsure, use fewer points or a "fact" scene without a precise figure. Never invent events, dates, names or quotes.',
+      'Scene 1 is "title": label = the era or place (1-3 words), heading = the story as a hook (max 9 words), body = a one-line teaser (max 14 words).',
+      'Use "timeline" scenes for an overview of an era or a chain of events: 3-6 points in the timeline array, oldest first, each with a short date ("1945", "abad ke-14", "65 jt SM") and a title (max 6 words); heading = what the timeline shows (max 8 words), body = a one-line takeaway, label = the era (1-2 words).',
+      'Use "fact" scenes for key events: value = the big year or date ("1945", "17 Agustus 1945"), heading = what happened (max 10 words), body = one or two sentences of context (max 24 words), label = "".',
+      'Optionally one "quote" scene about a figure: only a quote that is really documented and correctly attributed (heading = the quote, author = who said it and when); if unsure, skip the scene and never invent a quote. Optionally one "points" scene for the lessons or consequences (3-5 short items).',
+      'ALWAYS fill author with a general source on timeline and fact scenes (e.g. "Britannica", "Arsip Nasional", "UNESCO", "Sejarah Nasional Indonesia"); never cite a source you are not sure exists. Timeline scenes use imageMode "none".',
+      'Use imageMode "ai" with a concrete imagePrompt (English; a painting-like scene, no text, no real faces) for the title and for some fact scenes; otherwise "none".',
+      'The last scene is "outro": heading = a reflection or question, body = one line.'
+    ].join('\n')
+  },
+  {
+    id: 'science',
+    name: 'Sains / data',
+    blurb: 'Jelaskan sains dengan data: grafik batang, garis, donut, dan lingkaran proporsional.',
+    sceneTypes: ['title', 'chart', 'fact', 'step', 'compare', 'points', 'outro'],
+    mainType: 'fact',
+    palettes: [
+      { id: 'lab', name: 'Laboratorium', bg: '#F4F8FB', surface: '#FFFFFF', ink: '#0F1E2E', muted: '#566A7F', accent: '#0B6FD6', accent2: '#0E9F8E', dark: false },
+      { id: 'kosmos', name: 'Kosmos', bg: '#070B1C', surface: '#111733', ink: '#EEF0FF', muted: '#959DCB', accent: '#2DD4F0', accent2: '#B38CFF', dark: true },
+      { id: 'kapur', name: 'Papan tulis', bg: '#10261F', surface: '#193629', ink: '#F0F5EC', muted: '#9DB8A8', accent: '#F2C94C', accent2: '#6FD0A8', dark: true },
+      { id: 'cetakbiru', name: 'Cetak biru', bg: '#0C2340', surface: '#143259', ink: '#EAF4FF', muted: '#9BB8D8', accent: '#5CC8FF', accent2: '#FFD166', dark: true },
+      { id: 'biologi', name: 'Biologi', bg: '#F1F7F1', surface: '#FFFFFF', ink: '#112218', muted: '#4F6A58', accent: '#1B7F4A', accent2: '#C26A12', dark: false },
+      { id: 'milimeter', name: 'Kertas grafik', bg: '#F7F5EC', surface: '#FFFFFF', ink: '#1A1D22', muted: '#5F6470', accent: '#C23B22', accent2: '#1F6FB5', dark: false }
+    ],
+    fonts: ['poppins', 'archivo', 'anton'],
+    numberFont: 'poppins',
+    captionStyle: 'box',
+    captionLit: 'accent',
+    guidance: [
+      'A science explainer that teaches one idea step by step and backs it with data. Use only well-established facts and numbers that are widely published; round numbers; never invent figures. When unsure about a number, use a "fact" or "step" scene in words, or fewer data points, instead of a precise-looking value.',
+      'Scene 1 is "title": label = the field (1-2 words, e.g. "Astronomi"), heading = the question or hook (max 9 words), body = a one-line teaser (max 14 words).',
+      'Then 3-6 content scenes. Use "step" for a process (value = the step number), "fact" for one striking figure (value = the figure with its unit, heading = what it means, body = one line of context), "compare" for two columns, and "points" for a short summary list.',
+      'Use a "chart" scene only when a well-established data set backs the point. Each chart scene needs heading = what the chart shows (max 9 words), body = a one-line conclusion (max 20 words), chart.unit = a short unit ("%", "ppm", "juta km") and chart.items = label + numeric value (a number, not text). Pick chart.kind carefully: "bar" compares 2-8 categories; "line" shows a trend over time with 3-12 items in time order (labels = years or times); "donut" shows the composition of a whole with 2-6 parts that add up to a meaningful total; "bubble" shows 2-6 magnitudes that are very far apart (sizes, distances, populations) as circles with proportional area. Never use negative numbers for donut or bubble.',
+      'ALWAYS fill author with a general source for the data or fact (e.g. "NASA", "NOAA", "BPS", "WHO", "Britannica"); never cite a source you are not sure exists. Never invent quotes. Chart scenes use imageMode "none".',
+      'Use imageMode "ai" with a concrete imagePrompt (English; a clean textbook-style diagram or scene, no text, no labels) for the title and some step scenes; otherwise "none".',
+      'The last scene is "outro": heading = a takeaway or question, body = one line.'
+    ].join('\n')
   }
 ]
 
@@ -455,8 +542,75 @@ export function emptyScene(type: SceneType = 'step'): ExplainerScene {
     side: 'none',
     imageMode: 'none',
     imagePrompt: '',
-    highlight: null
+    highlight: null,
+    timeline: [],
+    chart: { kind: 'bar', unit: '', items: [] }
   }
+}
+
+/** Items a chart kind can show; fewer than `min` is still drawn as is, more than `max` is cut. */
+export const CHART_LIMITS: Record<ChartKind, { min: number; max: number }> = {
+  bar: { min: 2, max: 8 },
+  line: { min: 3, max: 12 },
+  donut: { min: 2, max: 6 },
+  bubble: { min: 2, max: 6 }
+}
+export const TIMELINE_MAX = 6
+
+/** One locale for chart numbers: the project language, with the same fallback for unknown codes everywhere. */
+function chartLocale(language: string): string {
+  // Javanese and Sundanese numbers are written like Indonesian, and Chromium's ICU has no data for jv/su
+  // (it would fall back to en-US and flip the separators).
+  const tag = language === 'id' || language === 'jv' || language === 'su' ? 'id-ID' : language
+  try {
+    return Intl.NumberFormat.supportedLocalesOf(tag).length ? tag : 'en-US'
+  } catch {
+    return 'en-US'
+  }
+}
+
+/**
+ * A chart value from a number or from typed text. With both separators the last one is the decimal mark
+ * ("1.234,5", "1,234.5"). With one kind of separator and a `language`, the locale decides: its group mark
+ * before exactly 3 digits per group is thousands ("12.500" in id), its decimal mark is a decimal, and the
+ * other mark is read as a decimal unless it looks like thousands ("1.5" in id is 1.5). Without a language a
+ * single separator that appears once is a decimal and a repeated one is thousands.
+ */
+export function chartNumber(raw: unknown, language?: string): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw !== 'string') return null
+  let t = raw.replace(/[\s\u00A0\u202F]/g, '')
+  if (!/^[+-]?[\d.,]*\d[\d.,]*$/.test(t)) return null
+  const dot = t.lastIndexOf('.')
+  const comma = t.lastIndexOf(',')
+  if (dot >= 0 && comma >= 0) {
+    const dec = dot > comma ? '.' : ','
+    const grp = dec === '.' ? ',' : '.'
+    t = t.split(grp).join('').replace(dec, '.')
+  } else if (dot >= 0 || comma >= 0) {
+    const sep = dot >= 0 ? '.' : ','
+    const parts = t.split(sep)
+    let group: string | undefined
+    if (language) {
+      try {
+        // A 7-digit sample: locales such as es do not group 4-digit numbers, so 1234.5 would show no group mark.
+        group = new Intl.NumberFormat(chartLocale(language)).formatToParts(1234567.5).find((x) => x.type === 'group')?.value
+      } catch {
+        group = undefined
+      }
+    }
+    // A leading lone "0" is never a thousands group ("0.500" is a half).
+    const thousands = /^[+-]?[1-9]\d{0,2}$/.test(parts[0]) && parts.slice(1).every((x) => /^\d{3}$/.test(x))
+    const asThousands = group === sep ? thousands : parts.length > 2
+    t = asThousands ? parts.join('') : t.replace(sep, '.')
+  }
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+/** A chart value written for the project's language (thousands and decimal marks), at most 2 decimals. */
+export function formatChartValue(value: number, language: string): string {
+  return new Intl.NumberFormat(chartLocale(language), { maximumFractionDigits: 2 }).format(value)
 }
 
 const str = (v: unknown, max = 400): string => (typeof v === 'string' ? v.replace(/\s+$/g, '').trim().slice(0, max) : '')
@@ -467,6 +621,33 @@ const list = (v: unknown): string[] =>
     .filter(Boolean)
     .slice(0, 5)
 const clamp01 = (n: unknown): number => Math.min(1, Math.max(0, Number(n) || 0))
+
+function normalizeTimeline(v: unknown): TimelinePoint[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((p) => {
+      const o = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>
+      return { date: str(o.date, 24), title: str(o.title, 80) }
+    })
+    .filter((p) => p.date || p.title)
+    .slice(0, TIMELINE_MAX)
+}
+
+function normalizeChart(v: unknown): ExplainerChart {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  // The LLM schema says 'none' for scenes without a chart; the type only has the four real kinds.
+  const kind = oneOf(o.kind, ['bar', 'line', 'donut', 'bubble'] as const, 'bar')
+  // Slices and areas cannot be negative; bars and lines can (temperatures).
+  const nonNegative = kind === 'donut' || kind === 'bubble'
+  const items = (Array.isArray(o.items) ? o.items : [])
+    .map((it) => {
+      const r = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>
+      return { label: str(r.label, 40), value: chartNumber(r.value) }
+    })
+    .filter((it): it is ChartItem => !!it.label && it.value !== null && !(nonNegative && it.value < 0))
+    .slice(0, CHART_LIMITS[kind].max)
+  return { kind, unit: str(o.unit, 24), items }
+}
 
 /**
  * Brings a scene from the LLM, the database or an old build to the current shape. `allowed` limits the
@@ -501,9 +682,11 @@ export function normalizeScene(raw: unknown, allowed?: SceneType[], fallback?: S
     leftValue: str(r.leftValue, 24),
     rightValue: str(r.rightValue, 24),
     side: oneOf(r.side, ['none', 'left', 'right', 'both'] as const, 'none'),
-    imageMode: oneOf(r.imageMode, ['none', 'upload', 'ai'] as const, 'none'),
+    imageMode: type === 'timeline' || type === 'chart' ? 'none' : oneOf(r.imageMode, ['none', 'upload', 'ai'] as const, 'none'),
     imagePrompt: str(r.imagePrompt, 600),
-    highlight
+    highlight,
+    timeline: normalizeTimeline(r.timeline),
+    chart: normalizeChart(r.chart)
   }
 }
 
@@ -721,7 +904,9 @@ export function explainerImagePrompt(project: Pick<Project, 'templateId' | 'them
     facts: 'Dramatic cinematic photograph, high detail, strong lighting, shallow depth of field.',
     quote: 'Calm atmospheric photograph, soft natural light, gentle colors, lots of negative space.',
     compare: 'Clean product-style photograph on a plain backdrop, even studio lighting.',
-    news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.'
+    news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.',
+    history: 'Classical historical oil painting, warm aged tones, dramatic composition, visible brush strokes, no recognizable faces.',
+    science: 'Clean textbook-style scientific diagram illustration on a light background, simple shapes, clear and uncluttered.'
   }
   const chosen = getExplainerImageStyle(project.theme?.imageStyleId).prompt
   const subject = scene.imagePrompt.trim() || [scene.heading, scene.body].filter(Boolean).join('. ')
@@ -788,6 +973,8 @@ export type ExplainerInput = {
   captions: boolean
   caption: ExplainerCaption
   fontBase: string
+  /** Project language code, so chart numbers read the same in the Player and the export. */
+  language: string
   logo: string | null
   scenes: ExplainerSceneInput[]
   music: { src: string; volume: number; duck: boolean; trimBeforeFrames: number } | null
@@ -803,7 +990,7 @@ function fileUrl(base: string, localPath: string): string {
 }
 
 export function buildExplainerInput(args: {
-  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor'> & Partial<Pick<Project, 'narrator'>>
+  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor' | 'language'> & Partial<Pick<Project, 'narrator'>>
   clips: Clip[]
   assets: AssetLookup
   assetBase: string
@@ -825,7 +1012,9 @@ export function buildExplainerInput(args: {
     const frames = Math.max(1, Math.round((sceneDurationMs(c, assets) / 1000) * fps))
     const audioAsset = c.audioAssetId ? assets[c.audioAssetId] : undefined
     const imageAsset = c.imageAssetId ? assets[c.imageAssetId] : undefined
-    const scene = c.scene ?? normalizeScene({ type: allowed[0], heading: c.title, body: c.narration }, allowed)
+    // Re-normalizing drops the editor's unfinished rows and cuts long labels exactly like storage does, so the
+    // Player shows what the export will render.
+    const scene = c.scene ? normalizeScene(c.scene) : normalizeScene({ type: allowed[0], heading: c.title, body: c.narration }, allowed)
     let words: WordTiming[] = []
     let audio: ExplainerSceneInput['audio'] = null
     if (audioAsset?.durationMs) {
@@ -873,6 +1062,7 @@ export function buildExplainerInput(args: {
     captions: args.captions ?? project.theme?.captions !== false,
     caption: resolveCaption(project.templateId, project.theme),
     fontBase: args.fontBase,
+    language: project.language,
     logo: logoAsset ? fileUrl(args.assetBase, logoAsset.localPath) : null,
     scenes,
     music: musicAsset
@@ -962,6 +1152,108 @@ export const SAMPLE_SCENES: Record<ExplainerTemplateId, ExplainerScene[]> = {
       value: '28 Okt 2026'
     }),
     sample({ type: 'points', heading: 'Poin penting', left: ['Ponsel lipat makin terjangkau', 'Fitur AI berjalan tanpa internet', 'Baterai tahan dua hari jadi standar'] })
+  ],
+  history: [
+    sample({ type: 'title', label: 'Indonesia', heading: 'Jalan panjang menuju kemerdekaan', body: 'Lima tonggak penting dalam satu menit.' }),
+    sample({
+      type: 'timeline',
+      label: 'Abad ke-20',
+      heading: 'Dari kebangkitan sampai kedaulatan',
+      body: 'Lebih dari empat puluh tahun yang membentuk Indonesia.',
+      author: 'Sejarah Nasional Indonesia',
+      timeline: [
+        { date: '1908', title: 'Budi Utomo berdiri' },
+        { date: '1928', title: 'Sumpah Pemuda' },
+        { date: '1942', title: 'Jepang menduduki Hindia Belanda' },
+        { date: '1945', title: 'Proklamasi kemerdekaan' },
+        { date: '1949', title: 'Belanda mengakui kedaulatan' }
+      ]
+    }),
+    sample({
+      type: 'fact',
+      value: '1945',
+      heading: 'Indonesia memproklamasikan kemerdekaan',
+      body: 'Soekarno dan Mohammad Hatta membacakannya di Jakarta pada 17 Agustus.',
+      author: 'Sejarah Nasional Indonesia'
+    }),
+    sample({ type: 'quote', heading: 'Jangan sekali-kali meninggalkan sejarah.', author: 'Soekarno, pidato 17 Agustus 1966', body: 'Dikenal sebagai Jasmerah.' }),
+    sample({ type: 'points', heading: 'Yang bisa kita pelajari', left: ['Persatuan lahir dari kesadaran bersama', 'Kemerdekaan butuh waktu dan perjuangan', 'Sejarah membantu memahami hari ini'] }),
+    sample({ type: 'outro', heading: 'Tonggak mana yang paling kamu ingat?', body: 'Tulis di kolom komentar.' })
+  ],
+  science: [
+    sample({ type: 'title', label: 'Astronomi', heading: 'Seberapa luas tata surya kita?', body: 'Empat grafik, satu gambaran besar.' }),
+    sample({
+      type: 'chart',
+      label: 'Jarak',
+      heading: 'Jarak planet dalam ke Matahari',
+      body: 'Bumi berada sekitar 150 juta km dari Matahari.',
+      author: 'NASA',
+      chart: {
+        kind: 'bar',
+        unit: 'juta km',
+        items: [
+          { label: 'Merkurius', value: 58 },
+          { label: 'Venus', value: 108 },
+          { label: 'Bumi', value: 150 },
+          { label: 'Mars', value: 228 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Tren',
+      heading: 'Karbon dioksida di atmosfer terus naik',
+      body: 'Dalam enam dekade, kadarnya naik sekitar 100 ppm.',
+      author: 'NOAA, Mauna Loa',
+      chart: {
+        kind: 'line',
+        unit: 'ppm',
+        items: [
+          { label: '1960', value: 317 },
+          { label: '1970', value: 326 },
+          { label: '1980', value: 339 },
+          { label: '1990', value: 354 },
+          { label: '2000', value: 370 },
+          { label: '2010', value: 390 },
+          { label: '2020', value: 414 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Komposisi',
+      heading: 'Isi udara yang kita hirup',
+      body: 'Hampir semuanya nitrogen, bukan oksigen.',
+      author: 'NASA',
+      chart: {
+        kind: 'donut',
+        unit: '%',
+        items: [
+          { label: 'Nitrogen', value: 78 },
+          { label: 'Oksigen', value: 21 },
+          { label: 'Lainnya', value: 1 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Ukuran',
+      heading: 'Diameter benda langit',
+      body: 'Matahari lebih lebar dari seratus Bumi berjajar.',
+      author: 'NASA',
+      chart: {
+        kind: 'bubble',
+        unit: 'ribu km',
+        items: [
+          { label: 'Bulan', value: 3.5 },
+          { label: 'Bumi', value: 12.7 },
+          { label: 'Jupiter', value: 140 },
+          { label: 'Matahari', value: 1393 }
+        ]
+      }
+    }),
+    sample({ type: 'fact', label: 'Bumi', value: '71%', heading: 'Permukaan Bumi tertutup air', body: 'Sebagian besarnya berupa samudra.', author: 'USGS' }),
+    sample({ type: 'outro', heading: 'Angka mana yang paling mengejutkan?', body: 'Ikuti untuk sains berikutnya.' })
   ]
 }
 
@@ -988,6 +1280,7 @@ export function sampleExplainerInput(templateId: ExplainerTemplateId, aspect: As
     captions: false,
     caption: resolveCaption(templateId, theme),
     fontBase,
+    language: 'id',
     logo: null,
     scenes,
     music: null

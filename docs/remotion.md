@@ -188,6 +188,8 @@ Satu klip = satu adegan. Isi adegan disimpan di `clips.scene_json` (`ExplainerSc
 | Kutipan / motivasi | title, quote, tip, outro | serif elegan, tanda kutip besar, kata muncul satu per satu, latar foto redup bergerak pelan |
 | Perbandingan (A vs B) | title, versus, proscons, verdict, outro | poster adu: layar terbelah miring warna A (aksen) dan B (aksen kedua), cakram VS yang berubah jadi skor, ronde dengan angka besar per pilihan, setengah layar pemenang menyala dan yang kalah meredup, titik ronde di atas, putusan dengan cap dan skor akhir, transisi dua warna yang bertabrakan |
 | Berita / rangkuman cepat | title, headline, points, fact, quote, outro | meja berita: tab kategori merah, judul dalam bar lower third yang tersapu masuk, daftar berita di pembuka, nomor berita bergaris, poin penting yang muncul satu per satu, bug desk + tanggal di pojok, ticker judul di bawah (16:9), pita merah bertuliskan kategori berikutnya di setiap potongan |
+| Sejarah / linimasa | title, timeline, fact, quote, points, outro | kertas perkamen berbintik, serif klasik, garis waktu horizontal dengan titik yang muncul berurutan dan titik terakhir menyala, tanggal serif besar, sumber di pojok |
+| Sains / data | title, chart, fact, step, compare, points, outro | latar kertas grafik, angka mono, grafik batang, garis, donut, atau lingkaran proporsional yang tumbuh saat adegan masuk, satuan di atas grafik |
 
 **Perbandingan.** Nama pilihan A dan B diambil dari adegan Judul (`leftTitle`/`rightTitle`), jadi cukup diubah di sana.
 `versus` = satu ronde: `label` aspek, `heading` pertanyaan, `leftValue`/`rightValue` angka atau nilai per pilihan,
@@ -201,6 +203,23 @@ Satu klip = satu adegan. Isi adegan disimpan di `clips.scene_json` (`ExplainerSc
 `headline` memakai gambar AI atau screenshot sebagai latar penuh (16:9) atau bagian atas (9:16) dengan lower third di
 atasnya; tanpa gambar, nomor berita tampil besar bergaris. `points` memakai `left` sebagai daftar. Panduan LLM
 melarang mengarang peristiwa, angka, kutipan, tanggal, atau sumber; tanggal hari ini ikut dikirim di prompt.
+
+**Sejarah dan Sains.** Dua template ini membawa data terstruktur, bukan hanya teks. `timeline` (adegan `timeline`,
+`timeline.tsx`) = `{date, title}[]`, paling banyak `TIMELINE_MAX` (6) titik, urut dari yang tertua. `date` teks bebas
+("1945", "abad ke-14", "65 jt SM") dan tidak pernah diurai jadi tanggal. `chart` (adegan `chart`, `chart.tsx`) =
+`{kind, unit, items: {label, value}[]}` dengan `kind` `bar`, `line`, `donut`, atau `bubble` (lingkaran dengan luas
+sebanding nilai, untuk besaran yang selisihnya jauh). Jumlah data dibatasi per jenis di `CHART_LIMITS` (batang 2-8,
+garis 3-12, donut dan lingkaran 2-6). Donut dan lingkaran tidak menerima nilai negatif. "Tanpa grafik" = `items`
+kosong, bukan jenis khusus; `normalizeChart` membuang baris tanpa label atau tanpa angka. Nilai selalu `number`
+(bukan teks), sedangkan teks yang diketik pengguna diurai `chartNumber(teks, bahasa)`: di bahasa Indonesia "12.500" =
+12500 dan "3,5" = 3,5. Tampilan angka lewat `formatChartValue(nilai, bahasa)` (pemisah ribuan dan desimal mengikuti
+bahasa proyek, maksimal 2 desimal), dan `ExplainerInput.language` meneruskan bahasa itu supaya Player dan ekspor
+menulis angka yang sama. Kolom `author` dipakai sebagai Sumber. Panduan LLM melarang mengarang tahun, angka, dan
+sumber. Karena LLM bisa salah, editor memberi pengingat "Cek ulang tahun dan angka sebelum ekspor."
+
+Editor datanya ada di `ScenesStep.tsx` (`TimelineEditor`, `ChartEditor`). Angka diketik bebas dan disimpan sebagai
+teks di baris lokal; hanya teks yang lolos `chartNumber` yang disimpan (baris tidak valid diberi tanda merah). Data
+tinggal di `scene_json`, jadi ganti template ke `tips` lalu kembali ke `science` tidak menghilangkan grafik.
 
 Gambar adegan bersifat opsional (`imageMode`): `upload` (screenshot pengguna, ditampilkan utuh, bisa diberi kotak
 sorotan), `ai` (prompt dari LLM lewat pipeline gambar yang sama dengan proyek cerita, selalu 16:9, tanpa pemeran),
@@ -279,6 +298,18 @@ Tambahkan id di `SceneType` dan `SCENE_TYPES` (field yang dipakai), komponen + e
 harus ditambahkan juga di `emptyScene`, `normalizeScene`, dan skema JSON di `src/main/explainer.ts` (mode strict
 OpenAI dan Gemini: objek adegan datar, semua field wajib, string kosong atau `[]` kalau tidak dipakai, enum untuk
 pilihan tetap). Field adegan tinggal di `scene_json`, jadi tidak perlu migrasi database.
+
+### Menambah jenis grafik
+
+1. Tambahkan id di `ChartKind` dan entri di `CHART_LIMITS` (`src/shared/explainer.ts`); tambahkan juga di daftar enum
+   `normalizeChart` dan skema JSON `chart.kind` di `src/main/explainer.ts`. Kalau nilai negatif tidak masuk akal
+   (bagian dari keseluruhan, luas), masukkan ke pemeriksaan `nonNegative` di `normalizeChart` dan `ChartEditor`.
+2. Gambar di `src/remotion/explainer/chart.tsx` (satu cabang per jenis), pakai `formatChartValue` untuk semua angka dan
+   skala yang sebanding (luas atau panjang mengikuti nilai, bukan nilai yang dibulatkan). Jaga isinya tetap di area
+   aman dan tidak menimpa pita caption.
+3. Tombol jenisnya di `CHART_KINDS` (`ScenesStep.tsx`, ikon `lucide-react`), dan tambahkan panduan kapan memakainya di
+   `guidance` template Sains.
+4. Uji dengan `seedExplainer` template `science`, ganti jenis di editor, dan periksa 16:9 dan 9:16.
 
 ## Menguji
 
