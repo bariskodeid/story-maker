@@ -621,6 +621,78 @@ export const EXPLAINER_IMAGE_STYLES: ExplainerImageStyle[] = [
     swatch: '#3C4258',
     ink: '#FAF7F2',
     prompt: 'Dramatic cinematic photograph, strong directional lighting, rich color grading, shallow depth of field.'
+  },
+  {
+    id: 'oldmap',
+    name: 'Peta kuno',
+    blurb: 'Perkamen, kartografi lama',
+    swatch: '#D9BF8C',
+    ink: '#4A2F14',
+    prompt:
+      'Antique hand-drawn map on aged parchment, sepia ink linework, wavy coastlines, a compass rose, tiny illustrated ships and sea monsters, soft stains and worn edges, with no readable labels.'
+  },
+  {
+    id: 'engraving',
+    name: 'Ukiran ensiklopedia',
+    blurb: 'Gravir hitam-putih buku tua',
+    swatch: '#EFE6D2',
+    ink: '#1F1D1A',
+    prompt:
+      'Black-and-white copperplate engraving in the style of an old encyclopedia plate, fine cross-hatching and stippled shading, crisp ink lines on cream paper, a formal detailed composition.'
+  },
+  {
+    id: 'historypaint',
+    name: 'Lukisan sejarah',
+    blurb: 'Lukisan klasik ala museum',
+    swatch: '#6B3F2A',
+    ink: '#F6E7C8',
+    prompt:
+      'Classical academic history painting, museum-quality oil on canvas with visible brushwork, dramatic chiaroscuro light, a grand composition of a historical scene with period-accurate costume and setting.'
+  },
+  {
+    id: 'relief',
+    name: 'Relief candi',
+    blurb: 'Pahatan batu ala Borobudur',
+    swatch: '#8E8678',
+    ink: '#FAF7F2',
+    prompt:
+      'Carved stone bas-relief panel in the style of Javanese temple reliefs like Borobudur and Prambanan, weathered grey andesite, figures in flowing poses, strong side lighting that shows the depth of the carving.'
+  },
+  {
+    id: 'textbook',
+    name: 'Diagram buku pelajaran',
+    blurb: 'Ilustrasi ilmiah, potongan',
+    swatch: '#DDEBF2',
+    ink: '#1F1D1A',
+    prompt:
+      'Clean scientific textbook illustration, a cutaway or cross-section view, flat colors with subtle shading, precise smooth outlines on a plain white background, with no labels.'
+  },
+  {
+    id: 'micro',
+    name: 'Mikroskopis',
+    blurb: 'Sel, molekul, dunia mikro',
+    swatch: '#143B3A',
+    ink: '#9CF2D6',
+    prompt:
+      'Microscopy image of cells, molecules or microorganisms, vivid fluorescent or stained-slide colors, a circular field of view on a dark or light background, shallow depth of field and soft glow.'
+  },
+  {
+    id: 'space',
+    name: 'Luar angkasa',
+    blurb: 'Planet dan nebula ala NASA',
+    swatch: '#0B1030',
+    ink: '#F2E9FF',
+    prompt:
+      'Photorealistic space telescope imagery in a NASA-style render, planets, glowing nebulae, stars or a spacecraft against deep black space, rich cosmic colors and razor-sharp detail.'
+  },
+  {
+    id: 'inventor',
+    name: 'Sketsa penemu',
+    blurb: 'Tinta di kertas tua ala Da Vinci',
+    swatch: '#D8C39A',
+    ink: '#3B2412',
+    prompt:
+      'Notebook sketch of an inventor in the style of Leonardo da Vinci, brown ink and light wash on aged yellowed paper, mechanical studies of gears, levers and machines from several angles, with no handwriting.'
   }
 ]
 

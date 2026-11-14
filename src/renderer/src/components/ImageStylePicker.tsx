@@ -1,4 +1,27 @@
-import { Box, Camera, Clapperboard, DraftingCompass, Droplets, Hand, Layers, PenLine, Pencil, Shapes, Sparkles, Wand2, Zap, type LucideIcon } from 'lucide-react'
+import {
+  BookOpen,
+  Box,
+  Camera,
+  Castle,
+  Clapperboard,
+  Cog,
+  DraftingCompass,
+  Droplets,
+  FlaskConical,
+  Hand,
+  Landmark,
+  Layers,
+  Map as MapIcon,
+  Microscope,
+  PenLine,
+  Pencil,
+  Rocket,
+  Shapes,
+  Sparkles,
+  Wand2,
+  Zap,
+  type LucideIcon
+} from 'lucide-react'
 import { EXPLAINER_IMAGE_STYLES, getExplainerImageStyle } from '@shared/explainer'
 import { cx } from './ui'
 
@@ -15,7 +38,15 @@ const ICON: Record<string, LucideIcon> = {
   neon: Zap,
   blueprint: DraftingCompass,
   photo: Camera,
-  cinematic: Clapperboard
+  cinematic: Clapperboard,
+  oldmap: MapIcon,
+  engraving: BookOpen,
+  historypaint: Landmark,
+  relief: Castle,
+  textbook: FlaskConical,
+  micro: Microscope,
+  space: Rocket,
+  inventor: Cog
 }
 
 /** Square tiles for the look of an explainer's AI pictures; it applies to pictures made after the change. */
