@@ -14,6 +14,7 @@ import {
 import { CaptionLine } from '@video/explainer/captions'
 import { ExplainerVideo } from '@video/explainer/ExplainerVideo'
 import { CAPTION_METRICS } from '@video/explainer/layout'
+import { useNarratorSprites } from '../lib/useNarratorSprites'
 import { useProject } from '../store/project'
 import { cx } from './ui'
 
@@ -28,6 +29,8 @@ export function useExplainerInput(): ExplainerInput | null {
   const project = useProject((s) => s.project)
   const clips = useProject((s) => s.clips)
   const assets = useProject((s) => s.assets)
+  const sprites = useNarratorSprites(project?.narrator ?? { id: null, anchor: 'bottomRight', size: 'medium', enabled: false })
+  const narratorSprites = useMemo(() => (sprites ? { sprites: sprites.urls, aspect: sprites.aspect } : null), [sprites])
   return useMemo(
     () =>
       project && project.kind === 'explainer'
@@ -36,10 +39,11 @@ export function useExplainerInput(): ExplainerInput | null {
             clips,
             assets,
             assetBase: `studio://asset/${encodeURIComponent(project.id)}/`,
-            fontBase: PREVIEW_FONT_BASE
+            fontBase: PREVIEW_FONT_BASE,
+            narratorSprites
           })
         : null,
-    [project, clips, assets]
+    [project, clips, assets, narratorSprites]
   )
 }
 

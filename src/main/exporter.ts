@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import ffmpegStatic from 'ffmpeg-static'
 import {
@@ -18,6 +18,7 @@ import {
   type ResolvedCaption
 } from '@shared/captions'
 import { cameraPerspective, TRANSITIONS, transitionSecOf } from '@shared/motion'
+import { captionShiftAbove, narratorBox, narratorSegments, pickSprite, storyNarratorTrack, type Rect } from '@shared/narrator'
 import { clipCaptionWords, musicSpan, voiceSpan } from '@shared/timeline'
 import { anchorOffset, contrastColor, overlayEnd, textEffects } from '@shared/overlays'
 import type { Asset, Clip, ExportOptions, ImageOverlay, Job, ProjectBundle, TextOverlay } from '@shared/types'
@@ -25,6 +26,7 @@ import { emit } from './events'
 import { runJob, type TaskCtx } from './jobs'
 import { fontMeasure } from './fontMetrics'
 import { assetAbsPath, binPath, dataDir, fontsDir } from './paths'
+import { findNarrator, narratorSpriteFiles } from './narrators'
 import { getBundle, insertJob, touchProject } from './repo'
 
 function ffmpegPath(): string {
@@ -111,6 +113,8 @@ interface CaptionTrack {
   style: ResolvedCaption
   pos: string
   sizeScale: number
+  /** Narrator rectangle in frame pixels; bottom captions that would cover it move up. */
+  avoid: Rect | null
 }
 
 /** Overlay text styles; each line then sets its own size, colors and position with override tags. */
@@ -217,22 +221,26 @@ function captionEvents(track: CaptionTrack, w: number, h: number): string[] {
     const textOf = (color: (k: number) => string): string =>
       words.map((_, k) => `${k === 0 ? '' : breaks.has(k) ? '\\N' : ' '}${color(k)}`).join('')
 
+    const textW = Math.max(...layout.map((l) => measure(l.join(' ')) * px))
+    const textH = layout.length * lineH
+    const top = pos === 'atas' ? marginV : pos === 'tengah' ? (h - textH) / 2 : h - marginV - textH
+    // Only bottom captions move, since the narrator sits in a bottom corner; the preview applies the same rule.
+    const dy = pos === 'bawah' ? captionShiftAbove({ x: w / 2 - textW / 2 - pad, y: top - pad, w: textW + 2 * pad, h: textH + 2 * pad }, track.avoid, h) : 0
+    // A non-zero margin on a Dialogue line overrides the style's, which is how libass moves a single caption.
+    const margin = dy ? Math.round(marginV - dy) : 0
     if (style.box) {
-      const textW = Math.max(...layout.map((l) => measure(l.join(' ')) * px))
-      const textH = layout.length * lineH
-      const top = pos === 'atas' ? marginV : pos === 'tengah' ? (h - textH) / 2 : h - marginV - textH
-      const path = roundedRectPath(w / 2 - textW / 2 - pad, top - pad, w / 2 + textW / 2 + pad, top + textH + pad, px * CAPTION_BOX_RADIUS)
+      const path = roundedRectPath(w / 2 - textW / 2 - pad, top + dy - pad, w / 2 + textW / 2 + pad, top + dy + textH + pad, px * CAPTION_BOX_RADIUS)
       lines.push(`Dialogue: 0,${assTime(c.start)},${assTime(holdUntil)},CapBox,,0,0,0,,{\\an7\\pos(0,0)\\p1}${path}`)
     }
     if (!highlight) {
-      lines.push(`Dialogue: 1,${assTime(c.start)},${assTime(holdUntil)},Cap,,0,0,0,,${textOf((k) => words[k])}`)
+      lines.push(`Dialogue: 1,${assTime(c.start)},${assTime(holdUntil)},Cap,,0,0,${margin},,${textOf((k) => words[k])}`)
       return
     }
     c.words.forEach((wd, j) => {
       const start = j === 0 ? c.start : wd.start
       const end = j + 1 < c.words.length ? c.words[j + 1].start : holdUntil
       if (end <= start) return
-      lines.push(`Dialogue: 1,${assTime(start)},${assTime(end)},Cap,,0,0,0,,${textOf((k) => (k === j ? `{\\c${hl}}${words[k]}{\\c${base}}` : words[k]))}`)
+      lines.push(`Dialogue: 1,${assTime(start)},${assTime(end)},Cap,,0,0,${margin},,${textOf((k) => (k === j ? `{\\c${hl}}${words[k]}{\\c${base}}` : words[k]))}`)
     })
   })
   return lines
@@ -322,6 +330,64 @@ function cameraChain(cam: string | null, work: { w: number; h: number }, size: {
 
 /** An audio length to assume when an older asset never recorded its duration. */
 const UNKNOWN_AUDIO_MS = 10 * 60 * 1000
+
+/** Width and height of a PNG, from its IHDR chunk. */
+export function pngSize(file: string): { w: number; h: number } {
+  const head = Buffer.alloc(24)
+  const fd = openSync(file, 'r')
+  try {
+    readSync(fd, head, 0, 24, 0)
+  } finally {
+    closeSync(fd)
+  }
+  return { w: head.readUInt32BE(16), h: head.readUInt32BE(20) }
+}
+
+/**
+ * The animated narrator of a project, or null when it is off, missing or has no sprites, in which case the export
+ * is exactly what it was before narrators existed. Writes the concat list of sprite runs into `tmp`.
+ *
+ * Only sprite swaps are drawn: the breathing scale and speech bounce of narratorSpriteAt are left out here and in
+ * the preview, because FFmpeg would need a per-frame expression for a state (speaking) it cannot see.
+ */
+function prepareNarrator(
+  bundle: ProjectBundle,
+  segs: { start: number; clip: Clip }[],
+  size: { w: number; h: number },
+  fps: number,
+  total: number,
+  tmp: string
+): { x: number; y: number; w: number; h: number; box: Rect } | null {
+  const settings = bundle.project.narrator
+  const narrator = settings?.enabled ? findNarrator(settings.id) : null
+  const files = narrator ? narratorSpriteFiles(narrator) : null
+  if (!files) return null
+  const available = new Set(Object.keys(files))
+  const base = pickSprite('neutral-closed', available)
+  if (!base) return null
+  const dim = pngSize(files[base])
+  if (!dim.w || !dim.h) return null
+  const track = storyNarratorTrack(
+    segs.map((s) => {
+      const audio = assetOf(bundle, s.clip.audioAssetId)
+      return { startSec: s.start, clip: s.clip, audioMs: audio ? (audio.durationMs ?? UNKNOWN_AUDIO_MS) : null, words: audio?.meta.words }
+    })
+  )
+  const runs = narratorSegments(track, total, fps)
+  if (!runs.length) return null
+  const quote = (f: string): string => `'${f.split('\\').join('/').split("'").join("'\\''")}'`
+  const lines = ['ffconcat version 1.0']
+  let last = ''
+  for (const r of runs) {
+    last = files[pickSprite(r.sprite, available) ?? base]
+    lines.push(`file ${quote(last)}`, `duration ${(r.endSec - r.startSec).toFixed(6)}`)
+  }
+  // The concat demuxer ignores the last duration unless the file is listed once more.
+  lines.push(`file ${quote(last)}`)
+  writeFileSync(join(tmp, 'narrator.ffconcat'), lines.join('\n'), 'utf8')
+  const box = narratorBox(size.w, size.h, settings, dim.w / dim.h)
+  return { x: Math.round(box.x), y: Math.round(box.y), w: Math.max(2, Math.round(box.w / 2) * 2), h: Math.max(2, Math.round(box.h / 2) * 2), box }
+}
 
 function assetOf(bundle: ProjectBundle, id: string | null): Asset | undefined {
   return id ? bundle.assets.find((a) => a.id === id) : undefined
@@ -423,13 +489,15 @@ async function renderProject(ctx: TaskCtx, projectId: string, opts: ExportOption
       .map((o) => ({ o, asset: assetOf(bundle, o.assetId) }))
       .filter((x): x is { o: ImageOverlay; asset: Asset } => !!x.asset && existsSync(assetAbsPath(projectId, x.asset.localPath)))
     const useAss = burn || texts.length > 0
+    const nar = prepareNarrator(bundle, segs, size, opts.fps, total, tmp)
     if (useAss) {
       const captions = burn
         ? {
             chunks,
             style: style!,
             pos: bundle.project.editor.captionPosition,
-            sizeScale: captionScaleOf(bundle.project.editor)
+            sizeScale: captionScaleOf(bundle.project.editor),
+            avoid: nar?.box ?? null
           }
         : null
       writeFileSync(join(tmp, 'captions.ass'), buildAss(captions, texts, total, size.w, size.h), 'utf8')
@@ -460,9 +528,17 @@ async function renderProject(ctx: TaskCtx, projectId: string, opts: ExportOption
       graph.push(`${v}[ov${k}]overlay=x=${x}:y=${y}:enable='between(t,${o.start.toFixed(3)},${end.toFixed(3)})'[vo${k}]`)
       v = `[vo${k}]`
     })
+    // The narrator sits on top of logos and under captions. One alpha input: the sprite runs as a concat list.
+    if (nar) {
+      const narrIndex = files.length + images.length
+      args.push('-f', 'concat', '-safe', '0', '-i', 'narrator.ffconcat')
+      graph.push(`[${narrIndex}:v]format=rgba,scale=${nar.w}:${nar.h}:flags=lanczos[nar]`)
+      graph.push(`${v}[nar]overlay=x=${nar.x}:y=${nar.y}:eof_action=repeat[vn]`)
+      v = '[vn]'
+    }
     graph.push(`${v}${useAss ? 'ass=captions.ass:fontsdir=fonts,' : ''}format=yuv420p[vout]`)
 
-    let inputIndex = files.length + images.length
+    let inputIndex = files.length + images.length + (nar ? 1 : 0)
     const voices: string[] = []
     segs.forEach((s, i) => {
       const audio = assetOf(bundle, s.clip.audioAssetId)

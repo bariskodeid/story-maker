@@ -1,5 +1,6 @@
+import type { NarratorTrackClip } from './narrator'
 import { clipCaptionWords } from './timeline'
-import type { AspectRatio, Asset, Clip, Project, WordTiming } from './types'
+import type { AspectRatio, Asset, Clip, NarratorSettings, Project, WordTiming } from './types'
 
 /**
  * Explainer videos (tutorials, tips, facts, quotes): every clip is one designed scene, drawn by the Remotion
@@ -790,6 +791,8 @@ export type ExplainerInput = {
   logo: string | null
   scenes: ExplainerSceneInput[]
   music: { src: string; volume: number; duck: boolean; trimBeforeFrames: number } | null
+  /** The animated narrator: sprite URLs by key ("happy-open"), what it says when, and the sprite's width/height ratio. Null or absent: none. */
+  narrator?: { sprites: Record<string, string>; track: NarratorTrackClip[]; settings: NarratorSettings; aspect: number } | null
 }
 
 const dbToGain = (db: number): number => Math.pow(10, db / 20)
@@ -800,7 +803,7 @@ function fileUrl(base: string, localPath: string): string {
 }
 
 export function buildExplainerInput(args: {
-  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor'>
+  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor'> & Partial<Pick<Project, 'narrator'>>
   clips: Clip[]
   assets: AssetLookup
   assetBase: string
@@ -809,6 +812,8 @@ export function buildExplainerInput(args: {
   /** Export options can switch captions off or ducking on/off for one file; the project setting is the default. */
   captions?: boolean
   duckMusic?: boolean
+  /** Loaded sprites of the project's narrator; the narrator shows only when it is switched on in the project too. */
+  narratorSprites?: { sprites: Record<string, string>; aspect: number } | null
 }): ExplainerInput {
   const { project, assets } = args
   const fps = args.fps ?? EXPLAINER_FPS
@@ -850,6 +855,13 @@ export function buildExplainerInput(args: {
   const musicAsset = project.editor.musicAssetId ? assets[project.editor.musicAssetId] : undefined
   const logoAsset = project.theme?.logoAssetId ? assets[project.theme.logoAssetId] : undefined
   const { width, height } = explainerSize(project.aspectRatio)
+  const ns = args.narratorSprites
+  const narratorOn = !!project.narrator?.enabled && !!ns && Object.keys(ns.sprites).length > 0 && ns.aspect > 0
+  const narratorTrack: NarratorTrackClip[] = narratorOn
+    ? scenes.flatMap((sc, i) =>
+        sc.words.length ? [{ startSec: sc.from / fps, words: sc.words, text: args.clips[i].narration, cues: args.clips[i].narratorCues ?? [] }] : []
+      )
+    : []
   return {
     templateId: look.templateId,
     title: project.title,
@@ -870,7 +882,8 @@ export function buildExplainerInput(args: {
           duck: args.duckMusic ?? project.editor.duckMusic,
           trimBeforeFrames: Math.round(((project.editor.musicInMs ?? 0) / 1000) * fps)
         }
-      : null
+      : null,
+    ...(narratorOn ? { narrator: { sprites: ns!.sprites, track: narratorTrack, settings: project.narrator!, aspect: ns!.aspect } } : {})
   }
 }
 

@@ -259,3 +259,12 @@ export function generateNarrator(id: string): Job {
     }
   )
 }
+
+/** Absolute sprite files by key ("happy-open"), for the export; null while the narrator has no sprites. */
+export function narratorSpriteFiles(n: Narrator): Record<string, string> | null {
+  if (!n.spriteUrls) return null
+  const dir = n.preset ? narratorPresetDir(n.id) : narratorDir(n.id)
+  const out: Record<string, string> = {}
+  for (const key of Object.keys(n.spriteUrls)) out[key] = join(dir, `${key}.png`)
+  return out
+}

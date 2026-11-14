@@ -7,7 +7,7 @@ import { makeCancelSignal, renderMedia, selectComposition } from '@remotion/rend
 import { utilityProcess, type UtilityProcess } from 'electron'
 import type { RenderEngineStatus, RenderTestResult } from '@shared/render'
 import { emit } from './events'
-import { dataDir, fontsDir, projectDir, remotionBinariesDir, remotionBundleDir } from './paths'
+import { dataDir, fontsDir, narratorPresetsRoot, narratorsRoot, projectDir, remotionBinariesDir, remotionBundleDir } from './paths'
 import type { BrowserWorkerMessage } from './renderBrowserWorker'
 import browserWorker from './renderBrowserWorker?modulePath'
 import { getSecret } from './secrets'
@@ -324,6 +324,9 @@ export interface AssetServer {
   assetBase: string
   /** Prefix for a font file name. */
   fontBase: string
+  /** Prefixes for a sprite file of a user's narrator (`<id>/happy-open.png`) and of a bundled preset. */
+  narratorBase: string
+  narratorPresetBase: string
   close(): Promise<void>
 }
 
@@ -334,7 +337,7 @@ export interface AssetServer {
  */
 export async function startAssetServer(projectId: string | null): Promise<AssetServer> {
   const token = randomBytes(16).toString('hex')
-  const roots: Record<string, string> = { fonts: fontsDir() }
+  const roots: Record<string, string> = { fonts: fontsDir(), narrator: narratorsRoot(), narratorpreset: narratorPresetsRoot() }
   if (projectId) roots.asset = projectDir(projectId)
   const server: Server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')
@@ -401,6 +404,8 @@ export async function startAssetServer(projectId: string | null): Promise<AssetS
   return {
     assetBase: `${base}/asset/`,
     fontBase: `${base}/fonts/`,
+    narratorBase: `${base}/narrator/`,
+    narratorPresetBase: `${base}/narratorpreset/`,
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections()

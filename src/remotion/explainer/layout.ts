@@ -1,5 +1,6 @@
 import { spring, type SpringConfig } from 'remotion'
 import type { CaptionStyleId, ExplainerInput, ExplainerLook } from '@shared/explainer'
+import { captionShiftAbove, narratorBox } from '@shared/narrator'
 
 /**
  * Frame geometry shared by every scene. Sizes are written for a 1080-pixel short side and multiplied by `u`,
@@ -49,7 +50,48 @@ export const CAPTION_METRICS: Record<CaptionStyleId, { size: [number, number]; l
   bold: { size: [94, 110], line: 1.04, padX: 8, padY: 10 }
 }
 
-export function frameOf(input: Pick<ExplainerInput, 'width' | 'height' | 'captions' | 'caption' | 'look'>): Frame {
+export function frameOf(input: Pick<ExplainerInput, 'width' | 'height' | 'captions' | 'caption' | 'look' | 'narrator'>): Frame {
+  const f = baseFrame(input)
+  return input.narrator ? clearOfNarrator(f, narratorRect(input)) : f
+}
+
+/** The narrator's box in frame pixels, or null when the video has none. */
+export function narratorRect(input: Pick<ExplainerInput, 'width' | 'height' | 'narrator'>): Rect | null {
+  const n = input.narrator
+  return n ? narratorBox(input.width, input.height, n.settings, n.aspect) : null
+}
+
+/**
+ * Makes room for the narrator, which sits in a bottom corner. Landscape gives up the strip beside it and the
+ * captions narrow to the rest; portrait has no room beside it, so the content ends above it and bottom captions
+ * move up with the same rule the story preview and export use.
+ */
+function clearOfNarrator(f: Frame, nr: Rect | null): Frame {
+  if (!nr) return f
+  const gap = 24 * f.u
+  let { left, right, bottom } = f
+  let caption = f.caption
+  if (!f.portrait) {
+    if (nr.x > f.width / 2) right = Math.min(right, nr.x - gap)
+    else left = Math.max(left, nr.x + nr.w + gap)
+    if (caption && overlaps(caption, nr)) {
+      const w = Math.min(caption.w, right - left)
+      caption = { ...caption, x: left + (right - left - w) / 2, w }
+    }
+  } else {
+    bottom = Math.min(bottom, nr.y - gap)
+    if (caption && caption.align === 'end') {
+      const dy = captionShiftAbove(caption, nr, f.height)
+      if (dy) {
+        caption = { ...caption, y: caption.y + dy }
+        bottom = Math.min(bottom, caption.y - 30 * f.u)
+      }
+    }
+  }
+  return { ...f, left, right, bottom, caption, contentWidth: right - left, contentHeight: bottom - f.top }
+}
+
+function baseFrame(input: Pick<ExplainerInput, 'width' | 'height' | 'captions' | 'caption' | 'look'>): Frame {
   const { width, height } = input
   const u = Math.min(width, height) / 1080
   const portrait = height > width * 1.05
