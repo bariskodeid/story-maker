@@ -85,6 +85,21 @@ Aturan edit (`renderer/src/pages/project/editor/Timeline.tsx`):
   `layoutCaptionLines` yang sama dengan pratinjau.
 - Kata yang sedang diucapkan diwarnai lewat event per kata (`\c`).
 
+### Narator animasi (video cerita)
+
+Lapisan narator digambar sesudah overlay gambar dan sebelum caption (urutan: video, logo, narator, caption, teks overlay).
+Satu aturan untuk dua sisi, semuanya di `src/shared/narrator.ts`:
+
+- `storyNarratorTrack` membangun track dari klip dan kata caption (`clipCaptionWords`); suara tanpa waktu kata memakai
+  waktu perkiraan. Track dibuat sebagai array baru setiap klip atau aset berubah (cache `narratorSpriteAt` per identitas array).
+- Pratinjau: semua sprite tetap terpasang dan hanya yang aktif terlihat (tanpa kedip decode).
+- Ekspor: `narratorSegments` jadi daftar `ffconcat` PNG berdurasi (satu input alfa), lalu `scale` + `overlay` di `narratorBox`.
+- Napas dan pantulan (`scale`, `offsetY`) **tidak** digambar, baik di pratinjau maupun ekspor: FFmpeg tidak tahu kapan
+  narator sedang bicara tanpa ekspresi per frame, dan kedua sisi harus sama.
+- Caption bawah yang menutupi kotak narator naik di atasnya (`captionShiftAbove`): per caption, di pratinjau lewat `bottom`,
+  di ekspor lewat margin vertikal baris Dialogue ASS dan kotak CapBox. Hanya posisi caption bawah yang bergeser.
+- Narator mati, hilang, atau belum punya sprite: ekspor persis seperti dulu (tanpa input atau filter tambahan).
+
 ## Video penjelasan
 
 Proyek video penjelasan tidak memakai timeline, `motion.ts`, atau exporter FFmpeg di atas. Editornya berisi

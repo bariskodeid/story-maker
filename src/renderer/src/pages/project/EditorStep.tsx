@@ -23,7 +23,7 @@ import { Timeline, overlayLanes, type TimelinePick, type TimelineSelection } fro
 export function EditorStep() {
   const { project, assets, selectedClipId, select, clips, updateClip, updateEditor, removeClip, flush, load } = useProject()
   const { toast } = useApp()
-  const { items, total, chunks } = useTimeline()
+  const { items, total, chunks, narratorTrack } = useTimeline()
   const [tab, setTab] = useState<InspectorTab>('klip')
   /** The clip whose transition into the next clip the Transisi panel shows. */
   const [transitionId, setTransitionId] = useState<string | null>(null)
@@ -222,6 +222,8 @@ export function EditorStep() {
           items={items}
           total={total}
           chunks={chunks}
+          narratorTrack={narratorTrack}
+          narratorSettings={project.narrator}
           aspect={project.aspectRatio}
           editor={project.editor}
           assets={assets}

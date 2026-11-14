@@ -9,7 +9,7 @@ import { anchorPoint } from '@shared/overlays'
 import { VISUAL_STYLES } from '@shared/styles'
 import { getDb } from './db'
 import { addSceneImage, exportProject } from './explainer'
-import { applySheet, createNarrator, getNarrator } from './narrators'
+import { applySheet, createNarrator, getNarrator, listNarrators } from './narrators'
 import { buildSheetPrompt, fringeCount } from './narratorSprites'
 import { assetAbsPath, binPath, narratorDir } from './paths'
 import { probeDurationMs } from './services/audio'
@@ -233,7 +233,11 @@ export function attachDevHarness(win: BrowserWindow): void {
   const planPath = process.env.STUDIO_CAPTURE_PLAN
   if (!planPath) return
   let plan: {
-    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos' | 'copyClipImage' | 'narratorSheet'
+    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos' | 'copyClipImage' | 'narratorSheet' | 'narratorOn'
+    /** For main "narratorOn": point the demo project at the newest own narrator with these settings, and give its clips a cue each (happy, surprised, sad, thinking, repeating). */
+    narrator?: { enabled?: boolean; anchor?: 'bottomLeft' | 'bottomRight'; size?: 'small' | 'medium' | 'large' }
+    /** For main "narratorOn": also switch the project to this aspect ratio. */
+    aspect?: '16:9' | '9:16'
     /** For main "narratorSheet": cut this sheet image into the sprites of a new narrator and log the result (with the sheet prompt and an edge-fringe count per sprite). */
     sheet?: string
     keyColor?: '#00FF00' | '#FF00FF'
@@ -325,6 +329,15 @@ ${buildSheetPrompt(getNarrator(n.id))}
 [narratorSheet] sizes ${sizes.join(' ')}
 [narratorSheet] fringe ${fringe.join(' ')}
 `)
+        }
+        if (step.main === 'narratorOn' && (step.projectId ?? demoId)) {
+          const pid = (step.projectId ?? demoId)!
+          const own = listNarrators().find((n) => !n.preset)
+          const settings = { id: own?.id ?? null, anchor: step.narrator?.anchor ?? 'bottomRight', size: step.narrator?.size ?? 'medium', enabled: step.narrator?.enabled ?? true }
+          getDb().prepare('UPDATE projects SET narrator_json = ? WHERE id = ?').run(JSON.stringify(settings), pid)
+          if (step.aspect) getDb().prepare('UPDATE projects SET aspect_ratio = ? WHERE id = ?').run(step.aspect, pid)
+          const cues = ['happy', 'surprised', 'sad', 'thinking']
+          clipsOf(pid).forEach((c, i) => getDb().prepare('UPDATE clips SET narrator_cues = ? WHERE id = ?').run(JSON.stringify([cues[i % cues.length]]), c.id))
         }
         if (step.main === 'overlays' && demoId) addDemoOverlays(demoId)
         if (step.main === 'videos' && demoId) addDemoVideos(demoId)

@@ -1,6 +1,8 @@
+import { estimateWordTimings } from './captions'
 import { anchorPoint } from './overlays'
 import { stripVoiceTags } from './speech'
-import type { NarratorExpression, NarratorSettings, WordTiming } from './types'
+import { clipCaptionWords, voiceSpan } from './timeline'
+import type { Clip, NarratorExpression, NarratorSettings, WordTiming } from './types'
 
 /**
  * Animated narrator (PNGTuber style): one sprite sheet with six expressions, each with a closed and an open mouth.
@@ -238,4 +240,63 @@ export function narratorSegments(
   }
   out[out.length - 1].endSec = totalSec
   return out
+}
+
+/** A clip on the story timeline, as far as the narrator is concerned. `audioMs` is null when the clip has no voice. */
+export interface StoryNarratorClip {
+  startSec: number
+  clip: Pick<Clip, 'durationMs' | 'voiceInMs' | 'voiceOutMs' | 'voiceStartMs' | 'narration' | 'narratorCues'>
+  audioMs: number | null
+  /** Word timings of the voice file; empty or missing means "estimate them from the text". */
+  words: WordTiming[] | undefined
+}
+
+/**
+ * The narrator track of a story timeline, built once here for the preview and the export. Words come from
+ * `clipCaptionWords`, exactly the ones captions show, so mouth and caption highlight move together. Voices
+ * without timings (Gemini TTS before a Whisper sync) get estimated ones so the narrator still talks.
+ * Always returns a new array: narratorSpriteAt caches by array identity.
+ */
+export function storyNarratorTrack(clips: StoryNarratorClip[]): NarratorTrackClip[] {
+  const out: NarratorTrackClip[] = []
+  for (const c of clips) {
+    if (c.audioMs == null) continue
+    let words = clipCaptionWords(c.clip, c.words ?? [], c.audioMs).words
+    if (words.length === 0 && !(c.words && c.words.length)) {
+      const span = voiceSpan(c.clip, c.audioMs)
+      const shift = span.startMs / 1000
+      words = estimateWordTimings(stripVoiceTags(c.clip.narration), span.playMs / 1000).map((w) => ({ ...w, start: w.start + shift, end: w.end + shift }))
+    }
+    if (words.length) out.push({ startSec: c.startSec, words, text: c.clip.narration, cues: c.clip.narratorCues })
+  }
+  return out
+}
+
+/** The sprite to draw for `key`: itself, else the same expression with a closed mouth, else neutral, else any. */
+export function pickSprite(key: string, available: Set<string>): string | null {
+  if (available.has(key)) return key
+  const closed = `${key.split('-')[0]}-closed`
+  if (available.has(closed)) return closed
+  if (available.has('neutral-closed')) return 'neutral-closed'
+  return available.values().next().value ?? null
+}
+
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/**
+ * How far (pixels, <= 0) a bottom caption must move up so it clears the narrator box, or 0 when they do not
+ * collide. Shared so the preview and the export move captions identically.
+ */
+export function captionShiftAbove(caption: Rect, avoid: Rect | null, frameH: number): number {
+  if (!avoid) return 0
+  const gap = frameH * 0.015
+  const across = caption.x < avoid.x + avoid.w && caption.x + caption.w > avoid.x
+  const down = caption.y + caption.h > avoid.y - gap && caption.y < avoid.y + avoid.h
+  if (!across || !down) return 0
+  return Math.max(-caption.y, avoid.y - gap - (caption.y + caption.h))
 }

@@ -13,8 +13,9 @@ import {
   type CaptionChunk
 } from '@shared/captions'
 import { cameraAt, cameraCss, transitionSecOf } from '@shared/motion'
+import { captionShiftAbove, narratorBox, narratorSpriteAt, pickSprite, type NarratorTrackClip, type Rect } from '@shared/narrator'
 import { anchorOffset, contrastColor, overlayVisible, textEffects } from '@shared/overlays'
-import type { AspectRatio, Asset, EditorSettings, Overlay } from '@shared/types'
+import type { AspectRatio, Asset, EditorSettings, Narrator, NarratorSettings, Overlay } from '@shared/types'
 import { IconButton, cx } from '../../../components/ui'
 import { timecode } from '../../../lib/format'
 import { auditionWindow, itemAt, updateOverlay, useAudition, useOverlayUi, usePlayback, type TimelineItem } from './engine'
@@ -90,7 +91,7 @@ function textWidth(font: string, text: string): number {
   return measureCtx.measureText(text).width
 }
 
-function Caption({ chunks, t, editor, width, height }: { chunks: CaptionChunk[]; t: number; editor: EditorSettings; width: number; height: number }) {
+function Caption({ chunks, t, editor, width, height, avoid }: { chunks: CaptionChunk[]; t: number; editor: EditorSettings; width: number; height: number; avoid: Rect | null }) {
   const style = resolveCaption(editor)
   if (!style) return null
   const hit = captionAt(chunks, t)
@@ -98,17 +99,24 @@ function Caption({ chunks, t, editor, width, height }: { chunks: CaptionChunk[];
   const size = style.size * height * captionScaleOf(editor)
   // As in libass, the margin places the text line and the box grows outward by its padding.
   const pad = style.box ? size * CAPTION_BOX_PAD : 0
-  const pos: CSSProperties =
-    editor.captionPosition === 'atas'
-      ? { top: height * 0.07 - pad, left: '50%', transform: 'translateX(-50%)' }
-      : editor.captionPosition === 'tengah'
-        ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-        : { bottom: height * 0.07 - pad, left: '50%', transform: 'translateX(-50%)' }
   const highlight = style.highlight.toLowerCase() !== style.color.toLowerCase()
   const family = `'${style.fontInfo.family}', sans-serif`
   const words = hit.chunk.words.map((w) => displayWord(w.text, style))
   const font = `${style.weight} ${size}px ${family}`
   const lines = layoutCaptionLines(words, (s) => textWidth(font, s), width * CAPTION_MAX_WIDTH)
+  // Same rule as the export: a bottom caption that would cover the narrator moves up above it.
+  const textW = Math.max(...lines.map((l) => textWidth(font, l.join(' '))))
+  const textH = lines.length * size * style.fontInfo.cell
+  const dy =
+    editor.captionPosition === 'bawah'
+      ? captionShiftAbove({ x: width / 2 - textW / 2 - pad, y: height - Math.round(height * 0.07) - textH - pad, w: textW + 2 * pad, h: textH + 2 * pad }, avoid, height)
+      : 0
+  const pos: CSSProperties =
+    editor.captionPosition === 'atas'
+      ? { top: height * 0.07 - pad, left: '50%', transform: 'translateX(-50%)' }
+      : editor.captionPosition === 'tengah'
+        ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+        : { bottom: height * 0.07 - pad - dy, left: '50%', transform: 'translateX(-50%)' }
   let index = 0
   return (
     <div
@@ -146,6 +154,48 @@ function Caption({ chunks, t, editor, width, height }: { chunks: CaptionChunk[];
 }
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v))
+
+/** The narrator's sprite URLs and width/height ratio, or null when it is off, gone or has no sprites yet. */
+function useNarratorSprites(settings: NarratorSettings): { urls: Record<string, string>; aspect: number } | null {
+  const [found, setFound] = useState<{ id: string; urls: Record<string, string>; aspect: number } | null>(null)
+  const id = settings.enabled ? settings.id : null
+  useEffect(() => {
+    if (!id) return
+    let live = true
+    window.api.narrators
+      .get(id)
+      .then((n: Narrator) => {
+        const urls = n.spriteUrls
+        const base = urls ? urls[pickSprite('neutral-closed', new Set(Object.keys(urls))) ?? ''] : null
+        if (!urls || !base) return
+        const img = new Image()
+        img.onload = () => live && setFound({ id, urls, aspect: img.naturalWidth / Math.max(1, img.naturalHeight) })
+        img.src = base
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [id])
+  return id && found?.id === id ? found : null
+}
+
+/**
+ * The narrator sprite at time t. Every sprite stays mounted and only the current one is visible, so a swap never
+ * waits on image decoding. Breath and bounce are not drawn: the export cannot do them, and the preview must match.
+ */
+function NarratorLayer({ track, t, urls, rect }: { track: NarratorTrackClip[]; t: number; urls: Record<string, string>; rect: Rect }) {
+  const f = narratorSpriteAt(track, t)
+  const keys = Object.keys(urls)
+  const current = pickSprite(`${f.expression}-${f.mouth}`, new Set(keys))
+  return (
+    <div className="pointer-events-none absolute" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}>
+      {keys.map((k) => (
+        <img key={k} src={urls[k]} alt="" draggable={false} className="absolute inset-0 size-full" style={{ visibility: k === current ? 'visible' : 'hidden' }} />
+      ))}
+    </div>
+  )
+}
 
 /**
  * One logo or text drawn over the preview at the same spot the export uses. While the Overlay tab is open
@@ -227,6 +277,8 @@ export function Player({
   items,
   total,
   chunks,
+  narratorTrack,
+  narratorSettings,
   aspect,
   editor,
   assets,
@@ -235,6 +287,8 @@ export function Player({
   items: TimelineItem[]
   total: number
   chunks: CaptionChunk[]
+  narratorTrack: NarratorTrackClip[]
+  narratorSettings: NarratorSettings
   aspect: AspectRatio
   editor: EditorSettings
   assets: Record<string, Asset>
@@ -263,6 +317,8 @@ export function Player({
   const viewPlaying = audition && win ? true : playing
   const [box, setBox] = useState({ w: 800, h: 450 })
   const ratio = aspect === '9:16' ? 9 / 16 : 16 / 9
+  const nar = useNarratorSprites(narratorSettings)
+  const narRect = nar ? narratorBox(box.w, box.h, narratorSettings, nar.aspect) : null
 
   useLayoutEffect(() => {
     const el = stage.current
@@ -325,13 +381,14 @@ export function Player({
           {cur && <Frame key={cur.clip.id} item={cur} local={local} playing={viewPlaying} style={{ ...fx?.cur, zIndex: 1 }} />}
           {next && <Frame key={next.clip.id} item={next} local={0} playing={false} style={{ opacity: 0, zIndex: 0 }} />}
         </div>
-        {/* Logos sit under the captions and overlay text sits above them, as in the export. */}
+        {/* Logos sit under the narrator and the captions; overlay text sits above them, as in the export. */}
         {shown
           .filter((o) => o.kind === 'image')
           .map((o) => (
             <OverlayItem key={o.id} o={o} asset={o.kind === 'image' ? (assets[o.assetId] ?? null) : null} box={box} editable={editOverlays} />
           ))}
-        <Caption chunks={chunks} t={viewT} editor={editor} width={box.w} height={box.h} />
+        {nar && narRect && <NarratorLayer track={narratorTrack} t={viewT} urls={nar.urls} rect={narRect} />}
+        <Caption chunks={chunks} t={viewT} editor={editor} width={box.w} height={box.h} avoid={narRect} />
         {shown
           .filter((o) => o.kind === 'text')
           .map((o) => (

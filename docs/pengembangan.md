@@ -94,6 +94,7 @@ node_modules\electron\dist\electron.exe .
 | `main: "videos"` | memberi semua klip video uji 6 detik (klip 1 diberi zoom kuat) |
 | `main: "overlays"` | menambah logo dan teks overlay demo |
 | `main: "key"` + `provider`, `ok` | menyimpan kunci palsu dengan status tes lulus/gagal |
+| `main: "narratorOn"` + `narrator` (`enabled`, `anchor`, `size`), `aspect` | memasang narator milik sendiri terbaru (lihat `narratorSheet`) ke proyek demo, memberi tiap klip satu ekspresi, dan bila perlu mengganti rasio layar |
 | `main: "export"` + `exportTo`, `projectId` | mengekspor proyek demo (atau proyek tertentu) ke folder |
 | `js` | menjalankan JavaScript di halaman (boleh `async`); hasil `console.log` masuk ke `STUDIO_LOG` |
 | `drag` | seret mouse sungguhan: `selector`, `at` (`left`/`right`/`center`), `dx`, `fy` (posisi vertikal 0–1) |

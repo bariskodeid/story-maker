@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { create } from 'zustand'
 import { timelineChunks, type CaptionChunk } from '@shared/captions'
 import { transitionSecOf } from '@shared/motion'
+import { storyNarratorTrack, type NarratorTrackClip } from '@shared/narrator'
 import { clipCaptionWords, voiceSpan } from '@shared/timeline'
 import type { Asset, Clip, Overlay, TransitionId } from '@shared/types'
 import { useProject } from '../../../store/project'
@@ -99,7 +100,7 @@ export function removeOverlay(id: string): void {
   if (useOverlayUi.getState().selectedId === id) useOverlayUi.getState().select(null)
 }
 
-export function useTimeline(): { items: TimelineItem[]; total: number; chunks: CaptionChunk[] } {
+export function useTimeline(): { items: TimelineItem[]; total: number; chunks: CaptionChunk[]; narratorTrack: NarratorTrackClip[] } {
   const clips = useProject((s) => s.clips)
   const assets = useProject((s) => s.assets)
   return useMemo(() => {
@@ -125,7 +126,11 @@ export function useTimeline(): { items: TimelineItem[]; total: number; chunks: C
         return { start: it.start, words: shown.words, key: it.audio.id, offset: shown.offset }
       })
     )
-    return { items, total: acc, chunks }
+    // A fresh array whenever clips or assets change: narratorSpriteAt caches its per-clip work by array identity.
+    const narratorTrack = storyNarratorTrack(
+      items.map((it) => ({ startSec: it.start, clip: it.clip, audioMs: it.audio ? (it.audio.durationMs ?? UNKNOWN_AUDIO_MS) : null, words: it.audio?.meta.words }))
+    )
+    return { items, total: acc, chunks, narratorTrack }
   }, [clips, assets])
 }
 
