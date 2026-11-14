@@ -4,6 +4,7 @@ import { dirname, extname, join } from 'node:path'
 import { explainerTotalMs, getTemplate, type ExplainerTheme } from '@shared/explainer'
 import { HF_VIDEO_MODELS, getVideoModel, resolutionOptions } from '@shared/higgsfield'
 import { LANGUAGES } from '@shared/models'
+import { normalizeNarratorSettings } from '@shared/narrator'
 import { castKey, episodeProjectTitle, parseCastNames } from '@shared/series'
 import { getStyle } from '@shared/styles'
 import type {
@@ -26,7 +27,7 @@ import type {
 import { defaultTtsVoice } from '@shared/voices'
 import { getDb } from './db'
 import { assetAbsPath, assetUrl, seriesDir, seriesFileUrl, seriesRoot } from './paths'
-import { charactersOf, createProject, getAsset, getBundle, getProject, insertAsset, removeProject, setCharacterSheet } from './repo'
+import { charactersOf, createProject, getAsset, getBundle, getProject, insertAsset, parseNarrator, removeProject, setCharacterSheet } from './repo'
 import { probeSize } from './services/audio'
 import { getSettings } from './settings'
 
@@ -78,6 +79,7 @@ function toSeries(r: Row): Series {
     videoResolution: r.video_resolution ?? null,
     templateId: kind === 'explainer' ? getTemplate(r.template_id).id : null,
     theme: kind === 'explainer' ? parseTheme(r.theme_json) : {},
+    narrator: parseNarrator(r.narrator_json),
     createdAt: r.created_at,
     updatedAt: r.updated_at
   }
@@ -277,7 +279,15 @@ const SETTING_COLUMNS: Record<keyof SeriesSettingsPatch, string> = {
   videoModel: 'video_model',
   videoResolution: 'video_resolution',
   templateId: 'template_id',
-  theme: 'theme_json'
+  theme: 'theme_json',
+  narrator: 'narrator_json'
+}
+
+/** Column value of one setting: JSON for the object-valued ones. */
+function settingValue(k: keyof SeriesSettingsPatch, clean: SeriesSettingsPatch): unknown {
+  if (k === 'theme') return JSON.stringify(clean.theme ?? {})
+  if (k === 'narrator') return JSON.stringify(clean.narrator)
+  return clean[k]
 }
 
 /** Only values the app can use; anything else in the patch is dropped. */
@@ -305,6 +315,7 @@ function cleanSettings(s: Series, patch: SeriesSettingsPatch): SeriesSettingsPat
     // Palettes belong to one template, so a new template starts on its own first palette.
     else if (out.templateId && out.templateId !== s.templateId) out.theme = { ...s.theme, paletteId: undefined }
   }
+  if (patch.narrator && typeof patch.narrator === 'object') out.narrator = normalizeNarratorSettings(patch.narrator)
   // A new provider needs a voice of its own when the caller did not pick one with it.
   if (out.ttsProvider && out.ttsProvider !== s.ttsProvider && !out.ttsVoice) out.ttsVoice = defaultTtsVoice(out.ttsProvider, out.language ?? s.language)
   return out
@@ -325,7 +336,7 @@ export function updateSeriesSettings(id: string, patch: SeriesSettingsPatch): Se
   db.transaction(() => {
     if (fields.length)
       db.prepare(`UPDATE series SET ${sets}, updated_at = ? WHERE id = ?`).run(
-        ...fields.map((k) => (k === 'theme' ? JSON.stringify(clean.theme ?? {}) : clean[k])),
+        ...fields.map((k) => settingValue(k, clean)),
         Date.now(),
         id
       )
@@ -342,7 +353,7 @@ export function updateSeriesSettings(id: string, patch: SeriesSettingsPatch): Se
       // The episode keeps its own logo; that is one of its files.
       const logo = (JSON.parse(r.theme_json || '{}') as ExplainerTheme).logoAssetId
       db.prepare(`UPDATE projects SET ${sets}, updated_at = ? WHERE id = ?`).run(
-        ...fields.map((k) => (k === 'theme' ? JSON.stringify({ ...clean.theme, ...(logo ? { logoAssetId: logo } : {}) }) : clean[k])),
+        ...fields.map((k) => (k === 'theme' ? JSON.stringify({ ...clean.theme, ...(logo ? { logoAssetId: logo } : {}) }) : settingValue(k, clean))),
         Date.now(),
         r.id
       )
@@ -453,8 +464,8 @@ export async function createEpisode(seriesId: string, ep: { no: number; title: s
       templateId: s.templateId ?? undefined
     })
     db.prepare(
-      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, video_resolution = ?, theme_json = ?, series_id = ?, episode_no = ? WHERE id = ?'
-    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, s.videoResolution, JSON.stringify(s.theme), seriesId, ep.no, p.id)
+      'UPDATE projects SET title = ?, tts_voice = ?, image_model = ?, video_model = ?, video_resolution = ?, theme_json = ?, narrator_json = ?, series_id = ?, episode_no = ? WHERE id = ?'
+    ).run(episodeProjectTitle(ep.no, ep.title), s.ttsVoice, s.imageModel, s.videoModel, s.videoResolution, JSON.stringify(s.theme), JSON.stringify(s.narrator), seriesId, ep.no, p.id)
     return p.id
   })()
   if (s.kind === 'story') await syncCastIn(id, { addMissing: true })

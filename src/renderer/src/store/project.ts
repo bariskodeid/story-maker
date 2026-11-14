@@ -118,6 +118,7 @@ export const useProject = create<ProjectState>((set, get) => {
       const clip: Clip = {
         id: newId(),
         projectId: p.id,
+        narratorCues: [],
         sort: at,
         title: 'Adegan baru',
         story: '',

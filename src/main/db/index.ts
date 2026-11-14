@@ -187,6 +187,23 @@ const MIGRATIONS: string[] = [
   // Video resolution new episodes of a story series start with (null keeps the video model's recommended one).
   `
   ALTER TABLE series ADD COLUMN video_resolution TEXT;
+  `,
+  // Animated narrator: the narrators themselves (sprite files live on disk under <userData>/narrators/<id>), the
+  // narrator settings of a project and of a series, and the expression cue per spoken sentence of a clip.
+  `
+  CREATE TABLE narrators (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    style_kind TEXT NOT NULL DEFAULT 'story',
+    style_id TEXT NOT NULL DEFAULT '',
+    key_color TEXT NOT NULL DEFAULT '#00FF00',
+    status TEXT NOT NULL DEFAULT 'empty',
+    created_at INTEGER NOT NULL
+  );
+  ALTER TABLE projects ADD COLUMN narrator_json TEXT NOT NULL DEFAULT '';
+  ALTER TABLE series ADD COLUMN narrator_json TEXT NOT NULL DEFAULT '';
+  ALTER TABLE clips ADD COLUMN narrator_cues TEXT NOT NULL DEFAULT '';
   `
 ]
 

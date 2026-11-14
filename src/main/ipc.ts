@@ -34,6 +34,7 @@ import {
   setActiveAsset
 } from './generation'
 import { cancelJob } from './jobs'
+import { createNarrator, duplicateNarrator, getNarrator, listNarrators, removeNarrator, updateNarrator, type NarratorPatch } from './narrators'
 import { generateNarration, syncCaptions } from './narration'
 import { cancelDownload, downloadModel, openModelFolder, removeModel, whisperStatus } from './whisper'
 import { assetAbsPath } from './paths'
@@ -114,6 +115,12 @@ export function registerIpc(): void {
   handle('projects:remove', (id: string) => removeProject(id))
   handle('projects:duplicate', (id: string) => duplicateProject(id))
 
+  handle('narrators:list', () => listNarrators())
+  handle('narrators:get', (id: string) => getNarrator(id))
+  handle('narrators:create', (input: Parameters<typeof createNarrator>[0]) => createNarrator(input))
+  handle('narrators:update', (id: string, patch: NarratorPatch) => updateNarrator(id, patch ?? {}))
+  handle('narrators:remove', (id: string) => removeNarrator(id))
+  handle('narrators:duplicate', (id: string) => duplicateNarrator(id))
   handle('series:list', () => listSeries())
   handle('series:create', (input: NewSeriesInput) => createSeries(input))
   handle('series:get', (id: string) => getSeriesBundle(id))

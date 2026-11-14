@@ -23,6 +23,14 @@ const api: StudioApi = {
     remove: call('projects:remove'),
     duplicate: call('projects:duplicate')
   },
+  narrators: {
+    list: call('narrators:list'),
+    get: call('narrators:get'),
+    create: call('narrators:create'),
+    update: call('narrators:update'),
+    remove: call('narrators:remove'),
+    duplicate: call('narrators:duplicate')
+  },
   series: {
     list: call('series:list'),
     create: call('series:create'),

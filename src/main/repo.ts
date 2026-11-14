@@ -11,6 +11,8 @@ import type {
   Job,
   JobKind,
   JobStatus,
+  NarratorExpression,
+  NarratorSettings,
   NewProjectInput,
   Project,
   ProjectBundle,
@@ -18,6 +20,7 @@ import type {
   ProjectSummary
 } from '@shared/types'
 import { explainerTotalMs, normalizeScene, parseScene, type ExplainerScene } from '@shared/explainer'
+import { normalizeCues, normalizeNarratorSettings } from '@shared/narrator'
 import { visualSourceOf } from '@shared/script'
 import { castKey, parseCastNames } from '@shared/series'
 import { defaultTtsVoice } from '@shared/voices'
@@ -60,6 +63,7 @@ const toProject = (r: Row): Project => ({
   kind: r.kind === 'explainer' ? 'explainer' : 'story',
   templateId: r.template_id ?? null,
   theme: JSON.parse(r.theme_json || '{}'),
+  narrator: parseNarrator(r.narrator_json),
   createdAt: r.created_at,
   updatedAt: r.updated_at
 })
@@ -100,8 +104,28 @@ const toClip = (r: Row): Clip => ({
   imageAssetId: r.image_asset_id,
   videoAssetId: r.video_asset_id,
   audioAssetId: r.audio_asset_id,
-  scene: parseScene(r.scene_json)
+  scene: parseScene(r.scene_json),
+  narratorCues: parseCues(r.narrator_cues)
 })
+
+/** Stored narrator settings; an empty column (old rows) reads as the defaults. */
+export function parseNarrator(json: unknown): NarratorSettings {
+  try {
+    return normalizeNarratorSettings(json ? JSON.parse(String(json)) : {})
+  } catch {
+    return normalizeNarratorSettings({})
+  }
+}
+
+function parseCues(json: unknown): NarratorExpression[] {
+  try {
+    return normalizeCues(json ? JSON.parse(String(json)) : [])
+  } catch {
+    return []
+  }
+}
+
+const cuesJson = (cues: NarratorExpression[] | undefined): string => JSON.stringify(normalizeCues(cues))
 
 /** scene_json of a clip: the normalized scene, or '{}' for story clips. */
 function sceneJson(scene: ExplainerScene | null | undefined): string {
@@ -274,9 +298,9 @@ export function saveSnapshot(snap: ProjectSnapshot): number {
       `UPDATE projects SET title = @title, synopsis = @synopsis, duration_sec = @durationSec, language = @language,
         aspect_ratio = @aspectRatio, style_id = @styleId, tts_provider = @ttsProvider, tts_voice = @ttsVoice,
         image_model = @imageModel, video_model = @videoModel, video_resolution = @videoResolution, status = @status, step = @step, editor_json = @editor,
-        template_id = @templateId, theme_json = @theme, updated_at = @now
+        template_id = @templateId, theme_json = @theme, narrator_json = @narrator, updated_at = @now
        WHERE id = @id`
-    ).run({ ...p, editor: JSON.stringify(p.editor), templateId: p.templateId ?? null, theme: JSON.stringify(p.theme ?? {}), now })
+    ).run({ ...p, editor: JSON.stringify(p.editor), templateId: p.templateId ?? null, theme: JSON.stringify(p.theme ?? {}), narrator: JSON.stringify(normalizeNarratorSettings(p.narrator)), now })
 
     const charIds = snap.characters.map((c) => c.id)
     noteRemovedCast(p.id, snap.characters)
@@ -297,17 +321,17 @@ export function saveSnapshot(snap: ProjectSnapshot): number {
     const upClip = db.prepare(
       `INSERT INTO clips (id, project_id, sort, title, story, visual_prompt, narration, duration_ms, character_ids, motion_type,
          camera_preset, motion_strength, video_prompt, transition, video_camera, video_strength, transition_ms, voice_gain_db,
-         media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json)
+         media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json, narrator_cues)
        VALUES (@id, @projectId, @sort, @title, @story, @visualPrompt, @narration, @durationMs, @characterIds, @motionType,
          @cameraPreset, @motionStrength, @videoPrompt, @transition, @videoCamera, @videoStrength, @transitionMs, @voiceGainDb,
-         @mediaInMs, @voiceInMs, @voiceOutMs, @voiceStartMs, @scene)
+         @mediaInMs, @voiceInMs, @voiceOutMs, @voiceStartMs, @scene, @narratorCues)
        ON CONFLICT(id) DO UPDATE SET sort = excluded.sort, title = excluded.title, story = excluded.story, visual_prompt = excluded.visual_prompt,
          narration = excluded.narration, duration_ms = excluded.duration_ms, character_ids = excluded.character_ids,
          motion_type = excluded.motion_type, camera_preset = excluded.camera_preset, motion_strength = excluded.motion_strength,
          video_prompt = excluded.video_prompt, transition = excluded.transition, video_camera = excluded.video_camera,
          video_strength = excluded.video_strength, transition_ms = excluded.transition_ms, voice_gain_db = excluded.voice_gain_db,
          media_in_ms = excluded.media_in_ms, voice_in_ms = excluded.voice_in_ms, voice_out_ms = excluded.voice_out_ms,
-         voice_start_ms = excluded.voice_start_ms, scene_json = excluded.scene_json`
+         voice_start_ms = excluded.voice_start_ms, scene_json = excluded.scene_json, narrator_cues = excluded.narrator_cues`
     )
     for (const c of snap.clips)
       upClip.run({
@@ -322,7 +346,8 @@ export function saveSnapshot(snap: ProjectSnapshot): number {
         voiceInMs: Math.round(c.voiceInMs ?? 0),
         voiceOutMs: c.voiceOutMs == null ? null : Math.round(c.voiceOutMs),
         voiceStartMs: Math.round(c.voiceStartMs ?? 0),
-        scene: sceneJson(c.scene)
+        scene: sceneJson(c.scene),
+        narratorCues: cuesJson(c.narratorCues)
       })
   })()
   return now
@@ -354,9 +379,9 @@ export function duplicateProject(id: string): ProjectSummary {
     db.prepare(
       `INSERT INTO projects (id, title, synopsis, duration_sec, language, aspect_ratio, style_id, tts_provider, tts_voice,
          image_model, video_model, video_resolution, status, step, cover_asset_id, editor_json, episode_summary, kind, template_id, theme_json,
-         created_at, updated_at)
+         narrator_json, created_at, updated_at)
        SELECT @newId, @title, synopsis, duration_sec, language, aspect_ratio, style_id, tts_provider, tts_voice,
-         image_model, video_model, video_resolution, status, step, @cover, editor_json, episode_summary, kind, template_id, @theme, @now, @now
+         image_model, video_model, video_resolution, status, step, @cover, editor_json, episode_summary, kind, template_id, @theme, narrator_json, @now, @now
        FROM projects WHERE id = @id`
     ).run({ newId, id, title: `${p.title} (salinan)`, cover: mapId(p.cover_asset_id), theme: JSON.stringify(theme), now })
     for (const a of src.assets) {
@@ -397,8 +422,8 @@ export function duplicateProject(id: string): ProjectSummary {
       db.prepare(
         `INSERT INTO clips (id, project_id, sort, title, story, visual_prompt, visual_source, narration, duration_ms, character_ids,
            motion_type, camera_preset, motion_strength, video_prompt, transition, image_asset_id, video_asset_id, audio_asset_id,
-           video_camera, video_strength, transition_ms, voice_gain_db, media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           video_camera, video_strength, transition_ms, voice_gain_db, media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json, narrator_cues)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         mapId(c.id),
         newId,
@@ -426,7 +451,8 @@ export function duplicateProject(id: string): ProjectSummary {
         c.voiceInMs,
         c.voiceOutMs,
         c.voiceStartMs,
-        sceneJson(c.scene)
+        sceneJson(c.scene),
+        cuesJson(c.narratorCues)
       )
     }
   })()
@@ -456,6 +482,7 @@ export type StoryClip = Omit<
   | 'voiceOutMs'
   | 'voiceStartMs'
   | 'scene'
+  | 'narratorCues'
 > & {
   characterNames: string[]
 }
@@ -641,7 +668,8 @@ const CLIP_COLS: Partial<Record<keyof Clip, string>> = {
   mediaInMs: 'media_in_ms',
   voiceInMs: 'voice_in_ms',
   voiceOutMs: 'voice_out_ms',
-  voiceStartMs: 'voice_start_ms'
+  voiceStartMs: 'voice_start_ms',
+  narratorCues: 'narrator_cues'
 }
 
 export function patchClip(id: string, patch: Partial<Clip>): void {
@@ -650,7 +678,7 @@ export function patchClip(id: string, patch: Partial<Clip>): void {
   const sets = entries.map(([k]) => `${CLIP_COLS[k as keyof Clip]} = ?`).join(', ')
   getDb()
     .prepare(`UPDATE clips SET ${sets} WHERE id = ?`)
-    .run(...entries.map(([, v]) => v), id)
+    .run(...entries.map(([k, v]) => (k === 'narratorCues' ? cuesJson(v as NarratorExpression[]) : v)), id)
 }
 
 /** Puts a new clip right after another one (used when the editor splits a clip). */
@@ -662,11 +690,18 @@ export function insertClipAfter(afterId: string, c: Clip): void {
     db.prepare(
       `INSERT INTO clips (id, project_id, sort, title, story, visual_prompt, visual_source, narration, duration_ms, character_ids,
          motion_type, camera_preset, motion_strength, video_prompt, transition, image_asset_id, video_asset_id, audio_asset_id,
-         video_camera, video_strength, transition_ms, voice_gain_db, media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json)
+         video_camera, video_strength, transition_ms, voice_gain_db, media_in_ms, voice_in_ms, voice_out_ms, voice_start_ms, scene_json, narrator_cues)
        VALUES (@id, @projectId, @sort, @title, @story, @visualPrompt, @visualSource, @narration, @durationMs, @characterIds,
          @motionType, @cameraPreset, @motionStrength, @videoPrompt, @transition, @imageAssetId, @videoAssetId, @audioAssetId,
-         @videoCamera, @videoStrength, @transitionMs, @voiceGainDb, @mediaInMs, @voiceInMs, @voiceOutMs, @voiceStartMs, @scene)`
-    ).run({ ...c, projectId: after.projectId, sort: after.sort + 1, characterIds: JSON.stringify(c.characterIds), scene: sceneJson(c.scene) })
+         @videoCamera, @videoStrength, @transitionMs, @voiceGainDb, @mediaInMs, @voiceInMs, @voiceOutMs, @voiceStartMs, @scene, @narratorCues)`
+    ).run({
+      ...c,
+      projectId: after.projectId,
+      sort: after.sort + 1,
+      characterIds: JSON.stringify(c.characterIds),
+      scene: sceneJson(c.scene),
+      narratorCues: cuesJson(c.narratorCues)
+    })
   })()
 }
 

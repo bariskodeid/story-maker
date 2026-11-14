@@ -2,7 +2,7 @@ import { createReadStream, statSync } from 'node:fs'
 import { extname, join, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { protocol } from 'electron'
-import { fontsDir, projectsRoot, seriesRoot } from './paths'
+import { fontsDir, narratorPresetsRoot, narratorsRoot, projectsRoot, seriesRoot } from './paths'
 
 const TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -25,7 +25,13 @@ export function registerSchemes(): void {
   ])
 }
 
-const ROOTS: Record<string, () => string> = { fonts: fontsDir, asset: projectsRoot, series: seriesRoot }
+const ROOTS: Record<string, () => string> = {
+  fonts: fontsDir,
+  asset: projectsRoot,
+  series: seriesRoot,
+  narrator: narratorsRoot,
+  narratorpreset: narratorPresetsRoot
+}
 
 /** Serves project assets, series files and caption fonts to the renderer, with Range support so audio and video can seek. */
 export function handleStudioProtocol(): void {

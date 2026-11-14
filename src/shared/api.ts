@@ -30,7 +30,8 @@ import type {
   SeriesSettingsResult,
   SeriesSummary,
   TtsProvider,
-  VoiceOption
+  VoiceOption,
+  Narrator
 } from './types'
 import type { RenderEngineStatus, RenderTestResult } from './render'
 import type { MagicRequest, MagicResult } from './magic'
@@ -44,6 +45,17 @@ export interface StudioApi {
     save(snapshot: ProjectSnapshot): Promise<{ updatedAt: number }>
     remove(id: string): Promise<void>
     duplicate(id: string): Promise<ProjectSummary>
+  }
+  narrators: {
+    /** Presets with bundled art first, then the user's narrators, newest first. */
+    list(): Promise<Narrator[]>
+    get(id: string): Promise<Narrator>
+    create(input: { name: string; description: string; style: Narrator['style'] }): Promise<Narrator>
+    /** Presets cannot be changed; duplicate one first. */
+    update(id: string, patch: { name?: string; description?: string; style?: Narrator['style'] }): Promise<Narrator>
+    /** Presets cannot be removed. A project or series that still points at the id simply shows no narrator. */
+    remove(id: string): Promise<void>
+    duplicate(id: string): Promise<Narrator>
   }
   series: {
     list(): Promise<SeriesSummary[]>

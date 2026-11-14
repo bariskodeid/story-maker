@@ -101,8 +101,7 @@ export type Overlay = ImageOverlay | TextOverlay
 
 export interface Project {
   id: string
-  /** Optional until the storage layer fills it (narrator task 2); readers fall back to DEFAULT_NARRATOR. */
-  narrator?: NarratorSettings
+  narrator: NarratorSettings
   title: string
   synopsis: string
   durationSec: number
@@ -145,8 +144,8 @@ export interface Character {
 
 export interface Clip {
   id: string
-  /** One expression per spoken sentence; optional until the storage layer fills it. */
-  narratorCues?: NarratorExpression[]
+  /** One expression per spoken sentence of the narration; missing entries read as neutral. */
+  narratorCues: NarratorExpression[]
   projectId: string
   sort: number
   title: string
@@ -193,6 +192,23 @@ export interface NarratorSettings {
   anchor: 'bottomLeft' | 'bottomRight'
   size: 'small' | 'medium' | 'large'
   enabled: boolean
+}
+
+/** A narrator character: a preset bundled with the app or one the user made. */
+export interface Narrator {
+  id: string
+  name: string
+  description: string
+  style: { kind: 'story' | 'explainer'; id: string }
+  /** Flat background the sprites were drawn on, removed again with a chroma key. */
+  keyColor: '#00FF00' | '#FF00FF'
+  preset: boolean
+  /** 'ready' once all sprites exist. */
+  status: 'empty' | 'ready'
+  /** "happy-open" -> url; null while there are no sprites. */
+  spriteUrls: Record<string, string> | null
+  thumbUrl: string | null
+  createdAt: number
 }
 
 export interface WordTiming {
@@ -419,8 +435,8 @@ export interface SeriesBible {
 
 export interface Series {
   id: string
-  /** Default narrator for the series episodes; optional until the storage layer fills it. */
-  narrator?: NarratorSettings
+  /** Default narrator for the series episodes. */
+  narrator: NarratorSettings
   kind: SeriesKind
   title: string
   premise: string
@@ -516,7 +532,7 @@ export type SeriesPatch = Partial<Pick<Series, 'title' | 'premise'> & Pick<Serie
 export type SeriesSettingsPatch = Partial<
   Pick<
     Series,
-    'durationSec' | 'language' | 'aspectRatio' | 'styleId' | 'ttsProvider' | 'ttsVoice' | 'imageModel' | 'videoModel' | 'videoResolution' | 'templateId' | 'theme'
+    'durationSec' | 'language' | 'aspectRatio' | 'styleId' | 'ttsProvider' | 'ttsVoice' | 'imageModel' | 'videoModel' | 'videoResolution' | 'templateId' | 'theme' | 'narrator'
   >
 >
 

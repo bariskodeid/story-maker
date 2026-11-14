@@ -40,6 +40,26 @@ export function assetAbsPath(projectId: string, localPath: string): string {
   return join(projectsRoot(), projectId, localPath)
 }
 
+/** Sprites of the user's own narrators, one folder per narrator. */
+export function narratorsRoot(): string {
+  const dir = join(dataDir(), 'narrators')
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+export function narratorDir(id: string): string {
+  return join(narratorsRoot(), id)
+}
+
+/** Bundled narrator presets (sprites made by the maker), read-only. */
+export function narratorPresetsRoot(): string {
+  return app.isPackaged ? join(process.resourcesPath, 'narrators') : join(app.getAppPath(), 'resources', 'narrators')
+}
+
+export function narratorPresetDir(id: string): string {
+  return join(narratorPresetsRoot(), id)
+}
+
 export function fontsDir(): string {
   return app.isPackaged ? join(process.resourcesPath, 'fonts') : join(app.getAppPath(), 'resources', 'fonts')
 }
@@ -54,6 +74,19 @@ export function assetUrl(projectId: string, localPath: string): string {
 export function seriesFileUrl(seriesId: string, localPath: string): string {
   const rel = `${seriesId}/${localPath}`.split(/[\\/]/).map(encodeURIComponent).join('/')
   return `studio://series/${rel}`
+}
+
+const fileUrl = (host: string, id: string, file: string): string =>
+  `studio://${host}/${[id, file].map(encodeURIComponent).join('/')}`
+
+/** URL of a sprite file of a user narrator (served by the studio:// protocol). */
+export function narratorFileUrl(id: string, file: string): string {
+  return fileUrl('narrator', id, file)
+}
+
+/** URL of a sprite file of a bundled preset. */
+export function narratorPresetFileUrl(id: string, file: string): string {
+  return fileUrl('narratorpreset', id, file)
 }
 
 /** ffmpeg-static / ffprobe-static paths, fixed up for the unpacked asar folder in the installed app. */

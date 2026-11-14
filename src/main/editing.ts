@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import ffmpegStatic from 'ffmpeg-static'
+import { normalizeCues, splitSentences } from '@shared/narrator'
 import { visualSourceOf } from '@shared/script'
 import { MIN_ITEM_MS, splitNarration, voiceSpan, wordGapNear } from '@shared/timeline'
 import type { Asset, Clip, ProjectBundle } from '@shared/types'
@@ -48,6 +49,20 @@ async function voicePart(audio: Asset, clipId: string, fromMs: number, toMs: num
   })
   emit.asset(asset)
   return asset
+}
+
+/**
+ * Divides a clip's expression cues (one per sentence) between the two narration halves of a split. A sentence cut in
+ * the middle keeps its cue on both sides; sentences the old cues did not cover read as neutral.
+ */
+function splitCues(cues: Clip['narratorCues'], narrationA: string, narrationB: string, narration: string): [Clip['narratorCues'], Clip['narratorCues']] {
+  const total = splitSentences(narration).length
+  const nA = splitSentences(narrationA).length
+  const nB = splitSentences(narrationB).length
+  const startB = nA > 0 && nA + nB > total ? nA - 1 : nA
+  const all = normalizeCues(cues)
+  const pick = (from: number, count: number): Clip['narratorCues'] => Array.from({ length: count }, (_, i) => all[from + i] ?? 'neutral')
+  return [pick(0, nA), pick(startB, nB)]
 }
 
 /**
@@ -115,13 +130,15 @@ export async function splitClip(clipId: string, atMs: number): Promise<ProjectBu
     mediaInMs: clip.mediaInMs + at,
     ...voiceB
   }
+  const [cuesA, cuesB] = splitCues(clip.narratorCues, narrationA, narrationB, clip.narration)
+  b.narratorCues = cuesB
   b.visualSource = visualSourceOf(b)
   insertClipAfter(clip.id, b)
 
   // The first part keeps its picture and plays up to the cut.
   const a = { ...clip, narration: narrationA }
   patchClipText(clip.id, { narration: narrationA, visualSource: visualSourceOf(a), transition: 'cut' })
-  patchClip(clip.id, { durationMs: at, ...voiceA })
+  patchClip(clip.id, { durationMs: at, narratorCues: cuesA, ...voiceA })
   touchProject(clip.projectId)
   return getBundle(clip.projectId)
 }
