@@ -118,7 +118,7 @@ Tips:
 `scripts/fake-llm.mjs` adalah server tiruan kompatibel OpenAI (`/v1/models`, `/v1/chat/completions`) tanpa kunci dan
 tanpa biaya. Ia membalas `MAGIC: ` diikuti awal pesan user, sehingga konteks yang sampai ke model kelihatan, dan
 mencetak baris `SYSTEM:` dan `USER:` ke konsolnya. Variabel lingkungan: `PORT` (bawaan 8787) dan `DELAY_MS` (bawaan
-1500, supaya status sibuk sempat diamati).
+1500, supaya status sibuk sempat diamati). Permintaan dengan nama skema `narrator_cues` dibalas JSON ekspresi yang valid per kalimat bernomor; `BAD_CUES=1` membuat balasan itu rusak untuk menguji jalur gagal.
 
 ```powershell
 npm run build                     # harness menjalankan folder out/, jadi build dulu setiap habis mengubah kode

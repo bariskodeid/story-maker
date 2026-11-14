@@ -302,9 +302,9 @@ export function generateNarration(projectId: string, mode: 'missing' | 'all'): J
       if (after.narrator.enabled && after.narrator.id) {
         ctx.progress(0.95, 'Memilih ekspresi narator')
         try {
-          await assignCues(projectId)
-        } catch (e) {
-          console.warn('[narratorCues]', (e as Error).message)
+          await assignCues(projectId, clips.map((c) => c.id))
+        } catch {
+          // assignCues already logged the reason.
         }
       }
       return { message: `${clips.length} adegan disuarakan dalam satu rekaman` }
