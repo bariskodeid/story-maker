@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Wand2 } from 'lucide-react'
 import { magicModes, type MagicField, type MagicMode, type MagicRequest } from '@shared/magic'
 import { errorText } from '../lib/format'
@@ -16,29 +16,45 @@ export function useMagic(opts: {
   onApply: (text: string) => void
   request?: () => Omit<MagicRequest, 'mode' | 'text' | 'field'>
 }): { field: MagicField; busy: boolean; run: (mode: MagicMode) => Promise<void> } {
-  const { field, value, onApply, request } = opts
+  const { field } = opts
   const toast = useApp((s) => s.toast)
   const [busy, setBusy] = useState(false)
   // A ref, not just state: two clicks in the same tick would both see busy === false.
   const running = useRef(false)
+  // Callbacks and the live value are read through refs: `run` and the undo action outlive the render
+  // that created them, and must not apply into (or compare against) stale closures.
+  const latest = useRef(opts)
+  latest.current = opts
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const run = async (mode: MagicMode): Promise<void> => {
     if (running.current) return
     running.current = true
     setBusy(true)
-    const before = value
+    const before = latest.current.value
     try {
-      const result = await window.api.magic.run({ ...request?.(), field, mode, text: value })
-      onApply(result.text)
+      const result = await window.api.magic.run({ ...latest.current.request?.(), field, mode, text: before })
+      // The screen may be gone (or another project open) by now; a result for it must not land anywhere.
+      if (!mounted.current) return
+      latest.current.onApply(result.text)
       toast('success', mode === 'improve' ? 'Teks diperkaya dengan Magic.' : 'Ide baru dari Magic sudah dipasang.', {
         label: 'Urungkan',
-        run: () => onApply(before)
+        // Only undo while the field still holds Magic's text; anything typed since is the user's and wins.
+        run: () => {
+          if (mounted.current && latest.current.value === result.text) latest.current.onApply(before)
+        }
       })
     } catch (e) {
-      toast('error', errorText(e))
+      if (mounted.current) toast('error', errorText(e))
     } finally {
       running.current = false
-      setBusy(false)
+      if (mounted.current) setBusy(false)
     }
   }
 
@@ -95,7 +111,10 @@ export function MagicButton({
         {magic.busy ? <Spinner className="size-3.5" /> : <Wand2 className="size-3.5" />}
         Magic
       </button>
-      <Popover anchor={trigger} open={open} onClose={() => setOpen(false)} width={260} align="right" label={label}>
+      <Popover anchor={trigger} open={open} onClose={(reason) => {
+          setOpen(false)
+          if (reason === 'escape') trigger.current?.focus()
+        }} width={260} align="right" label={label}>
         <div role="menu" className="flex flex-col p-1.5">
           {MODE_ROWS.map((r) => (
             <button
