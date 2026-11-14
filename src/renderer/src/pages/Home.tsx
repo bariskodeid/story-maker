@@ -19,6 +19,7 @@ import type {
 } from '@shared/types'
 import { TemplatePicker, TemplateSwatch } from '../components/ExplainerPreview'
 import { Logo } from '../components/Logo'
+import { MagicButton, useMagic } from '../components/Magic'
 import { Select, type SelectOption } from '../components/Select'
 import { StyleSwatch } from '../components/StyleArt'
 import { StyleMenu } from '../components/StyleMenu'
@@ -309,6 +310,20 @@ export function Home() {
     refresh()
   }
 
+  // The field follows kind and mode so each box gets the brief that matches what it is for.
+  const magic = useMagic({
+    field: explainer ? (mode === 'series' ? 'explainerSeriesTopic' : 'explainerTopic') : mode === 'series' ? 'seriesPremise' : 'storyIdea',
+    value: synopsis,
+    onApply: setSynopsis,
+    request: () => ({
+      language,
+      durationSec,
+      templateId: explainer ? templateId : undefined,
+      styleId: explainer ? undefined : styleId,
+      episodeCount: mode === 'series' ? episodeCount : undefined
+    })
+  })
+
   const suggestions = explainer ? (mode === 'series' ? EXPLAINER_SERIES_SUGGESTIONS : EXPLAINER_SUGGESTIONS[templateId]) : SUGGESTIONS
 
   const remove = async (p: ProjectSummary): Promise<void> => {
@@ -376,7 +391,7 @@ export function Home() {
           </div>
           <div className="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-ink bg-surface py-5 pl-6 pr-5 shadow-ink-lg">
             <div className="flex items-center gap-3">
-              <label htmlFor="ide" className="flex-1 text-[13px] font-semibold text-ink-2">
+              <label htmlFor="ide" className="min-w-0 flex-1 text-[13px] font-semibold text-ink-2">
                 {explainer
                   ? mode === 'series'
                     ? 'Topik seri video penjelasan'
@@ -409,11 +424,13 @@ export function Home() {
                   }
                 ]}
               />
+              <MagicButton magic={magic} value={synopsis} size="sm" />
             </div>
             <textarea
               id="ide"
               rows={3}
               value={synopsis}
+              readOnly={magic.busy}
               onChange={(e) => setSynopsis(e.target.value)}
               placeholder={
                 explainer
@@ -463,7 +480,7 @@ export function Home() {
                 <Button
                   size="lg"
                   icon={<Wand2 className="size-[18px]" />}
-                  disabled={!!autoBlocked || creating !== null}
+                  disabled={!!autoBlocked || creating !== null || magic.busy}
                   loading={creating === 'auto'}
                   onClick={() => void (mode === 'series' ? startSeriesAuto() : startAuto())}
                 >
@@ -476,7 +493,7 @@ export function Home() {
                     variant="primary"
                     size="lg"
                     icon={<Layers className="size-[18px]" />}
-                    disabled={!synopsis.trim() || creating !== null}
+                    disabled={!synopsis.trim() || creating !== null || magic.busy}
                     loading={creating === 'manual'}
                     onClick={() => void startSeries(false)}
                   >
@@ -484,7 +501,7 @@ export function Home() {
                   </Button>
                 </span>
               ) : (
-                <Button variant="primary" size="lg" disabled={creating !== null} loading={creating === 'manual'} onClick={() => void start(false)}>
+                <Button variant="primary" size="lg" disabled={creating !== null || magic.busy} loading={creating === 'manual'} onClick={() => void start(false)}>
                   Mulai
                   <ArrowRight className="size-[18px]" />
                 </Button>
