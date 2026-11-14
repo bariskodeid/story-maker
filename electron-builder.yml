@@ -22,6 +22,8 @@ extraResources:
     to: licenses/Remotion-LICENSE.md
   - from: resources/whisper
     to: whisper
+  - from: resources/narrators
+    to: narrators
   - from: out/remotion
     to: remotion
 asarUnpack:
