@@ -5,6 +5,7 @@ import { DURATIONS, LANGUAGES, llmName } from '@shared/models'
 import type { KeyStatus, LlmProvider } from '@shared/types'
 import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
 import { TemplatePicker } from '../../../components/ExplainerPreview'
+import { MagicButton, useMagic } from '../../../components/Magic'
 import { Select } from '../../../components/Select'
 import { Button, Chip, Field, Segmented, confirmDialog, cx } from '../../../components/ui'
 import { errorText } from '../../../lib/format'
@@ -42,6 +43,13 @@ export function ExplainerIdeaStep() {
     const use = usableTts(project.ttsProvider, keys)
     if (use !== project.ttsProvider) updateProject({ ttsProvider: use, ttsVoice: defaultTtsVoice(use, project.language) })
   }, [keys, project?.id])
+
+  const magic = useMagic({
+    field: 'explainerTopic',
+    value: project?.synopsis ?? '',
+    onApply: (synopsis) => updateProject({ synopsis }),
+    request: () => ({ projectId: project?.id })
+  })
 
   if (!project) return null
   const template = getTemplate(project.templateId)
@@ -89,14 +97,18 @@ export function ExplainerIdeaStep() {
           </div>
 
           <div className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-ink bg-surface px-[18px] pb-3 pt-4 shadow-ink-md">
-            <label htmlFor="topik" className="text-[13px] font-semibold text-ink-2">
-              Topik atau ide video
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="topik" className="text-[13px] font-semibold text-ink-2">
+                Topik atau ide video
+              </label>
+              <MagicButton magic={magic} value={project.synopsis} />
+            </div>
             <textarea
               id="topik"
               rows={4}
               value={project.synopsis}
               maxLength={4000}
+              readOnly={magic.busy}
               onChange={(e) => updateProject({ synopsis: e.target.value })}
               placeholder={PLACEHOLDERS[template.id]}
               className="resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted/70"

@@ -5,6 +5,7 @@ import { DURATIONS, LANGUAGES, clipCountFor, llmName } from '@shared/models'
 import { getStyle } from '@shared/styles'
 import type { KeyStatus, LlmProvider, TtsProvider, VoiceOption } from '@shared/types'
 import { NINEROUTER_VOICES, defaultTtsVoice } from '@shared/voices'
+import { MagicButton, useMagic } from '../../components/Magic'
 import { ModelPicker } from '../../components/ModelPicker'
 import { Select } from '../../components/Select'
 import { StylePicker } from '../../components/StylePicker'
@@ -174,6 +175,13 @@ export function IdeaStep() {
     if (use !== project.ttsProvider) updateProject({ ttsProvider: use, ttsVoice: defaultTtsVoice(use, project.language) })
   }, [keys, project?.id])
 
+  const magic = useMagic({
+    field: 'storyIdea',
+    value: project?.synopsis ?? '',
+    onApply: (synopsis) => updateProject({ synopsis }),
+    request: () => ({ projectId: project?.id })
+  })
+
   if (!project) return null
   const ready = ttsReadiness(keys)
   const blocked = keys.length ? TTS_PROVIDERS.filter((p) => !ready[p].ok) : []
@@ -226,14 +234,18 @@ export function IdeaStep() {
             </div>
 
             <div className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-ink bg-surface px-[18px] pb-3 pt-4 shadow-ink-md">
-              <label htmlFor="sinopsis" className="text-[13px] font-semibold text-ink-2">
-                Ide cerita atau sinopsis
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="sinopsis" className="text-[13px] font-semibold text-ink-2">
+                  Ide cerita atau sinopsis
+                </label>
+                <MagicButton magic={magic} value={project.synopsis} />
+              </div>
               <textarea
                 id="sinopsis"
                 rows={5}
                 value={project.synopsis}
                 maxLength={4000}
+                readOnly={magic.busy}
                 onChange={(e) => updateProject({ synopsis: e.target.value })}
                 placeholder="Tahun 1336 di istana Majapahit. Gajah Mada bersumpah tidak akan menikmati palapa sebelum Nusantara bersatu…"
                 className="resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted/70"
