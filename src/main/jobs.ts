@@ -22,6 +22,8 @@ const LIMITS: Record<QueueName, number> = { higgsfield: 3, ninerouter: 2, gemini
 const running: Record<QueueName, number> = { higgsfield: 0, ninerouter: 0, gemini: 0, tts: 0, whisper: 0, export: 0 }
 const waiting: Record<QueueName, (() => void)[]> = { higgsfield: [], ninerouter: [], gemini: [], tts: [], whisper: [], export: [] }
 const controllers = new Map<string, AbortController>()
+// Remote ids of running jobs, kept here as well as in the table because in-memory jobs have no row to read it from.
+const remotes = new Map<string, { id: string; provider: string }>()
 
 function acquire(q: QueueName): Promise<void> {
   if (running[q] < LIMITS[q]) {
@@ -63,6 +65,7 @@ export function runJob(job: Job, queue: QueueName, task: Task, update: JobUpdate
       }
     },
     setRemote: (id) => {
+      remotes.set(job.id, { id, provider: job.provider })
       update(job.id, { remoteId: id })
     }
   }
@@ -93,6 +96,7 @@ export function runJob(job: Job, queue: QueueName, task: Task, update: JobUpdate
     } finally {
       release(queue)
       controllers.delete(job.id)
+      remotes.delete(job.id)
     }
   })()
   return job
@@ -100,15 +104,11 @@ export function runJob(job: Job, queue: QueueName, task: Task, update: JobUpdate
 
 export async function cancelJob(id: string): Promise<void> {
   const raw = getJobRaw(id)
-  if (!raw) {
-    // In-memory jobs have no row, but they still run under a controller.
-    controllers.get(id)?.abort()
-    return
-  }
-  if (raw.remote_id && raw.provider === 'higgsfield') await cancelRequest(raw.remote_id)
+  const remote = raw ? (raw.remote_id ? { id: raw.remote_id as string, provider: raw.provider as string } : null) : (remotes.get(id) ?? null)
+  if (remote?.provider === 'higgsfield') await cancelRequest(remote.id)
   const ctrl = controllers.get(id)
   if (ctrl) ctrl.abort()
-  else if (raw.status === 'queued' || raw.status === 'running') emit.job(updateJob(id, { status: 'canceled', message: null }))
+  else if (raw && (raw.status === 'queued' || raw.status === 'running')) emit.job(updateJob(id, { status: 'canceled', message: null }))
 }
 
 export function isActive(id: string): boolean {

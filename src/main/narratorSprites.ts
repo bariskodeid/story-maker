@@ -24,6 +24,8 @@ const SOLID_ALPHA = 8
 const MIN_COVER = 0.05
 const MAX_COVER = 0.95
 const EDGE_TOUCH_PX = 2
+// A connected piece smaller than this share of the biggest one is a speck, not subject.
+const SUBJECT_PART = 0.02
 const THUMB_SIZE = 256
 // Space left around the shared canvas so a bounce or breath scale never clips the sprite.
 const CANVAS_PAD = 0.02
@@ -63,9 +65,9 @@ export function buildSheetPrompt(n: Narrator): string {
     styleLine(n),
     `Expression sheet of ONE video narrator character: ${n.description.trim() || 'a friendly presenter'}.`,
     `Layout: a single image divided into an exact grid of ${SHEET_COLS} columns by ${SHEET_ROWS} rows, 12 cells of identical size, filled in reading order (left to right, top to bottom):\n${cells}`,
-    'Every cell shows the SAME character, half-body (head, shoulders and upper chest), facing the camera. The head and shoulders sit at exactly the same position, size and angle in every cell; only the face changes. Keep the figure well inside its cell, with empty background all around it, and nothing crossing a cell border. The body is cropped flat at the bottom edge of the cell.',
+    'Every cell shows the SAME character, half-body (head, shoulders and upper chest), facing the camera. The head and shoulders sit at exactly the same position, size and angle in every cell; only the face changes. Keep the figure well inside its cell with empty background around it; nothing crosses a cell border except the flat cut at the bottom of each bust.',
     `Background (this overrides any background instruction above): one perfectly flat solid ${KEY_NAME[key]} (${key}) color covering the whole image, including the gaps between cells. No gradient, no shadow, no floor, no vignette, no glow. The character must not use ${KEY_NAME[key]} anywhere (clothes, eyes, accessories, highlights). Crisp clean outlines.`,
-    'No text, letters, numbers, labels, borders or grid lines anywhere. Landscape 16:9 frame.'
+    'No text, letters, numbers, labels, borders or grid lines anywhere.'
   ].join('\n\n')
 }
 
@@ -107,6 +109,7 @@ interface Cut {
   box: { x0: number; y0: number; x1: number; y1: number }
   cover: number
   touches: number
+  spills: boolean
 }
 
 function measure(png: Buffer, spillPng: Buffer): Cut {
@@ -114,23 +117,56 @@ function measure(png: Buffer, spillPng: Buffer): Cut {
   const { width: w, height: h } = img.getSize()
   const px = img.toBitmap()
   const spill = nativeImage.createFromBuffer(spillPng).toBitmap()
-  let x0 = w
-  let y0 = h
-  let x1 = -1
-  let y1 = -1
   let solid = 0
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (px[(y * w + x) * 4 + 3] < SOLID_ALPHA) continue
+  const mask = new Uint8Array(w * h)
+  for (let i = 0; i < w * h; i++) {
+    if (px[i * 4 + 3] >= SOLID_ALPHA) {
+      mask[i] = 1
       solid++
-      if (x < x0) x0 = x
-      if (x > x1) x1 = x
-      if (y < y0) y0 = y
-      if (y > y1) y1 = y
     }
   }
-  const touches = x1 < 0 ? 0 : Number(x0 < EDGE_TOUCH_PX) + Number(y0 < EDGE_TOUCH_PX) + Number(x1 >= w - EDGE_TOUCH_PX) + Number(y1 >= h - EDGE_TOUCH_PX)
-  return { w, h, px, spill, box: { x0, y0, x1, y1 }, cover: solid / (w * h), touches }
+  // Stray specks must not move the box: it spans the connected pieces that are a real part of the subject, i.e. at
+  // least SUBJECT_PART of the biggest piece (a floating hand still counts, a 2px dot does not).
+  const comps: { size: number; x0: number; y0: number; x1: number; y1: number }[] = []
+  const stack = new Int32Array(w * h)
+  for (let start = 0; start < w * h; start++) {
+    if (mask[start] !== 1) continue
+    let sp = 0
+    stack[sp++] = start
+    mask[start] = 2
+    const c = { size: 0, x0: w, y0: h, x1: -1, y1: -1 }
+    while (sp > 0) {
+      const i = stack[--sp]
+      const x = i % w
+      const y = (i - x) / w
+      c.size++
+      if (x < c.x0) c.x0 = x
+      if (x > c.x1) c.x1 = x
+      if (y < c.y0) c.y0 = y
+      if (y > c.y1) c.y1 = y
+      if (x > 0 && mask[i - 1] === 1) (mask[i - 1] = 2), (stack[sp++] = i - 1)
+      if (x < w - 1 && mask[i + 1] === 1) (mask[i + 1] = 2), (stack[sp++] = i + 1)
+      if (y > 0 && mask[i - w] === 1) (mask[i - w] = 2), (stack[sp++] = i - w)
+      if (y < h - 1 && mask[i + w] === 1) (mask[i + w] = 2), (stack[sp++] = i + w)
+    }
+    comps.push(c)
+  }
+  const biggest = Math.max(0, ...comps.map((c) => c.size))
+  const parts = comps.filter((c) => c.size >= biggest * SUBJECT_PART)
+  const x0 = parts.length ? Math.min(...parts.map((c) => c.x0)) : -1
+  const x1 = parts.length ? Math.max(...parts.map((c) => c.x1)) : -1
+  const y0 = parts.length ? Math.min(...parts.map((c) => c.y0)) : -1
+  const y1 = parts.length ? Math.max(...parts.map((c) => c.y1)) : -1
+  const ok = x0 >= 0 && y0 >= 0
+  const top = ok && y0 < EDGE_TOUCH_PX
+  const left = ok && x0 < EDGE_TOUCH_PX
+  const right = ok && x1 >= w - EDGE_TOUCH_PX
+  const bottom = ok && y1 >= h - EDGE_TOUCH_PX
+  // A bust is cut flat at the bottom and may have shoulders wide enough to reach both sides, so only a subject that
+  // also reaches the top (and another side) clearly spills out of its cell.
+  const spills = top && Number(left) + Number(right) + Number(bottom) >= 2
+  const touches = Number(top) + Number(left) + Number(right) + Number(bottom)
+  return { w, h, px, spill, box: { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.max(0, x1), y1: Math.max(0, y1) }, cover: solid / (w * h), touches, spills }
 }
 
 const FILL_RADIUS = 3
@@ -214,6 +250,11 @@ function makeThumb(w: number, h: number, bitmap: Buffer): Buffer {
   return nativeImage.createFromBitmap(sq, { width: side, height: side }).resize({ width: THUMB_SIZE, height: THUMB_SIZE, quality: 'best' }).toPNG()
 }
 
+/** Any image ffmpeg can read to PNG; the sheet is kept this way so it never depends on the model's format. */
+export function sheetToPng(from: string, to: string): Promise<void> {
+  return ffmpeg(['-i', from, '-frames:v', '1', to])
+}
+
 export type SheetResult = { ok: true } | { ok: false; reason: string; detail?: string }
 
 const bad = (detail: string): SheetResult => ({ ok: false, reason: BAD_SHEET_MESSAGE, detail })
@@ -223,21 +264,20 @@ const bad = (detail: string): SheetResult => ({ ok: false, reason: BAD_SHEET_MES
  * the sheet is judged in memory first, so a broken sheet never replaces sprites that already work.
  */
 export async function processSheet(sheetPath: string, outDir: string, keyColor: Narrator['keyColor']): Promise<SheetResult> {
-  const sheet = nativeImage.createFromPath(sheetPath)
-  const { width: sw, height: sh } = sheet.getSize()
-  if (sw < SHEET_COLS * 60 || sh < SHEET_ROWS * 60) return bad(`lembar terlalu kecil (${sw}x${sh})`)
-  const cw = Math.floor(sw / SHEET_COLS)
-  const ch = Math.floor(sh / SHEET_ROWS)
-  const mx = Math.round(cw * CELL_MARGIN)
-  const my = Math.round(ch * CELL_MARGIN)
-  const iw = cw - 2 * mx
-  const ih = ch - 2 * my
-
   const work = mkdtempSync(join(tmpdir(), 'narrator-'))
   try {
-    // ffmpeg may not read a webp or a jpeg-in-png-name sheet identically everywhere; decode once with Chromium.
+    // Chromium cannot decode WebP from a path (it reports 0x0), so ffmpeg normalises whatever the model returned.
     const src = join(work, 'sheet.png')
-    writeFileSync(src, sheet.toPNG())
+    await sheetToPng(sheetPath, src).catch(() => undefined)
+    const { width: sw, height: sh } = nativeImage.createFromPath(src).getSize()
+    if (sw === 0 || sh === 0) return bad('format gambar lembar tidak bisa dibaca')
+    if (sw < SHEET_COLS * 60 || sh < SHEET_ROWS * 60) return bad(`lembar terlalu kecil (${sw}x${sh})`)
+    const cw = Math.floor(sw / SHEET_COLS)
+    const ch = Math.floor(sh / SHEET_ROWS)
+    const mx = Math.round(cw * CELL_MARGIN)
+    const my = Math.round(ch * CELL_MARGIN)
+    const iw = cw - 2 * mx
+    const ih = ch - 2 * my
     // One process cuts all 12 cells: one decode of the sheet instead of twelve.
     const n = NARRATOR_GRID.length
     const chains = NARRATOR_GRID.map((_, i) => {
@@ -258,7 +298,7 @@ export async function processSheet(sheetPath: string, outDir: string, keyColor: 
       const name = `${NARRATOR_GRID[i].expression}-${NARRATOR_GRID[i].mouth}`
       if (c.cover < MIN_COVER) return bad(`sel ${i + 1} (${name}) kosong, alfa ${(c.cover * 100).toFixed(1)}%`)
       if (c.cover > MAX_COVER) return bad(`sel ${i + 1} (${name}) terisi penuh, alfa ${(c.cover * 100).toFixed(1)}%`)
-      if (c.touches >= 3) return bad(`sel ${i + 1} (${name}) menyentuh ${c.touches} sisi sel`)
+      if (c.spills) return bad(`sel ${i + 1} (${name}) keluar dari sel (menyentuh ${c.touches} sisi)`)
     }
     cuts.forEach((c) => cleanEdges(c, keyColor))
 

@@ -1,19 +1,19 @@
 import { randomUUID } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { EXPLAINER_IMAGE_STYLES } from '@shared/explainer'
 import { NARRATOR_GRID } from '@shared/narrator'
 import { NARRATOR_PRESETS, type NarratorPreset } from '@shared/narratorPresets'
 import { VISUAL_STYLES } from '@shared/styles'
 import type { Job, Narrator } from '@shared/types'
-import { nativeImage } from 'electron'
 import { getDb } from './db'
 import { emit } from './events'
 import { drawImage, imageQueue } from './generation'
 import { runJob } from './jobs'
 import type { updateJob } from './repo'
 import { narratorDir, narratorFileUrl, narratorPresetDir, narratorPresetFileUrl } from './paths'
-import { buildSheetPrompt, processSheet, type SheetResult } from './narratorSprites'
+import { buildSheetPrompt, processSheet, sheetToPng, type SheetResult } from './narratorSprites'
 
 type Row = Record<string, any>
 
@@ -176,8 +176,13 @@ export async function applySheet(id: string, sheetPath: string): Promise<SheetRe
   const dir = narratorDir(id)
   const r = await processSheet(sheetPath, dir, cur.keyColor)
   if (!r.ok) return r
-  // Always PNG: the image model may hand back a jpeg or webp.
-  writeFileSync(join(dir, 'sheet.png'), nativeImage.createFromPath(sheetPath).toPNG())
+  if (!findNarrator(id)) {
+    // Removed while the sprites were being cut.
+    rmSync(dir, { recursive: true, force: true })
+    return { ok: false, reason: 'Narator sudah dihapus.' }
+  }
+  // Always PNG: the image model may hand back a jpeg or webp. The folder exists now because processSheet made it.
+  await sheetToPng(sheetPath, join(dir, 'sheet.png'))
   setNarratorStatus(id, 'ready')
   return r
 }
@@ -189,7 +194,7 @@ const activeByNarrator = new Map<string, string>()
 
 function updateLoose(jobId: string, patch: Parameters<typeof updateJob>[1]): Job {
   const cur = jobStore.get(jobId)!
-  // The remote id only matters to resume and cancel of Higgsfield jobs in the table; these are never resumed.
+  // The remote id is tracked by runJob for cancelling; the Job shape has no field for it.
   const { remoteId: _remote, ...rest } = patch
   const next: Job = { ...cur, ...rest, updatedAt: Date.now() }
   jobStore.set(jobId, next)
@@ -230,20 +235,26 @@ export function generateNarrator(id: string): Job {
     async (ctx) => {
       ctx.progress(0.04, 'Menyiapkan prompt')
       const image = await drawImage(ctx, buildSheetPrompt(getNarrator(id)), '16:9', 'Membuat lembar ekspresi')
+      // Removed while the picture was being drawn: drop the result and leave no folder behind.
+      if (!findNarrator(id)) return
       ctx.progress(0.95, 'Memotong sprite')
-      mkdirSync(narratorDir(id), { recursive: true })
-      const tmp = join(narratorDir(id), `sheet-new${image.ext || '.png'}`)
-      writeFileSync(tmp, image.bytes)
+      const work = mkdtempSync(join(tmpdir(), 'narrator-sheet-'))
+      const tmp = join(work, `sheet-new${image.ext || '.png'}`)
       try {
+        writeFileSync(tmp, image.bytes)
         const r = await applySheet(id, tmp)
         if (!r.ok) throw new Error(r.reason)
       } finally {
-        rmSync(tmp, { force: true })
+        rmSync(work, { recursive: true, force: true })
       }
     },
     (jobId, patch) => {
       const j = updateLoose(jobId, patch)
-      if (j.status !== 'queued' && j.status !== 'running') done()
+      if (j.status !== 'queued' && j.status !== 'running') {
+        done()
+        // runJob emits the returned job right after this call; the entry is no longer needed once that has happened.
+        setTimeout(() => jobStore.delete(jobId), 1000)
+      }
       return j
     }
   )
