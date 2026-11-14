@@ -1140,7 +1140,7 @@ export const SAMPLE_SCENES: Record<ExplainerTemplateId, ExplainerScene[]> = {
       type: 'timeline',
       label: 'Abad ke-20',
       heading: 'Dari kebangkitan sampai kedaulatan',
-      body: 'Empat puluh tahun yang membentuk Indonesia.',
+      body: 'Lebih dari empat puluh tahun yang membentuk Indonesia.',
       author: 'Sejarah Nasional Indonesia',
       timeline: [
         { date: '1908', title: 'Budi Utomo berdiri' },
