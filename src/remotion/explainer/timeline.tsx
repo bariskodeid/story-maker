@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { alpha, BODY_FONT, enter, fitSize, headingStyle, MONO_FONT, numberStyle } from './layout'
+import { alpha, BODY_FONT, enter, fitSize, headingStyle, mix, MONO_FONT, numberStyle } from './layout'
 import { Kicker } from './news'
 import { FitBox, Rise, Words } from './parts'
 import type { SceneProps } from './scenes'
@@ -35,9 +35,9 @@ export function TimelineScene({ item, input, f }: SceneProps) {
   const start = 10
   const at = (i: number) => start + i * gap
   const drawn = interpolate(frame, [0, 10], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
-  // The newest point that has appeared; -1 before the first one.
-  let latest = -1
-  for (let i = 0; i < n; i++) if (frame >= at(i)) latest = i
+  // How strongly point i carries the accent: it rises as the point appears and fades once the next one arrives,
+  // so the highlight eases along the line instead of snapping.
+  const accentOf = (i: number) => clamp01((frame - at(i)) / 6) * (i + 1 < n ? 1 - clamp01((frame - at(i + 1)) / 6) : 1)
 
   const dot = 34 * u
   const lineW = 5 * u
@@ -57,7 +57,7 @@ export function TimelineScene({ item, input, f }: SceneProps) {
 
   const marker = (i: number) => {
     const a = enter(frame, fps, at(i))
-    const isLatest = i === latest
+    const w = accentOf(i)
     return (
       <span
         style={{
@@ -68,18 +68,26 @@ export function TimelineScene({ item, input, f }: SceneProps) {
           height: dot,
           borderRadius: '50%',
           boxSizing: 'border-box',
-          background: isLatest ? p.accent : p.bg,
-          border: `${lineW}px solid ${isLatest ? p.accent : p.ink}`,
-          boxShadow: isLatest ? `0 0 0 ${8 * u}px ${alpha(p.accent, 0.28)}` : undefined,
-          transform: `scale(${a * (isLatest ? 1.2 : 1)})`
+          background: mix(p.bg, p.accent, w),
+          border: `${lineW}px solid ${mix(p.ink, p.accent, w)}`,
+          boxShadow: w > 0.01 ? `0 0 0 ${8 * u}px ${alpha(p.accent, 0.28 * w)}` : undefined,
+          transform: `scale(${a * (1 + 0.2 * w)})`
         }}
       />
     )
   }
 
-  const dateText = (i: number, size: number, center: boolean) => (
-    <div style={{ ...numberStyle(look, fitSize(points[i].date, size, center ? 6 : 12) * u), color: p.ink, textAlign: center ? 'center' : 'left', whiteSpace: 'nowrap' }}>{points[i].date}</div>
-  )
+  // Horizontal columns are narrow: the date wraps (two lines at most) and its size follows the longest word, so
+  // "28 September 1945" never reaches the neighbouring column. Serif digits and letters average ~0.7em with the display face's wide caps.
+  const colW = f.contentWidth / Math.max(1, n)
+  const dateText = (i: number, center: boolean) => {
+    const date = points[i].date
+    const longest = Math.max(1, ...date.split(/\s+/).map((w) => w.length))
+    const size = center ? Math.min(56, (colW / u - 28) / (longest * 0.7)) : fitSize(date, 56, 12)
+    return (
+      <div style={{ ...numberStyle(look, size * u), color: p.ink, textAlign: center ? 'center' : 'left', whiteSpace: center ? 'normal' : 'nowrap', width: center ? '100%' : undefined }}>{date}</div>
+    )
+  }
 
   const track = portrait ? (
     <div style={{ display: 'flex', flexDirection: 'column', width: f.contentWidth }}>
@@ -88,13 +96,14 @@ export function TimelineScene({ item, input, f }: SceneProps) {
         // Each segment runs from this dot to the next, filling in order as the line draws.
         const seg = clamp01(drawn * Math.max(1, n - 1) - i)
         return (
-          <div key={i} style={{ position: 'relative', display: 'flex', gap: 30 * u, paddingBottom: i < n - 1 ? 30 * u : 0, opacity: a, transform: `translateY(${(1 - a) * 30 * u}px)` }}>
+          <div key={i} style={{ position: 'relative', display: 'flex', gap: 30 * u, paddingBottom: i < n - 1 ? 30 * u : 0 }}>
             {i < n - 1 && (
               <div style={{ position: 'absolute', left: dot / 2 - lineW / 2, top: dot / 2, bottom: -dot / 2, width: lineW, background: lineColor, transformOrigin: 'top', transform: `scaleY(${seg})` }} />
             )}
             <div style={{ position: 'relative', paddingTop: 6 * u }}>{marker(i)}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 * u, minWidth: 0, flex: 1 }}>
-              {dateText(i, 56, false)}
+            {/* Only the text fades in: the line segment above must stay visible so it draws before the points. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 * u, minWidth: 0, flex: 1, opacity: a, transform: `translateY(${(1 - a) * 30 * u}px)` }}>
+              {dateText(i, false)}
               <div style={{ ...clampLines(2), fontFamily: BODY_FONT, fontWeight: 600, fontSize: 36 * u, lineHeight: 1.25, color: p.ink }}>{pt.title}</div>
             </div>
           </div>
@@ -113,7 +122,7 @@ export function TimelineScene({ item, input, f }: SceneProps) {
             )}
             <div style={{ position: 'relative' }}>{marker(i)}</div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 * u, width: '100%', padding: `0 ${12 * u}px`, opacity: a, transform: `translateY(${(1 - a) * 24 * u}px)` }}>
-              {dateText(i, 56, true)}
+              {dateText(i, true)}
               <div style={{ ...clampLines(2), width: '100%', textAlign: 'center', fontFamily: BODY_FONT, fontWeight: 600, fontSize: 28 * u, lineHeight: 1.3, color: p.ink }}>{pt.title}</div>
             </div>
           </div>
@@ -130,7 +139,7 @@ export function TimelineScene({ item, input, f }: SceneProps) {
         {n > 0 && track}
       </div>
       {s.author && (
-        <Rise delay={at(Math.max(0, n - 1)) + 6}>
+        <Rise delay={at(Math.max(0, n - 1)) + 6} style={{ paddingTop: 24 * u }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 * u, fontFamily: MONO_FONT, fontSize: 22 * u, letterSpacing: '0.06em', textTransform: 'uppercase', color: p.muted }}>
             <span style={{ width: 12 * u, height: 12 * u, background: p.accent }} />
             {s.author}
