@@ -40,6 +40,8 @@ import { assetAbsPath } from './paths'
 import { cancelRenderBrowserDownload, ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
 import { detachVoice, splitClip } from './editing'
 import { emit } from './events'
+import { runMagic } from './magic'
+import type { MagicRequest } from '@shared/magic'
 import {
   createProject,
   duplicateProject,
@@ -133,6 +135,7 @@ export function registerIpc(): void {
   handle('story:musicPrompt', (projectId: string) => generateMusicPrompt(projectId))
   handle('story:visuals', (projectId: string, mode: 'missing' | 'all') => generateVisuals(projectId, mode === 'all' ? 'all' : 'missing'))
   handle('explainer:scenes', (projectId: string) => generateExplainerScenes(projectId))
+  handle('magic:run', (req: MagicRequest) => runMagic(req))
 
   handle('generate:clipImage', (clipId: string) => generateClipImage(clipId))
   handle('generate:clipVideo', (clipId: string) => generateClipVideo(clipId))

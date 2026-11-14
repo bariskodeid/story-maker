@@ -33,6 +33,7 @@ import type {
   VoiceOption
 } from './types'
 import type { RenderEngineStatus, RenderTestResult } from './render'
+import type { MagicRequest, MagicResult } from './magic'
 
 /** The typed surface the preload script exposes as `window.api`. */
 export interface StudioApi {
@@ -82,6 +83,10 @@ export interface StudioApi {
   explainer: {
     /** Idea + template → designed scenes with narration (replaces the scenes). */
     scenes(projectId: string): Promise<ProjectBundle>
+  }
+  magic: {
+    /** Rewrites or invents the text of one prompt field with the active LLM. */
+    run(req: MagicRequest): Promise<MagicResult>
   }
   generate: {
     clipImage(clipId: string): Promise<Job>

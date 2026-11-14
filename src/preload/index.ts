@@ -47,6 +47,9 @@ const api: StudioApi = {
   explainer: {
     scenes: call('explainer:scenes')
   },
+  magic: {
+    run: call('magic:run')
+  },
   generate: {
     clipImage: call('generate:clipImage'),
     clipVideo: call('generate:clipVideo'),
