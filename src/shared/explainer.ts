@@ -499,15 +499,27 @@ export const CHART_LIMITS: Record<ChartKind, { min: number; max: number }> = {
 }
 export const TIMELINE_MAX = 6
 
+/** One locale for chart numbers: the project language, with the same fallback for unknown codes everywhere. */
+function chartLocale(language: string): string {
+  const tag = language === 'id' ? 'id-ID' : language
+  try {
+    return Intl.NumberFormat.supportedLocalesOf(tag).length ? tag : 'en-US'
+  } catch {
+    return 'en-US'
+  }
+}
+
 /**
  * A chart value from a number or from typed text. With both separators the last one is the decimal mark
- * ("1.234,5", "1,234.5"); a single separator that repeats is a thousands mark ("1,234,567"), one that appears
- * once is a decimal mark ("3,5"), since people type decimals far more often than thousands here.
+ * ("1.234,5", "1,234.5"). With one kind of separator and a `language`, the locale decides: its group mark
+ * before exactly 3 digits per group is thousands ("12.500" in id), its decimal mark is a decimal, and the
+ * other mark is read as a decimal unless it looks like thousands ("1.5" in id is 1.5). Without a language a
+ * single separator that appears once is a decimal and a repeated one is thousands.
  */
-export function chartNumber(raw: unknown): number | null {
+export function chartNumber(raw: unknown, language?: string): number | null {
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
   if (typeof raw !== 'string') return null
-  let t = raw.replace(/[\s ]/g, '')
+  let t = raw.replace(/[\s\u00A0\u202F]/g, '')
   if (!/^[+-]?[\d.,]*\d[\d.,]*$/.test(t)) return null
   const dot = t.lastIndexOf('.')
   const comma = t.lastIndexOf(',')
@@ -517,7 +529,18 @@ export function chartNumber(raw: unknown): number | null {
     t = t.split(grp).join('').replace(dec, '.')
   } else if (dot >= 0 || comma >= 0) {
     const sep = dot >= 0 ? '.' : ','
-    t = t.split(sep).length > 2 ? t.split(sep).join('') : t.replace(sep, '.')
+    const parts = t.split(sep)
+    let group: string | undefined
+    if (language) {
+      try {
+        group = new Intl.NumberFormat(chartLocale(language)).formatToParts(1234.5).find((x) => x.type === 'group')?.value
+      } catch {
+        group = undefined
+      }
+    }
+    const thousands = /^[+-]?\d{1,3}$/.test(parts[0]) && parts.slice(1).every((x) => /^\d{3}$/.test(x))
+    const asThousands = group === sep ? thousands : parts.length > 2
+    t = asThousands ? parts.join('') : t.replace(sep, '.')
   }
   const n = Number(t)
   return Number.isFinite(n) ? n : null
@@ -525,13 +548,7 @@ export function chartNumber(raw: unknown): number | null {
 
 /** A chart value written for the project's language (thousands and decimal marks), at most 2 decimals. */
 export function formatChartValue(value: number, language: string): string {
-  const opts = { maximumFractionDigits: 2 }
-  try {
-    return new Intl.NumberFormat(language === 'id' ? 'id-ID' : language, opts).format(value)
-  } catch {
-    // An unknown language code must not break a render.
-    return new Intl.NumberFormat('en-US', opts).format(value)
-  }
+  return new Intl.NumberFormat(chartLocale(language), { maximumFractionDigits: 2 }).format(value)
 }
 
 const str = (v: unknown, max = 400): string => (typeof v === 'string' ? v.replace(/\s+$/g, '').trim().slice(0, max) : '')
