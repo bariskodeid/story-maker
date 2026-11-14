@@ -3,6 +3,7 @@ import { AbsoluteFill, Html5Audio, Img, interpolate, random, Sequence, useCurren
 import { lookFonts, type ExplainerInput, type ExplainerSceneInput, type SceneType } from '@shared/explainer'
 import { useFonts } from '../fonts'
 import { Captions } from './captions'
+import { ChartScene } from './chart'
 import { alpha, distToRect, enter, frameOf, holeMask, overlaps, textZones, type Frame, type Rect } from './layout'
 import { HeadlineScene, NewsBackdrop, NewsChrome, NewsCut, NewsTitleScene, PointsScene } from './news'
 import { CompareScene, FactScene, OutroScene, QuoteScene, StepScene, TipScene, TitleScene, type SceneProps } from './scenes'
@@ -224,8 +225,7 @@ const SCENES: Record<SceneType, (p: SceneProps) => ReactNode> = {
   headline: HeadlineScene,
   points: PointsScene,
   timeline: TimelineScene,
-  // Placeholder layout: the real chart scene replaces it in a later step.
-  chart: StepScene
+  chart: ChartScene
 }
 
 /** A scene's layout; the A-vs-B and news templates open with their own title layouts. */
