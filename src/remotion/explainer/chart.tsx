@@ -302,7 +302,8 @@ function DonutChart({ chart, input, u, w, h, portrait, frames }: PanelProps & { 
         <g transform={`rotate(-90 ${cx} ${cx})`}>
           <circle cx={cx} cy={cx} r={r} fill="none" stroke={alpha(p.ink, total > 0 ? 0.07 : 0.16)} strokeWidth={total > 0 ? sw : sw * 0.35} />
           {arcs.map(({ frac, start, i }) => {
-            const seamed = frac > seam * 2
+            // A lone slice is a full ring: a seam would leave a visible gap.
+            const seamed = frac > seam * 2 && frac < 0.999
             const len = Math.max(0, frac * grow(i) - (seamed ? seam : 0))
             if (len <= 0) return null
             return <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={colors[i % colors.length]} strokeWidth={sw} pathLength={1} strokeDasharray={`${len} 2`} strokeDashoffset={-(start + (seamed ? seam / 2 : 0))} />

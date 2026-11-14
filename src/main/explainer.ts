@@ -35,6 +35,56 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
 /** Strict-mode JSON Schema (OpenAI and Gemini): one flat scene object, every field required, "" when unused. */
 function scenesSchema(types: string[]): object {
   const s = (description: string): object => ({ type: 'string', description })
+  // Only the templates that have these scene types get the fields, so every other template's schema (and its
+  // token cost) stays as it was.
+  const hasTimeline = types.includes('timeline')
+  const hasChart = types.includes('chart')
+  const extra: Record<string, object> = {
+    ...(hasTimeline ? {
+      timeline: {
+        type: 'array',
+        description: 'Timeline scenes only: 3 to 6 points in chronological order. Every other scene type: [].',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            date: s('Short free text such as "1945", "14th century", "65 million BC".'),
+            title: s('The event, max 40 characters.')
+          },
+          required: ['date', 'title']
+        }
+      }
+    } : {}),
+    ...(hasChart ? {
+      chart: {
+        type: 'object',
+        description: 'Chart scenes only. Every other scene type: kind "none", unit "", items [].',
+        additionalProperties: false,
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['none', 'bar', 'line', 'donut', 'bubble'],
+            description: 'bar compares categories, line shows a trend over time, donut a composition of a whole, bubble very different magnitudes.'
+          },
+          unit: s('Short unit of the values, e.g. "°C", "million km", "%", or "".'),
+          items: {
+            type: 'array',
+            description: 'The data points: rounded, well-established figures only.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                label: s('Category or time label, max 20 characters.'),
+                value: { type: 'number', description: 'The figure as a plain number, not text.' }
+              },
+              required: ['label', 'value']
+            }
+          }
+        },
+        required: ['kind', 'unit', 'items']
+      }
+    } : {})
+  }
   return {
     type: 'object',
     additionalProperties: false,
@@ -65,46 +115,7 @@ function scenesSchema(types: string[]): object {
             side: { type: 'string', enum: ['none', 'left', 'right', 'both'], description: 'Versus/verdict: the winner. Pros/cons: the option it is about. Else "none".' },
             imageMode: { type: 'string', enum: ['none', 'upload', 'ai'], description: 'Picture for this scene.' },
             imagePrompt: s('English description of the AI picture when imageMode is "ai", else "".'),
-            timeline: {
-              type: 'array',
-              description: 'Timeline scenes only: 3 to 6 points in chronological order. Every other scene type: [].',
-              items: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  date: s('Short free text such as "1945", "14th century", "65 million BC".'),
-                  title: s('The event, max 40 characters.')
-                },
-                required: ['date', 'title']
-              }
-            },
-            chart: {
-              type: 'object',
-              description: 'Chart scenes only. Every other scene type: kind "none", unit "", items [].',
-              additionalProperties: false,
-              properties: {
-                kind: {
-                  type: 'string',
-                  enum: ['none', 'bar', 'line', 'donut', 'bubble'],
-                  description: 'bar compares categories, line shows a trend over time, donut a composition of a whole, bubble very different magnitudes.'
-                },
-                unit: s('Short unit of the values, e.g. "°C", "million km", "%", or "".'),
-                items: {
-                  type: 'array',
-                  description: 'The data points: rounded, well-established figures only.',
-                  items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                      label: s('Category or time label, max 20 characters.'),
-                      value: { type: 'number', description: 'The figure as a plain number, not text.' }
-                    },
-                    required: ['label', 'value']
-                  }
-                }
-              },
-              required: ['kind', 'unit', 'items']
-            },
+            ...extra,
             narration: s('Voice-over for this scene in the target language, 12 to 24 spoken words.')
           },
           required: [
@@ -127,8 +138,7 @@ function scenesSchema(types: string[]): object {
             'side',
             'imageMode',
             'imagePrompt',
-            'timeline',
-            'chart',
+            ...Object.keys(extra),
             'narration'
           ]
         }

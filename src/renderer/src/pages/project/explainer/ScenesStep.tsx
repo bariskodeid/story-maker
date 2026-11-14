@@ -305,8 +305,8 @@ function TimelineEditor({ points, onChange }: { points: TimelinePoint[]; onChang
       <span className="text-sm font-semibold">Titik linimasa</span>
       {points.map((p, i) => (
         <div key={i} className="flex items-center gap-1.5">
-          <input value={p.date} onChange={(e) => edit(i, { date: e.target.value })} placeholder="1945" aria-label={`Tanggal titik ${i + 1}`} className={cx(inputCls, 'h-9 w-20! shrink-0 text-sm')} />
-          <input value={p.title} onChange={(e) => edit(i, { title: e.target.value })} placeholder="Peristiwa" aria-label={`Peristiwa titik ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
+          <input value={p.date} onChange={(e) => edit(i, { date: e.target.value })} placeholder="1945" maxLength={24} aria-label={`Tanggal titik ${i + 1}`} className={cx(inputCls, 'h-9 w-36! shrink-0 text-sm')} />
+          <input value={p.title} onChange={(e) => edit(i, { title: e.target.value })} placeholder="Peristiwa" maxLength={80} aria-label={`Peristiwa titik ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
           <RowTools i={i} count={points.length} noun="titik" onMove={(d) => onChange(moveItem(points, i, d))} onDelete={() => onChange(points.filter((_, k) => k !== i))} />
         </div>
       ))}
@@ -378,10 +378,11 @@ function ChartEditor({ chart, language, onChange }: { chart: ExplainerChart; lan
       </Field>
       {items.map((it, i) => {
         const n = chartNumber(texts[i], language)
-        const bad = n === null || (nonNegative && n < 0)
+        // An untouched new row is not an error yet.
+        const bad = texts[i].trim() !== '' && (n === null || (nonNegative && n < 0))
         return (
           <div key={i} className="flex items-center gap-1.5">
-            <input value={it.label} onChange={(e) => editLabel(i, e.target.value)} placeholder="Label" aria-label={`Label data ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
+            <input value={it.label} onChange={(e) => editLabel(i, e.target.value)} placeholder="Label" maxLength={40} aria-label={`Label data ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
             <input
               value={texts[i]}
               onChange={(e) => editValue(i, e.target.value)}
@@ -408,6 +409,7 @@ function ChartEditor({ chart, language, onChange }: { chart: ExplainerChart; lan
         </Button>
         <span className="text-[12.5px] text-muted">{items.length}/{limit}</span>
       </div>
+      <p className="text-[12.5px] text-muted">Baris tanpa label atau angka tidak disimpan.</p>
       <p className="text-[12.5px] text-muted">{CHECK_NOTE}</p>
     </div>
   )

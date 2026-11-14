@@ -91,7 +91,10 @@ export function ExplainerStill({ input, frame, className }: { input: ExplainerIn
 export function settledFrame(input: ExplainerInput, index: number): number {
   const s = input.scenes[index]
   if (!s) return 0
-  return s.from + Math.min(Math.round(input.fps * 2.4), Math.max(0, s.frames - 12))
+  // Timeline points and chart bars enter one after another, so these scenes settle near their end.
+  const late = s.scene.type === 'timeline' || s.scene.type === 'chart'
+  const settle = late ? Math.max(Math.round(input.fps * 2.4), s.frames - 16) : Math.round(input.fps * 2.4)
+  return s.from + Math.min(settle, Math.max(0, s.frames - 12))
 }
 
 /** A frame of scene `index` where its captions are on screen (a moment into its first spoken line). */

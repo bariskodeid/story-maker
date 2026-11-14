@@ -433,7 +433,7 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
   {
     id: 'science',
     name: 'Sains / data',
-    blurb: 'Jelaskan sains dengan data: grafik batang, garis, donat, dan lingkaran proporsional.',
+    blurb: 'Jelaskan sains dengan data: grafik batang, garis, donut, dan lingkaran proporsional.',
     sceneTypes: ['title', 'chart', 'fact', 'step', 'compare', 'points', 'outro'],
     mainType: 'fact',
     palettes: [
@@ -558,7 +558,9 @@ export const TIMELINE_MAX = 6
 
 /** One locale for chart numbers: the project language, with the same fallback for unknown codes everywhere. */
 function chartLocale(language: string): string {
-  const tag = language === 'id' ? 'id-ID' : language
+  // Javanese and Sundanese numbers are written like Indonesian, and Chromium's ICU has no data for jv/su
+  // (it would fall back to en-US and flip the separators).
+  const tag = language === 'id' || language === 'jv' || language === 'su' ? 'id-ID' : language
   try {
     return Intl.NumberFormat.supportedLocalesOf(tag).length ? tag : 'en-US'
   } catch {
@@ -590,12 +592,14 @@ export function chartNumber(raw: unknown, language?: string): number | null {
     let group: string | undefined
     if (language) {
       try {
-        group = new Intl.NumberFormat(chartLocale(language)).formatToParts(1234.5).find((x) => x.type === 'group')?.value
+        // A 7-digit sample: locales such as es do not group 4-digit numbers, so 1234.5 would show no group mark.
+        group = new Intl.NumberFormat(chartLocale(language)).formatToParts(1234567.5).find((x) => x.type === 'group')?.value
       } catch {
         group = undefined
       }
     }
-    const thousands = /^[+-]?\d{1,3}$/.test(parts[0]) && parts.slice(1).every((x) => /^\d{3}$/.test(x))
+    // A leading lone "0" is never a thousands group ("0.500" is a half).
+    const thousands = /^[+-]?[1-9]\d{0,2}$/.test(parts[0]) && parts.slice(1).every((x) => /^\d{3}$/.test(x))
     const asThousands = group === sep ? thousands : parts.length > 2
     t = asThousands ? parts.join('') : t.replace(sep, '.')
   }
@@ -1003,7 +1007,9 @@ export function buildExplainerInput(args: {
     const frames = Math.max(1, Math.round((sceneDurationMs(c, assets) / 1000) * fps))
     const audioAsset = c.audioAssetId ? assets[c.audioAssetId] : undefined
     const imageAsset = c.imageAssetId ? assets[c.imageAssetId] : undefined
-    const scene = c.scene ?? normalizeScene({ type: allowed[0], heading: c.title, body: c.narration }, allowed)
+    // Re-normalizing drops the editor's unfinished rows and cuts long labels exactly like storage does, so the
+    // Player shows what the export will render.
+    const scene = c.scene ? normalizeScene(c.scene) : normalizeScene({ type: allowed[0], heading: c.title, body: c.narration }, allowed)
     let words: WordTiming[] = []
     let audio: ExplainerSceneInput['audio'] = null
     if (audioAsset?.durationMs) {
