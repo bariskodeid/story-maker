@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { Series, SeriesCharacter, SeriesPatch } from '@shared/types'
 import { CharacterAvatar } from '../../components/CharacterAvatar'
+import { MagicButton, useMagic } from '../../components/Magic'
 import { IconButton, confirmDialog } from '../../components/ui'
 import { errorText } from '../../lib/format'
 import { useApp } from '../../store/app'
@@ -10,10 +11,17 @@ import { AutosaveText } from './AutosaveText'
 const areaCls =
   'w-full rounded-xl border border-line-2 bg-surface px-3 py-2 text-sm leading-relaxed text-ink outline-none transition-colors placeholder:text-muted/80 focus:border-ink'
 
-function Part({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Part({ label, hint, action, children }: { label: string; hint?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink">{label}</span>
+      {action ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[13px] font-semibold text-ink">{label}</span>
+          {action}
+        </div>
+      ) : (
+        <span className="text-[13px] font-semibold text-ink">{label}</span>
+      )}
       {children}
       {hint && <span className="text-xs text-muted">{hint}</span>}
     </div>
@@ -50,14 +58,33 @@ export function BiblePanel({ series, onChange }: { series: Series; onChange: (s:
       .then(onChange)
       .catch((e) => toast('error', errorText(e)))
   }
+  // The live text, not series.premise: Magic must act on what is typed even before the debounced save lands.
+  const [premise, setPremise] = useState(series.premise)
+  const applyPremise = useRef<((text: string) => void) | null>(null)
+  const magic = useMagic({
+    field: series.kind === 'explainer' ? 'explainerSeriesTopic' : 'seriesPremise',
+    value: premise,
+    onApply: (text) => applyPremise.current?.(text),
+    request: () => ({ seriesId: series.id })
+  })
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5">
       <div>
         <h2 className="font-display text-xl font-bold">Bible seri</h2>
         <p className="mt-1 text-[13px] text-ink-2">{L.intro}</p>
       </div>
-      <Part label={L.premise}>
-        <AutosaveText multiline minRows={3} label={series.kind === 'explainer' ? 'Topik seri' : 'Premis seri'} value={series.premise} onSave={(premise) => save({ premise })} className={areaCls} />
+      <Part label={L.premise} action={<MagicButton magic={magic} value={premise} size="sm" />}>
+        <AutosaveText
+          multiline
+          minRows={3}
+          label={series.kind === 'explainer' ? 'Topik seri' : 'Premis seri'}
+          value={series.premise}
+          readOnly={magic.busy}
+          applyRef={applyPremise}
+          onTextChange={setPremise}
+          onSave={(premise) => save({ premise })}
+          className={areaCls}
+        />
       </Part>
       <Part label={L.world} hint={L.worldHint}>
         <AutosaveText multiline minRows={3} label={`${L.world} seri`} value={series.bible.world} onSave={(world) => save({ world })} className={areaCls} />

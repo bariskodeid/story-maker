@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -22,6 +22,7 @@ import { getStyle } from '@shared/styles'
 import type { ProjectKind, ProjectStatus, Series, SeriesBundle, SeriesEpisode } from '@shared/types'
 import { TemplateSwatch } from '../../components/ExplainerPreview'
 import { StyleSwatch } from '../../components/StyleArt'
+import { MagicButton, useMagic } from '../../components/Magic'
 import { Badge, Button, IconButton, Menu, Progress, Spinner, Switch, confirmDialog, cx } from '../../components/ui'
 import { exportOption, useAutopilot, type AutopilotStage } from '../../lib/autopilot'
 import { errorText, joinList, mmss } from '../../lib/format'
@@ -339,6 +340,15 @@ function EpisodeRow({
       .then(onChanged)
       .catch((e) => toast('error', errorText(e)))
   }
+  // Live text (see AutosaveText.onTextChange): Magic must read what is typed, not the last saved synopsis.
+  const [synopsis, setSynopsis] = useState(ep.synopsis)
+  const applySynopsis = useRef<((text: string) => void) | null>(null)
+  const magic = useMagic({
+    field: 'episodeSynopsis',
+    value: synopsis,
+    onApply: (text) => applySynopsis.current?.(text),
+    request: () => ({ projectId: ep.id, seriesId: series.id })
+  })
   const badge =
     auto?.state === 'running' ? (
       <Badge tone="info">Dibuat otomatis…</Badge>
@@ -403,10 +413,18 @@ function EpisodeRow({
           maxHeight={320}
           label={`Sinopsis ${word.one} ${ep.no}`}
           value={ep.synopsis}
+          readOnly={magic.busy}
+          applyRef={applySynopsis}
+          onTextChange={setSynopsis}
           onSave={(synopsis) => save({ synopsis })}
           placeholder={explainer ? `Apa yang dibahas di ${word.one} ini?` : 'Apa yang terjadi di episode ini?'}
           className="w-full rounded-lg border border-transparent bg-transparent px-1 text-sm leading-relaxed text-ink-2 outline-none hover:border-line focus:border-ink focus:bg-surface"
         />
+        {!locked && (
+          <div className="flex justify-end">
+            <MagicButton magic={magic} value={synopsis} size="sm" />
+          </div>
+        )}
         {/* Later episodes are written from this summary, so it can be corrected here (saved as you type). */}
         {(ep.summary.trim() || ep.clipCount > 0) && (
           <div className="flex flex-col gap-1 rounded-lg bg-sand px-3 pb-2 pt-2" data-episode-summary={ep.no}>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { AutoTextarea } from '../../components/AutoTextarea'
 
 const SAVE_MS = 800
@@ -16,7 +16,10 @@ export function AutosaveText({
   maxHeight,
   className,
   placeholder,
-  label
+  label,
+  readOnly,
+  applyRef,
+  onTextChange
 }: {
   value: string
   onSave: (text: string) => void
@@ -26,6 +29,11 @@ export function AutosaveText({
   className?: string
   placeholder?: string
   label: string
+  readOnly?: boolean
+  /** Filled with "replace the text and save now"; for text that comes from outside (Magic) and must win over focus. */
+  applyRef?: RefObject<((text: string) => void) | null>
+  /** Live text, ahead of `value` until the debounced save lands; hosts need it to act on what is on screen. */
+  onTextChange?: (text: string) => void
 }) {
   const [text, setText] = useState(value)
   const latest = useRef(value)
@@ -51,6 +59,19 @@ export function AutosaveText({
 
   useEffect(() => commit, [])
 
+  const notify = useRef(onTextChange)
+  notify.current = onTextChange
+  useEffect(() => notify.current?.(text), [text])
+
+  const apply = (next: string): void => {
+    if (timer.current) clearTimeout(timer.current)
+    latest.current = next
+    dirty.current = true
+    setText(next)
+    commit()
+  }
+  if (applyRef) applyRef.current = apply
+
   const change = (next: string): void => {
     latest.current = next
     dirty.current = true
@@ -62,6 +83,7 @@ export function AutosaveText({
   const common = {
     value: text,
     placeholder,
+    readOnly,
     'aria-label': label,
     className,
     onFocus: () => (focused.current = true),
