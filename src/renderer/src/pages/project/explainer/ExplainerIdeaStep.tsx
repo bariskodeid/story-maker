@@ -21,7 +21,9 @@ const PLACEHOLDERS: Record<ExplainerTemplateId, string> = {
   facts: 'Fakta mengejutkan tentang matahari yang jarang diketahui orang…',
   quote: 'Kutipan tokoh dunia tentang memulai dari langkah kecil…',
   compare: 'Kereta atau pesawat untuk mudik Jakarta–Surabaya: mana yang lebih hemat dan nyaman?',
-  news: 'Rangkum kabar ini jadi berita singkat: (tempel isi berita, tanggal, dan sumbernya di sini)…'
+  news: 'Rangkum kabar ini jadi berita singkat: (tempel isi berita, tanggal, dan sumbernya di sini)…',
+  history: 'Jalan panjang menuju kemerdekaan Indonesia, dari Budi Utomo sampai pengakuan kedaulatan…',
+  science: 'Seberapa luas tata surya kita? Bandingkan jarak dan ukuran planet dengan data…'
 }
 
 /** Explainer step 1: topic, template, length, format, narrator and the AI image model. */

@@ -7,7 +7,7 @@ import type { AspectRatio, Asset, Clip, Project, WordTiming } from './types'
  * below, so the preview and the export are the same component with the same data (only the file URLs differ).
  */
 
-export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote' | 'compare' | 'news'
+export type ExplainerTemplateId = 'tutorial' | 'tips' | 'facts' | 'quote' | 'compare' | 'news' | 'history' | 'science'
 export type SceneType =
   | 'title'
   | 'step'
@@ -399,6 +399,63 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       'Optionally one "fact" scene for the most striking figure: value = the figure, heading = what it means (max 9 words), author = its source. Optionally one "quote" scene for a real, verifiable statement: heading = the quote, author = who said it; skip it when unsure.',
       'Use imageMode "ai" with a concrete, photographic imagePrompt for most headline scenes (no text, logos, maps with labels or faces of real people); otherwise imageMode "none".',
       'The last scene is "outro": heading = a short sign-off or question, body = one line.'
+    ].join('\n')
+  },
+  {
+    id: 'history',
+    name: 'Sejarah / linimasa',
+    blurb: 'Kisah masa lalu berurutan: linimasa, peristiwa kunci, tokoh, dan kutipan.',
+    sceneTypes: ['title', 'timeline', 'fact', 'quote', 'points', 'outro'],
+    mainType: 'timeline',
+    palettes: [
+      { id: 'perkamen', name: 'Perkamen', bg: '#EFE2C6', surface: '#FBF3E0', ink: '#241710', muted: '#6A5238', accent: '#A3301F', accent2: '#1F6B73', dark: false },
+      { id: 'tinta', name: 'Tinta', bg: '#14100C', surface: '#211A13', ink: '#F1E6D0', muted: '#B5A488', accent: '#D9A441', accent2: '#6FB3B8', dark: true },
+      { id: 'peta', name: 'Peta tua', bg: '#E4E0D2', surface: '#F4F1E6', ink: '#1B2433', muted: '#566073', accent: '#9C2F2F', accent2: '#2F5D8A', dark: false },
+      { id: 'marmer', name: 'Marmer', bg: '#E9E7E2', surface: '#F7F6F2', ink: '#1F1F24', muted: '#5C5C66', accent: '#8A5A2B', accent2: '#3E6B5A', dark: false },
+      { id: 'sogan', name: 'Sogan', bg: '#2A1810', surface: '#3A2418', ink: '#F5E7D3', muted: '#C4A98C', accent: '#E0A94A', accent2: '#D9705A', dark: true },
+      { id: 'malam', name: 'Malam', bg: '#0F1B2D', surface: '#182840', ink: '#EEF1F5', muted: '#9FB0C8', accent: '#E0B35A', accent2: '#7FB8C9', dark: true }
+    ],
+    fonts: ['dmserif', 'poppins', 'archivo'],
+    numberFont: 'dmserif',
+    captionStyle: 'minimal',
+    captionLit: 'accent',
+    guidance: [
+      'A history video told in chronological order for curious viewers. Use only well-established facts, dates and numbers that are widely documented; round numbers; when unsure, use fewer points or a "fact" scene without a precise figure. Never invent events, dates, names or quotes.',
+      'Scene 1 is "title": label = the era or place (1-3 words), heading = the story as a hook (max 9 words), body = a one-line teaser (max 14 words).',
+      'Use "timeline" scenes for an overview of an era or a chain of events: 3-6 points in the timeline array, oldest first, each with a short date ("1945", "abad ke-14", "65 jt SM") and a title (max 6 words); heading = what the timeline shows (max 8 words), body = a one-line takeaway, label = the era (1-2 words).',
+      'Use "fact" scenes for key events: value = the big year or date ("1945", "17 Agustus 1945"), heading = what happened (max 10 words), body = one or two sentences of context (max 24 words), label = "".',
+      'Optionally one "quote" scene about a figure: only a quote that is really documented and correctly attributed (heading = the quote, author = who said it and when); if unsure, skip the scene and never invent a quote. Optionally one "points" scene for the lessons or consequences (3-5 short items).',
+      'ALWAYS fill author with a general source on timeline and fact scenes (e.g. "Britannica", "Arsip Nasional", "UNESCO", "Sejarah Nasional Indonesia"); never cite a source you are not sure exists. Timeline scenes use imageMode "none".',
+      'Use imageMode "ai" with a concrete imagePrompt (English; a painting-like scene, no text, no real faces) for the title and for some fact scenes; otherwise "none".',
+      'The last scene is "outro": heading = a reflection or question, body = one line.'
+    ].join('\n')
+  },
+  {
+    id: 'science',
+    name: 'Sains / data',
+    blurb: 'Jelaskan sains dengan data: grafik batang, garis, donat, dan lingkaran proporsional.',
+    sceneTypes: ['title', 'chart', 'fact', 'step', 'compare', 'points', 'outro'],
+    mainType: 'fact',
+    palettes: [
+      { id: 'lab', name: 'Laboratorium', bg: '#F4F8FB', surface: '#FFFFFF', ink: '#0F1E2E', muted: '#566A7F', accent: '#0B6FD6', accent2: '#0E9F8E', dark: false },
+      { id: 'kosmos', name: 'Kosmos', bg: '#070B1C', surface: '#111733', ink: '#EEF0FF', muted: '#959DCB', accent: '#2DD4F0', accent2: '#B38CFF', dark: true },
+      { id: 'kapur', name: 'Papan tulis', bg: '#10261F', surface: '#193629', ink: '#F0F5EC', muted: '#9DB8A8', accent: '#F2C94C', accent2: '#6FD0A8', dark: true },
+      { id: 'cetakbiru', name: 'Cetak biru', bg: '#0C2340', surface: '#143259', ink: '#EAF4FF', muted: '#9BB8D8', accent: '#5CC8FF', accent2: '#FFD166', dark: true },
+      { id: 'biologi', name: 'Biologi', bg: '#F1F7F1', surface: '#FFFFFF', ink: '#112218', muted: '#4F6A58', accent: '#1B7F4A', accent2: '#C26A12', dark: false },
+      { id: 'milimeter', name: 'Kertas grafik', bg: '#F7F5EC', surface: '#FFFFFF', ink: '#1A1D22', muted: '#5F6470', accent: '#C23B22', accent2: '#1F6FB5', dark: false }
+    ],
+    fonts: ['poppins', 'archivo', 'anton'],
+    numberFont: 'poppins',
+    captionStyle: 'box',
+    captionLit: 'accent',
+    guidance: [
+      'A science explainer that teaches one idea step by step and backs it with data. Use only well-established facts and numbers that are widely published; round numbers; never invent figures. When unsure about a number, use a "fact" or "step" scene in words, or fewer data points, instead of a precise-looking value.',
+      'Scene 1 is "title": label = the field (1-2 words, e.g. "Astronomi"), heading = the question or hook (max 9 words), body = a one-line teaser (max 14 words).',
+      'Then 3-6 content scenes. Use "step" for a process (value = the step number), "fact" for one striking figure (value = the figure with its unit, heading = what it means, body = one line of context), "compare" for two columns, and "points" for a short summary list.',
+      'Use a "chart" scene only when a well-established data set backs the point. Each chart scene needs heading = what the chart shows (max 9 words), body = a one-line conclusion (max 20 words), chart.unit = a short unit ("%", "ppm", "juta km") and chart.items = label + numeric value (a number, not text). Pick chart.kind carefully: "bar" compares 2-8 categories; "line" shows a trend over time with 3-12 items in time order (labels = years or times); "donut" shows the composition of a whole with 2-6 parts that add up to a meaningful total; "bubble" shows 2-6 magnitudes that are very far apart (sizes, distances, populations) as circles with proportional area. Never use negative numbers for donut or bubble.',
+      'ALWAYS fill author with a general source for the data or fact (e.g. "NASA", "NOAA", "BPS", "WHO", "Britannica"); never cite a source you are not sure exists. Never invent quotes. Chart scenes use imageMode "none".',
+      'Use imageMode "ai" with a concrete imagePrompt (English; a clean textbook-style diagram or scene, no text, no labels) for the title and some step scenes; otherwise "none".',
+      'The last scene is "outro": heading = a takeaway or question, body = one line.'
     ].join('\n')
   }
 ]
@@ -842,7 +899,9 @@ export function explainerImagePrompt(project: Pick<Project, 'templateId' | 'them
     facts: 'Dramatic cinematic photograph, high detail, strong lighting, shallow depth of field.',
     quote: 'Calm atmospheric photograph, soft natural light, gentle colors, lots of negative space.',
     compare: 'Clean product-style photograph on a plain backdrop, even studio lighting.',
-    news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.'
+    news: 'Editorial news photograph, natural light, realistic, documentary style, no recognizable faces.',
+    history: 'Classical historical oil painting, warm aged tones, dramatic composition, visible brush strokes, no recognizable faces.',
+    science: 'Clean textbook-style scientific diagram illustration on a light background, simple shapes, clear and uncluttered.'
   }
   const chosen = getExplainerImageStyle(project.theme?.imageStyleId).prompt
   const subject = scene.imagePrompt.trim() || [scene.heading, scene.body].filter(Boolean).join('. ')
@@ -1074,6 +1133,108 @@ export const SAMPLE_SCENES: Record<ExplainerTemplateId, ExplainerScene[]> = {
       value: '28 Okt 2026'
     }),
     sample({ type: 'points', heading: 'Poin penting', left: ['Ponsel lipat makin terjangkau', 'Fitur AI berjalan tanpa internet', 'Baterai tahan dua hari jadi standar'] })
+  ],
+  history: [
+    sample({ type: 'title', label: 'Indonesia', heading: 'Jalan panjang menuju kemerdekaan', body: 'Lima tonggak penting dalam satu menit.' }),
+    sample({
+      type: 'timeline',
+      label: 'Abad ke-20',
+      heading: 'Dari kebangkitan sampai kedaulatan',
+      body: 'Empat puluh tahun yang membentuk Indonesia.',
+      author: 'Sejarah Nasional Indonesia',
+      timeline: [
+        { date: '1908', title: 'Budi Utomo berdiri' },
+        { date: '1928', title: 'Sumpah Pemuda' },
+        { date: '1942', title: 'Jepang menduduki Hindia Belanda' },
+        { date: '1945', title: 'Proklamasi kemerdekaan' },
+        { date: '1949', title: 'Belanda mengakui kedaulatan' }
+      ]
+    }),
+    sample({
+      type: 'fact',
+      value: '1945',
+      heading: 'Indonesia memproklamasikan kemerdekaan',
+      body: 'Soekarno dan Mohammad Hatta membacakannya di Jakarta pada 17 Agustus.',
+      author: 'Sejarah Nasional Indonesia'
+    }),
+    sample({ type: 'quote', heading: 'Jangan sekali-kali meninggalkan sejarah.', author: 'Soekarno, pidato 17 Agustus 1966', body: 'Dikenal sebagai Jasmerah.' }),
+    sample({ type: 'points', heading: 'Yang bisa kita pelajari', left: ['Persatuan lahir dari kesadaran bersama', 'Kemerdekaan butuh waktu dan perjuangan', 'Sejarah membantu memahami hari ini'] }),
+    sample({ type: 'outro', heading: 'Tonggak mana yang paling kamu ingat?', body: 'Tulis di kolom komentar.' })
+  ],
+  science: [
+    sample({ type: 'title', label: 'Astronomi', heading: 'Seberapa luas tata surya kita?', body: 'Empat grafik, satu gambaran besar.' }),
+    sample({
+      type: 'chart',
+      label: 'Jarak',
+      heading: 'Jarak planet dalam ke Matahari',
+      body: 'Bumi berada sekitar 150 juta km dari Matahari.',
+      author: 'NASA',
+      chart: {
+        kind: 'bar',
+        unit: 'juta km',
+        items: [
+          { label: 'Merkurius', value: 58 },
+          { label: 'Venus', value: 108 },
+          { label: 'Bumi', value: 150 },
+          { label: 'Mars', value: 228 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Tren',
+      heading: 'Karbon dioksida di atmosfer terus naik',
+      body: 'Dalam enam dekade, kadarnya naik sekitar 100 ppm.',
+      author: 'NOAA, Mauna Loa',
+      chart: {
+        kind: 'line',
+        unit: 'ppm',
+        items: [
+          { label: '1960', value: 317 },
+          { label: '1970', value: 326 },
+          { label: '1980', value: 339 },
+          { label: '1990', value: 354 },
+          { label: '2000', value: 370 },
+          { label: '2010', value: 390 },
+          { label: '2020', value: 414 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Komposisi',
+      heading: 'Isi udara yang kita hirup',
+      body: 'Hampir semuanya nitrogen, bukan oksigen.',
+      author: 'NASA',
+      chart: {
+        kind: 'donut',
+        unit: '%',
+        items: [
+          { label: 'Nitrogen', value: 78 },
+          { label: 'Oksigen', value: 21 },
+          { label: 'Lainnya', value: 1 }
+        ]
+      }
+    }),
+    sample({
+      type: 'chart',
+      label: 'Ukuran',
+      heading: 'Diameter benda langit',
+      body: 'Matahari lebih lebar dari seratus Bumi berjajar.',
+      author: 'NASA',
+      chart: {
+        kind: 'bubble',
+        unit: 'ribu km',
+        items: [
+          { label: 'Bulan', value: 3.5 },
+          { label: 'Bumi', value: 12.7 },
+          { label: 'Jupiter', value: 140 },
+          { label: 'Matahari', value: 1393 }
+        ]
+      }
+    }),
+    sample({ type: 'fact', label: 'Bumi', value: '71%', heading: 'Permukaan Bumi tertutup air', body: 'Sebagian besarnya berupa samudra.', author: 'USGS' }),
+    sample({ type: 'outro', heading: 'Angka mana yang paling mengejutkan?', body: 'Ikuti untuk sains berikutnya.' })
   ]
 }
 

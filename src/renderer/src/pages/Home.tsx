@@ -78,7 +78,9 @@ const EXPLAINER_SUGGESTIONS: Record<ExplainerTemplateId, string[]> = {
   quote: ['Kutipan tentang tidak menyerah untuk memulai pagi', 'Kata-kata bijak tentang kesabaran', 'Motivasi untuk mahasiswa tingkat akhir'],
   compare: ['Kereta atau pesawat untuk mudik Jakarta–Surabaya?', 'Laptop atau tablet untuk kuliah?', 'Menabung emas atau reksa dana untuk pemula?'],
   // The writer has no live news, so news examples bring their own facts or look back at settled events.
-  news: ['Rangkum berita ini jadi tiga poin: (tempel isi beritanya di sini)', 'Kilas balik: tiga penemuan sains yang mengubah dunia', 'Rangkuman sejarah singkat internet di Indonesia']
+  news: ['Rangkum berita ini jadi tiga poin: (tempel isi beritanya di sini)', 'Kilas balik: tiga penemuan sains yang mengubah dunia', 'Rangkuman sejarah singkat internet di Indonesia'],
+  history: ['Jalan panjang menuju kemerdekaan Indonesia', 'Sejarah Kerajaan Majapahit dari berdiri sampai runtuh', 'Perang Dunia II: lima peristiwa kunci'],
+  science: ['Seberapa luas tata surya kita? Bandingkan ukuran planet', 'Kenapa kadar karbon dioksida di atmosfer terus naik?', 'Dari apa saja udara tersusun dan kenapa itu penting']
 }
 
 const EXPLAINER_SERIES_SUGGESTIONS = [

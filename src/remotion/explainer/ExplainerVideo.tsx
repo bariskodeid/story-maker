@@ -154,6 +154,36 @@ function Backdrop({ input, f }: { input: ExplainerInput; f: Frame }) {
   if (input.templateId === 'tips') return <TipsDecor input={input} f={f} />
   if (input.templateId === 'compare') return <VersusBackdrop input={input} f={f} />
   if (input.templateId === 'news') return <NewsBackdrop input={input} f={f} />
+  if (input.templateId === 'history') {
+    // Aged paper: a fine fiber grain, a faint inner frame and a vignette; all drawn, no image file.
+    return (
+      <>
+        <div style={{ ...fill, backgroundImage: GRAIN, opacity: p.dark ? 0.1 : 0.16, mixBlendMode: p.dark ? 'overlay' : 'multiply' }} />
+        <div style={{ ...fill, background: `radial-gradient(ellipse at ${30 + 10 * t}% 25%, ${alpha(p.accent, p.dark ? 0.1 : 0.08)} 0%, transparent 50%)` }} />
+        <div style={{ ...fill, background: `radial-gradient(ellipse at 50% 50%, transparent 55%, ${alpha(p.dark ? '#000000' : '#5A3A12', p.dark ? 0.55 : 0.28)} 100%)` }} />
+        <div style={{ ...fill, inset: 26 * u, border: `${2 * u}px solid ${alpha(p.ink, p.dark ? 0.16 : 0.2)}`, borderRadius: 4 * u }} />
+      </>
+    )
+  }
+  if (input.templateId === 'science') {
+    // Millimeter paper: a fine grid with a stronger line every fifth cell, kept faint so chart text stays legible.
+    const cell = 24 * u
+    const minor = alpha(p.ink, p.dark ? 0.07 : 0.08)
+    const major = alpha(p.ink, p.dark ? 0.13 : 0.15)
+    const rule = (c: string, dir: string, w: number) => `linear-gradient(${dir}, ${c} ${w * u}px, transparent ${w * u}px)`
+    return (
+      <>
+        <div
+          style={{
+            ...fill,
+            backgroundImage: [rule(major, '180deg', 2.5), rule(major, '90deg', 2.5), rule(minor, '180deg', 1.5), rule(minor, '90deg', 1.5)].join(', '),
+            backgroundSize: `${cell * 5}px ${cell * 5}px, ${cell * 5}px ${cell * 5}px, ${cell}px ${cell}px, ${cell}px ${cell}px`
+          }}
+        />
+        <div style={{ ...fill, background: `radial-gradient(circle at ${78 - 6 * t}% 20%, ${alpha(p.accent, p.dark ? 0.16 : 0.1)} 0%, transparent 45%)` }} />
+      </>
+    )
+  }
   if (input.templateId === 'facts') {
     return (
       <>
@@ -209,7 +239,8 @@ function SceneShell({ input, item, children }: { input: ExplainerInput; item: Ex
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
   const u = Math.min(input.width, input.height) / 1080
-  const outF = input.templateId === 'quote' ? 14 : 9
+  // History fades out slowly and science cuts fast; the others keep their own pace.
+  const outF = input.templateId === 'quote' || input.templateId === 'history' ? 14 : input.templateId === 'science' ? 6 : 9
   const x = interpolate(frame, [item.frames - outF, item.frames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
   const e = enter(frame, fps, 0)
   let style: CSSProperties
@@ -219,6 +250,9 @@ function SceneShell({ input, item, children }: { input: ExplainerInput; item: Ex
     style = { opacity: interpolate(frame, [0, 18], [0, 1], { extrapolateRight: 'clamp' }) * (1 - x), transform: `scale(${1.02 - 0.02 * e})` }
   else if (input.templateId === 'compare') style = { opacity: Math.min(1, e * 1.8) * (1 - x), transform: `scale(${1.03 - 0.03 * e})` }
   else if (input.templateId === 'news') style = { opacity: Math.min(1, e * 1.6) * (1 - x), transform: `translateX(${(1 - e) * 50 * u - x * 40 * u}px)` }
+  else if (input.templateId === 'history')
+    style = { opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: 'clamp' }) * (1 - x), transform: `translateY(${(1 - e) * 16 * u}px) scale(${1.015 - 0.015 * e})` }
+  else if (input.templateId === 'science') style = { opacity: Math.min(1, e * 2.4) * (1 - x), transform: `translateY(${(1 - e) * 22 * u - x * 12 * u}px)` }
   else style = { opacity: Math.min(1, e * 1.5) * (1 - x), transform: `translateY(${(1 - e) * 40 * u - x * 34 * u}px)` }
   return <AbsoluteFill style={style}>{children}</AbsoluteFill>
 }

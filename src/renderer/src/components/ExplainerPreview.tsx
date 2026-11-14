@@ -1,6 +1,6 @@
 import { forwardRef, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Player, Thumbnail, type PlayerRef } from '@remotion/player'
-import { ChartNoAxesColumn, Check, Lightbulb, ListOrdered, Newspaper, Quote, Swords } from 'lucide-react'
+import { ChartNoAxesColumn, Check, FlaskConical, Landmark, Lightbulb, ListOrdered, Newspaper, Quote, Swords } from 'lucide-react'
 import {
   buildExplainerInput,
   CAPTION_STYLES,
@@ -217,7 +217,9 @@ const TEMPLATE_ICONS: Record<ExplainerTemplateId, typeof ListOrdered> = {
   facts: ChartNoAxesColumn,
   quote: Quote,
   compare: Swords,
-  news: Newspaper
+  news: Newspaper,
+  history: Landmark,
+  science: FlaskConical
 }
 
 /** Project card cover for an explainer without a picture: the template's colors and mark. */
