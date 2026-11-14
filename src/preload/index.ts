@@ -30,7 +30,8 @@ const api: StudioApi = {
     update: call('narrators:update'),
     remove: call('narrators:remove'),
     duplicate: call('narrators:duplicate'),
-    generate: call('narrators:generate')
+    generate: call('narrators:generate'),
+    assignCues: call('narrators:assignCues')
   },
   series: {
     list: call('series:list'),

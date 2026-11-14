@@ -8,6 +8,7 @@ export type MagicField =
   | 'explainerSeriesTopic'
   | 'episodeSynopsis'
   | 'characterLook'
+  | 'narratorLook'
   | 'visualPrompt'
   | 'videoPrompt'
   | 'sceneImagePrompt'
@@ -43,6 +44,7 @@ export const MAGIC_LIMITS: Record<MagicField, number> = {
   explainerSeriesTopic: 4000,
   episodeSynopsis: 1200,
   characterLook: 600,
+  narratorLook: 600,
   visualPrompt: 1500,
   videoPrompt: 400,
   sceneImagePrompt: 600

@@ -29,6 +29,7 @@ import { probeDurationMs } from './services/audio'
 import * as eleven from './services/elevenlabs'
 import * as gemini from './services/gemini'
 import * as ninerouter from './services/ninerouterTts'
+import { assignCues } from './narratorCues'
 import { timeScript, whisperReady } from './whisper'
 
 /**
@@ -296,6 +297,16 @@ export function generateNarration(projectId: string, mode: 'missing' | 'all'): J
         done += group.length
       }
       touchProject(projectId)
+      // Expressions follow the narration, but picking them must never fail a narration that is already voiced.
+      const after = getProject(projectId)
+      if (after.narrator.enabled && after.narrator.id) {
+        ctx.progress(0.95, 'Memilih ekspresi narator')
+        try {
+          await assignCues(projectId)
+        } catch (e) {
+          console.warn('[narratorCues]', (e as Error).message)
+        }
+      }
       return { message: `${clips.length} adegan disuarakan dalam satu rekaman` }
     } finally {
       rmSync(tmp, { recursive: true, force: true })

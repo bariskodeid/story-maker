@@ -43,6 +43,8 @@ const SYNOPSIS_FORMAT =
   'Write 3 to 5 sentences: the situation, the main event and how the episode ends. Stay consistent with the series bible and the summaries of earlier episodes.'
 const LOOK_FORMAT =
   'Format: body traits first (species, gender, age, height or build, skin, face, hair), then "Default outfit: ..." with colors and one accessory. No art-style words.'
+const NARRATOR_LOOK_FORMAT =
+  'Describe a half-body bust of the narrator facing the camera: body traits (species or kind, gender, age, build, skin), face, hair, then outfit with colors and one accessory. The narrator is a talking mascot shown in the corner of the video, so keep the look simple and clear. No art-style words; the style is chosen separately.'
 const VISUAL_FORMAT =
   'Use exactly these labelled lines, one per line, in this order: "Setting:", "Action:", "Wardrobe:", "Framing:", "Avoid:". Write character names exactly as in the cast list. No text or lettering in the image.'
 const VIDEO_FORMAT =
@@ -63,6 +65,7 @@ const FIELD_BRIEFS: Record<MagicField, FieldBrief> = {
   explainerSeriesTopic: brief('the premise of an explainer video series', 'target', EXPLAINER_SERIES_FORMAT),
   episodeSynopsis: brief('the synopsis of one episode of a series, used as the brief for its script', 'target', SYNOPSIS_FORMAT),
   characterLook: brief('the physical description of a recurring character, used to draw a reference sheet', 'english', LOOK_FORMAT),
+  narratorLook: brief('the appearance of an animated on-screen narrator character, used to draw its expression sheet', 'english', NARRATOR_LOOK_FORMAT),
   visualPrompt: brief('the image prompt of one scene', 'english', VISUAL_FORMAT),
   videoPrompt: brief('the direction for animating one still image into a short AI video', 'english', VIDEO_FORMAT),
   sceneImagePrompt: brief('the description of an image for one explainer scene', 'english', SCENE_IMAGE_FORMAT)

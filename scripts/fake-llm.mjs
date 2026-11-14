@@ -26,7 +26,22 @@ const server = http.createServer((req, res) => {
       }
       console.log('SYSTEM: ' + system.slice(0, 200).replace(/\s+/g, ' '))
       console.log('USER: ' + user.slice(0, 300).replace(/\s+/g, ' '))
-      const content = JSON.stringify({ text: 'MAGIC: ' + user.slice(0, 300) })
+      let schemaName = ''
+      try {
+        schemaName = String(JSON.parse(raw).response_format?.json_schema?.name ?? '')
+      } catch {
+        /* no schema name */
+      }
+      let content = JSON.stringify({ text: 'MAGIC: ' + user.slice(0, 300) })
+      if (schemaName === 'narrator_cues') {
+        // One expression per numbered sentence ("Scene 3:" then "1. ..."), cycling so a test can see each one is used.
+        const kinds = ['neutral', 'happy', 'sad', 'surprised', 'serious', 'thinking']
+        const clips = [...user.matchAll(/Scene (\d+):\n((?:\d+\. .*\n?)+)/g)].map((m) => ({
+          index: Number(m[1]),
+          cues: m[2].trim().split('\n').map((_, n) => kinds[n % kinds.length])
+        }))
+        content = process.env.BAD_CUES ? '{"oops":' : JSON.stringify({ clips })
+      }
       setTimeout(() => json({ choices: [{ message: { content }, finish_reason: 'stop' }] }), delay)
     })
     return

@@ -36,6 +36,7 @@ import {
 import { cancelJob } from './jobs'
 import { createNarrator, duplicateNarrator, generateNarrator, getNarrator, listNarrators, removeNarrator, updateNarrator, type NarratorPatch } from './narrators'
 import { generateNarration, syncCaptions } from './narration'
+import { assignCues } from './narratorCues'
 import { cancelDownload, downloadModel, openModelFolder, removeModel, whisperStatus } from './whisper'
 import { assetAbsPath } from './paths'
 import { cancelRenderBrowserDownload, ensureRenderBrowser, removeRenderBrowser, renderEngineStatus, renderTest } from './remotion'
@@ -122,6 +123,7 @@ export function registerIpc(): void {
   handle('narrators:remove', (id: string) => removeNarrator(id))
   handle('narrators:duplicate', (id: string) => duplicateNarrator(id))
   handle('narrators:generate', (id: string) => generateNarrator(id))
+  handle('narrators:assignCues', (projectId: string) => assignCues(projectId))
   handle('series:list', () => listSeries())
   handle('series:create', (input: NewSeriesInput) => createSeries(input))
   handle('series:get', (id: string) => getSeriesBundle(id))

@@ -62,6 +62,11 @@ export interface StudioApi {
      * friendly message and leaves the existing sprites alone.
      */
     generate(id: string): Promise<Job>
+    /**
+     * Picks an expression for every sentence of every clip with one LLM request and saves them. On a bad reply every
+     * sentence is saved as neutral and the call rejects with a friendly message.
+     */
+    assignCues(projectId: string): Promise<ProjectBundle>
   }
   series: {
     list(): Promise<SeriesSummary[]>
