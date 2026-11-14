@@ -3,6 +3,7 @@ import { AbsoluteFill, Html5Audio, Img, interpolate, random, Sequence, useCurren
 import { lookFonts, type ExplainerInput, type ExplainerSceneInput, type SceneType } from '@shared/explainer'
 import { useFonts } from '../fonts'
 import { Captions } from './captions'
+import { NarratorLayer } from './narrator'
 import { alpha, distToRect, enter, frameOf, holeMask, overlaps, textZones, type Frame, type Rect } from './layout'
 import { HeadlineScene, NewsBackdrop, NewsChrome, NewsCut, NewsTitleScene, PointsScene } from './news'
 import { CompareScene, FactScene, OutroScene, QuoteScene, StepScene, TipScene, TitleScene, type SceneProps } from './scenes'
@@ -343,6 +344,7 @@ export function ExplainerVideo(input: ExplainerInput) {
       {input.logo && (
         <LogoCorner src={input.logo} f={f} height={logoH} hideFrom={lastType === 'outro' ? input.scenes.at(-1)!.from : input.totalFrames} />
       )}
+      <NarratorLayer input={input} />
       <Captions input={input} f={f} />
       <Music input={input} />
     </AbsoluteFill>

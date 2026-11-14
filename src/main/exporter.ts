@@ -332,7 +332,7 @@ function cameraChain(cam: string | null, work: { w: number; h: number }, size: {
 const UNKNOWN_AUDIO_MS = 10 * 60 * 1000
 
 /** Width and height of a PNG, from its IHDR chunk. */
-function pngSize(file: string): { w: number; h: number } {
+export function pngSize(file: string): { w: number; h: number } {
   const head = Buffer.alloc(24)
   const fd = openSync(file, 'r')
   try {

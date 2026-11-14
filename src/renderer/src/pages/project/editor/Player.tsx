@@ -15,8 +15,9 @@ import {
 import { cameraAt, cameraCss, transitionSecOf } from '@shared/motion'
 import { captionShiftAbove, narratorBox, narratorSpriteAt, pickSprite, type NarratorTrackClip, type Rect } from '@shared/narrator'
 import { anchorOffset, contrastColor, overlayVisible, textEffects } from '@shared/overlays'
-import type { AspectRatio, Asset, EditorSettings, Narrator, NarratorSettings, Overlay } from '@shared/types'
+import type { AspectRatio, Asset, EditorSettings, NarratorSettings, Overlay } from '@shared/types'
 import { IconButton, cx } from '../../../components/ui'
+import { useNarratorSprites } from '../../../lib/useNarratorSprites'
 import { timecode } from '../../../lib/format'
 import { auditionWindow, itemAt, updateOverlay, useAudition, useOverlayUi, usePlayback, type TimelineItem } from './engine'
 import { transitionStyles } from './transitionStyle'
@@ -154,31 +155,6 @@ function Caption({ chunks, t, editor, width, height, avoid }: { chunks: CaptionC
 }
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v))
-
-/** The narrator's sprite URLs and width/height ratio, or null when it is off, gone or has no sprites yet. */
-function useNarratorSprites(settings: NarratorSettings): { urls: Record<string, string>; aspect: number } | null {
-  const [found, setFound] = useState<{ id: string; urls: Record<string, string>; aspect: number } | null>(null)
-  const id = settings.enabled ? settings.id : null
-  useEffect(() => {
-    if (!id) return
-    let live = true
-    window.api.narrators
-      .get(id)
-      .then((n: Narrator) => {
-        const urls = n.spriteUrls
-        const base = urls ? urls[pickSprite('neutral-closed', new Set(Object.keys(urls))) ?? ''] : null
-        if (!urls || !base) return
-        const img = new Image()
-        img.onload = () => live && setFound({ id, urls, aspect: img.naturalWidth / Math.max(1, img.naturalHeight) })
-        img.src = base
-      })
-      .catch(() => {})
-    return () => {
-      live = false
-    }
-  }, [id])
-  return id && found?.id === id ? found : null
-}
 
 /**
  * The narrator sprite at time t. Every sprite stays mounted and only the current one is visible, so a swap never

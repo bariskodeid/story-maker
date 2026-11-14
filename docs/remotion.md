@@ -357,3 +357,12 @@ ada di daftar layanan AI dan tidak memblokir apa pun), tidak pernah dicetak, dan
   memasukkannya ulang, supaya render perusahaan tidak diam-diam berjalan tanpa lisensi.
 
 Player diberi `acknowledgeRemotionLicense` supaya tidak mencetak peringatan lisensi ke console.
+
+## Narator
+
+`ExplainerInput.narrator` (diisi `buildExplainerInput` dari `narratorSprites` + pengaturan narator proyek) menyalakan
+`NarratorLayer` (`src/remotion/explainer/narrator.tsx`): di atas adegan, di bawah caption. Hanya ganti sprite (tanpa
+napas/pantulan, sama dengan video cerita). Sprite dimuat lewat URL aset (`studio://narrator/...` di Player,
+`narratorBase`/`narratorPresetBase` server aset di ekspor). `frameOf` memberi ruang: landscape menyisihkan sisi
+narator dan menyempitkan pita caption; portrait menurunkan batas bawah konten dan menaikkan caption lewat
+`captionShiftAbove`. Narator mati atau tanpa sprite: `narrator` tidak ada dan hasilnya sama dengan sebelumnya.
