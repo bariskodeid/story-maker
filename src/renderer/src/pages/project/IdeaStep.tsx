@@ -179,7 +179,8 @@ export function IdeaStep() {
     field: 'storyIdea',
     value: project?.synopsis ?? '',
     onApply: (synopsis) => updateProject({ synopsis }),
-    request: () => ({ projectId: project?.id })
+    request: () => ({ projectId: project?.id }),
+    before: flush
   })
 
   if (!project) return null

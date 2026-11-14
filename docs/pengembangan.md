@@ -98,6 +98,7 @@ node_modules\electron\dist\electron.exe .
 | `drag` | seret mouse sungguhan: `selector`, `at` (`left`/`right`/`center`), `dx`, `fy` (posisi vertikal 0–1) |
 | `click` | klik mouse sungguhan: `selector`, `fx`, atau `pointJs` (JS yang mengembalikan `{x, y}`) |
 | `key` | tekan tombol sungguhan, misalnya `"s"` atau `"Delete"` |
+| `size` | ubah ukuran isi jendela, mis. `[1180, 720]`, untuk memeriksa tata letak di resolusi kecil |
 | `wait` | jeda sesudah langkah (ms) |
 | `shot` | simpan screenshot jendela ke path PNG |
 | `quit` | tutup aplikasi |

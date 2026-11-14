@@ -203,12 +203,8 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
         <>
           {image && <img src={image.url} alt="" className="w-full rounded-lg border border-line-2" />}
           <Field
-            label={
-              <span className="flex items-center justify-between gap-2">
-                Gambar yang diinginkan
-                <MagicButton magic={magic} value={scene.imagePrompt} size="sm" />
-              </span>
-            }
+            label="Gambar yang diinginkan"
+            action={<MagicButton magic={magic} value={scene.imagePrompt} size="sm" />}
             hint="Ditulis dalam bahasa Inggris lebih akurat. Gambar AI tidak memuat teks.">
             <AutoTextarea
               minRows={2}

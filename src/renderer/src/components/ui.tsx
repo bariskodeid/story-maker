@@ -175,7 +175,31 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boo
 export const inputCls =
   'w-full rounded-xl border border-line-2 bg-surface px-3.5 text-[15px] text-ink outline-none transition-colors placeholder:text-muted/80 focus:border-ink'
 
-export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className,
+  action
+}: {
+  label: ReactNode
+  hint?: ReactNode
+  children: ReactNode
+  className?: string
+  /** Button shown at the label's right edge. It lives outside the <label>, or it would become the label's control. */
+  action?: ReactNode
+}) {
+  if (action)
+    return (
+      <div className={cx('relative', className)}>
+        <label className="flex flex-col gap-1.5">
+          <span className="min-h-7 pr-28 text-sm font-semibold leading-7 text-ink">{label}</span>
+          {children}
+          {hint && <span className="text-[13px] text-muted">{hint}</span>}
+        </label>
+        <div className="absolute right-0 top-0">{action}</div>
+      </div>
+    )
   return (
     <label className={cx('flex flex-col gap-1.5', className)}>
       <span className="text-sm font-semibold text-ink">{label}</span>

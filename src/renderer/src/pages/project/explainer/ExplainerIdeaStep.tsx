@@ -48,7 +48,8 @@ export function ExplainerIdeaStep() {
     field: 'explainerTopic',
     value: project?.synopsis ?? '',
     onApply: (synopsis) => updateProject({ synopsis }),
-    request: () => ({ projectId: project?.id })
+    request: () => ({ projectId: project?.id }),
+    before: flush
   })
 
   if (!project) return null

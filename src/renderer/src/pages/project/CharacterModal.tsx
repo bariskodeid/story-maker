@@ -28,21 +28,13 @@ export function CharacterModal({
 const LOOK_HINT =
   'Tulis ciri tubuh dulu, lalu "Default outfit:" untuk baju bawaan di lembar karakter. Baju bisa diganti per adegan lewat baris Wardrobe di prompt visual. Contoh: human man, 40s, short black hair, warm brown skin. Default outfit: light-blue colony medical scrubs, stethoscope.'
 
-function LookLabel({ magic, value }: { magic: ReturnType<typeof useMagic>; value: string }) {
-  return (
-    <span className="flex items-center justify-between gap-2">
-      Penampilan
-      <MagicButton magic={magic} value={value} size="sm" />
-    </span>
-  )
-}
-
 function NewCharacter({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
-  const { addCharacter } = useProject()
+  const { addCharacter, project } = useProject()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const typed = !!(name.trim() || description.trim())
-  const magic = useMagic({ field: 'characterLook', value: description, onApply: setDescription, request: () => ({ characterName: name.trim() || undefined }) })
+  const magic = useMagic({ field: 'characterLook', value: description, onApply: setDescription, request: () => ({ projectId: project?.id, characterName: name.trim() || undefined })
+  })
 
   const save = (): void => {
     const id = addCharacter({ name, description })
@@ -73,7 +65,7 @@ function NewCharacter({ onClose, onCreated }: { onClose: () => void; onCreated?:
         <Field label="Nama">
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Misal: Gajah Mada" className={cx(inputCls, 'h-11')} />
         </Field>
-        <Field label={<LookLabel magic={magic} value={description} />} hint={LOOK_HINT}>
+        <Field label="Penampilan" hint={LOOK_HINT} action={<MagicButton magic={magic} value={description} size="sm" />}>
           <textarea
             rows={3}
             value={description}
@@ -165,7 +157,7 @@ function EditCharacter({ characterId, onClose }: { characterId: string | null; o
         <Field label="Nama">
           <input value={c.name} onChange={(e) => updateCharacter(c.id, { name: e.target.value })} className={cx(inputCls, 'h-11')} />
         </Field>
-        <Field label={<LookLabel magic={magic} value={c.description} />} hint={LOOK_HINT}>
+        <Field label="Penampilan" hint={LOOK_HINT} action={<MagicButton magic={magic} value={c.description} size="sm" />}>
           <textarea
             rows={3}
             value={c.description}

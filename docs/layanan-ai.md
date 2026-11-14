@@ -97,8 +97,8 @@ atau seri (cadangan: Indonesia). Instruksi dan format tiap kolom ada di `FIELD_B
 untuk Beranda yang belum menyimpan apa pun (`language`, `durationSec`, `templateId`, `styleId`, `episodeCount`,
 `characterName`). `context()` di main membaca sisanya dari database: judul dan sinopsis proyek, pemeran, judul,
 cerita, narasi, dan heading adegan, premis, dunia, nada, dan aturan seri, pemeran seri, ringkasan episode
-sebelumnya, durasi, gaya visual, dan panduan template. Hasil dibersihkan `cleanMagicText` (kutip dan code fence
-dibuang, dipotong ke batas kolom).
+sebelumnya, durasi, gaya visual, dan panduan template. Hasil dibersihkan `cleanMagicText` (kutip yang berpasangan dan
+code fence dibuang, dipotong ke batas kolom; kutip dialog di dalam teks dibiarkan).
 
 **Perilaku UI** (`useMagic`, `MagicButton`):
 
@@ -106,8 +106,11 @@ dibuang, dipotong ke batas kolom).
 - Hasil langsung dipasang ke kolom, toast sukses punya tombol **Urungkan**. Urungkan hanya berlaku selama kolom
   masih berisi teks Magic; kalau kamu sudah mengetik sesuatu, ketikanmu menang.
 - Kalau layar ditutup (atau proyek lain dibuka) sebelum LLM selesai, hasilnya dibuang dan tidak dipasang ke mana pun.
-- Kolom yang konteksnya dibaca dari database (edit pemeran `characterLook`, `visualPrompt`, `videoPrompt`,
-  `sceneImagePrompt`) memakai `before` untuk menyimpan perubahan dulu, supaya main membaca versi terbaru.
+- Kolom yang konteksnya dibaca dari database (`storyIdea`, `explainerTopic`, edit pemeran `characterLook`,
+  `visualPrompt`, `videoPrompt`, `sceneImagePrompt`) memakai `before` untuk menyimpan perubahan dulu, supaya main
+  membaca versi terbaru (bahasa, durasi, gaya, dan template proyek ikut tersimpan lewat autosave yang tertunda).
+- Kolom yang sedang diedit tidak ikut dikirim sebagai konteks (sinopsis proyek, premis seri, atau deskripsi pemeran
+  itu sendiri); teksnya dikirim sekali, dibungkus `<user_text>`, dan prompt sistem menyatakan itu isi, bukan perintah.
 
 **Privasi.** Teks kolom dan konteks di atas dikirim ke penyedia LLM yang kamu pilih, sama seperti pembuatan naskah.
 Kunci API tetap hanya di `secrets.ts` (terenkripsi), dikirim ke layanannya sendiri, dan tidak pernah masuk log.

@@ -53,12 +53,23 @@ export function magicModes(text: string): MagicMode[] {
   return text.trim() ? ['improve', 'generate'] : ['generate']
 }
 
+const QUOTE_PAIRS = [
+  ['"', '"'],
+  ["'", "'"],
+  ['“', '”'],
+  ['‘', '’']
+]
+
 /** Models like to wrap an answer in quotes or a code fence even when told not to. */
 export function cleanMagicText(raw: string, field: MagicField): string {
   let t = raw.trim()
-  const fence = t.match(/^```[a-z]*\s*\n([\s\S]*?)\n?```$/i)
+  const fence = t.match(/^```[a-z]*\s*\n([\s\S]*?)\n?```$/i) ?? t.match(/^```[a-z]*[ \t]+([^\n]*?)[ \t]*```$/i)
   if (fence) t = fence[1].trim()
-  const quoted = t.match(/^(["'“‘])([\s\S]*)(["'”’])$/)
-  if (quoted) t = quoted[2].trim()
+  // Only a matching pair, and only when that quote never occurs inside: otherwise it is dialogue, not a wrapper.
+  const pair = QUOTE_PAIRS.find(([open, close]) => t.length > 1 && t.startsWith(open) && t.endsWith(close))
+  if (pair) {
+    const inner = t.slice(1, -1)
+    if (!inner.includes(pair[0]) && !inner.includes(pair[1])) t = inner.trim()
+  }
   return t.slice(0, MAGIC_LIMITS[field]).trim()
 }

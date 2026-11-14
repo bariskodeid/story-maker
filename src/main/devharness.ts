@@ -250,6 +250,8 @@ export function attachDevHarness(win: BrowserWindow): void {
     click?: { selector: string; fx?: number; pointJs?: string }
     /** A real key press, e.g. "s" or "Delete". */
     key?: string
+    /** Resizes the window (content size) so layouts can be checked at a given resolution. */
+    size?: [number, number]
     wait?: number
     shot?: string
     quit?: boolean
@@ -266,6 +268,7 @@ export function attachDevHarness(win: BrowserWindow): void {
     await sleep(2000)
     for (const step of plan) {
       try {
+        if (step.size) win.setContentSize(step.size[0], step.size[1])
         if (step.main === 'seed') demoId = seedDemo()
         if (step.main === 'seedExplainer') demoId = seedExplainer(step.template ?? 'tutorial')
         if (step.main === 'seedEpisode') {

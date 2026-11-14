@@ -405,8 +405,8 @@ export function Home() {
                 value={kind}
                 onChange={setKind}
                 options={[
-                  { id: 'story', label: 'Cerita' },
-                  { id: 'explainer', label: 'Video penjelasan' }
+                  { id: 'story', label: 'Cerita', disabled: magic.busy },
+                  { id: 'explainer', label: 'Video penjelasan', disabled: magic.busy }
                 ]}
               />
               <Segmented
@@ -414,10 +414,11 @@ export function Home() {
                 value={mode}
                 onChange={setMode}
                 options={[
-                  { id: 'single', label: 'Satu video' },
+                  { id: 'single', label: 'Satu video', disabled: magic.busy },
                   {
                     id: 'series',
                     label: 'Seri',
+                    disabled: magic.busy,
                     title: explainer
                       ? 'Beberapa video dengan template yang sama, misalnya kursus berurutan atau acara tips rutin'
                       : 'Beberapa episode dengan dunia dan pemeran yang sama'
@@ -515,8 +516,9 @@ export function Home() {
               <button
                 key={s}
                 type="button"
+                disabled={magic.busy}
                 onClick={() => setSynopsis(s)}
-                className="h-9 rounded-full border border-dashed border-line-3 px-3.5 text-[13px] text-ink-2 hover:border-ink-2 hover:text-ink"
+                className="h-9 rounded-full border border-dashed border-line-3 px-3.5 text-[13px] text-ink-2 hover:border-ink-2 hover:text-ink disabled:cursor-wait disabled:opacity-60"
               >
                 {s}
               </button>

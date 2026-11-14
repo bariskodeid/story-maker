@@ -39,10 +39,10 @@ export function useMagic(opts: {
     if (running.current) return
     running.current = true
     setBusy(true)
-    const before = latest.current.value
+    const previous = latest.current.value
     try {
       await latest.current.before?.()
-      const result = await window.api.magic.run({ ...latest.current.request?.(), field, mode, text: before })
+      const result = await window.api.magic.run({ ...latest.current.request?.(), field, mode, text: previous })
       // The screen may be gone (or another project open) by now; a result for it must not land anywhere.
       if (!mounted.current) return
       latest.current.onApply(result.text)
@@ -50,7 +50,7 @@ export function useMagic(opts: {
         label: 'Urungkan',
         // Only undo while the field still holds Magic's text; anything typed since is the user's and wins.
         run: () => {
-          if (mounted.current && latest.current.value === result.text) latest.current.onApply(before)
+          if (mounted.current && latest.current.value === result.text) latest.current.onApply(previous)
         }
       })
     } catch (e) {
