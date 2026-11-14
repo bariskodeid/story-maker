@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RefreshCw, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { Button, Field, Modal, Progress, confirmDialog, cx, inputCls } from '../../components/ui'
+import { MagicButton, useMagic } from '../../components/Magic'
 import { errorText } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { isRunning, jobFor, useProject } from '../../store/project'
@@ -20,17 +21,28 @@ export function CharacterModal({
   onCreated?: (id: string) => void
 }) {
   if (characterId === 'new') return <NewCharacter onClose={onClose} onCreated={onCreated} />
-  return <EditCharacter characterId={characterId} onClose={onClose} />
+  // Keyed so a Magic run started for one character can never land in another one.
+  return <EditCharacter key={characterId} characterId={characterId} onClose={onClose} />
 }
 
 const LOOK_HINT =
   'Tulis ciri tubuh dulu, lalu "Default outfit:" untuk baju bawaan di lembar karakter. Baju bisa diganti per adegan lewat baris Wardrobe di prompt visual. Contoh: human man, 40s, short black hair, warm brown skin. Default outfit: light-blue colony medical scrubs, stethoscope.'
+
+function LookLabel({ magic, value }: { magic: ReturnType<typeof useMagic>; value: string }) {
+  return (
+    <span className="flex items-center justify-between gap-2">
+      Penampilan
+      <MagicButton magic={magic} value={value} size="sm" />
+    </span>
+  )
+}
 
 function NewCharacter({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
   const { addCharacter } = useProject()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const typed = !!(name.trim() || description.trim())
+  const magic = useMagic({ field: 'characterLook', value: description, onApply: setDescription, request: () => ({ characterName: name.trim() || undefined }) })
 
   const save = (): void => {
     const id = addCharacter({ name, description })
@@ -61,10 +73,11 @@ function NewCharacter({ onClose, onCreated }: { onClose: () => void; onCreated?:
         <Field label="Nama">
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Misal: Gajah Mada" className={cx(inputCls, 'h-11')} />
         </Field>
-        <Field label="Penampilan" hint={LOOK_HINT}>
+        <Field label={<LookLabel magic={magic} value={description} />} hint={LOOK_HINT}>
           <textarea
             rows={3}
             value={description}
+            readOnly={magic.busy}
             onChange={(e) => setDescription(e.target.value)}
             className={cx(inputCls, 'resize-none py-2.5 text-sm leading-relaxed')}
           />
@@ -84,6 +97,14 @@ function EditCharacter({ characterId, onClose }: { characterId: string | null; o
   const { project, characters, assets, jobs, updateCharacter, removeCharacter, flush, clips } = useProject()
   const { toast } = useApp()
   const c = characters.find((x) => x.id === characterId)
+  // Before the early return so the hook order stays fixed when the character is deleted.
+  const magic = useMagic({
+    field: 'characterLook',
+    value: c?.description ?? '',
+    onApply: (text) => c && updateCharacter(c.id, { description: text }),
+    request: () => ({ projectId: project?.id, characterName: c?.name }),
+    before: flush
+  })
   if (!c) return null
   const sheet = c.sheetAssetId ? assets[c.sheetAssetId] : null
   const job = jobFor(jobs, 'sheet', { characterId: c.id })
@@ -144,10 +165,11 @@ function EditCharacter({ characterId, onClose }: { characterId: string | null; o
         <Field label="Nama">
           <input value={c.name} onChange={(e) => updateCharacter(c.id, { name: e.target.value })} className={cx(inputCls, 'h-11')} />
         </Field>
-        <Field label="Penampilan" hint={LOOK_HINT}>
+        <Field label={<LookLabel magic={magic} value={c.description} />} hint={LOOK_HINT}>
           <textarea
             rows={3}
             value={c.description}
+            readOnly={magic.busy}
             onChange={(e) => updateCharacter(c.id, { description: e.target.value })}
             className={cx(inputCls, 'resize-none py-2.5 text-sm leading-relaxed')}
           />

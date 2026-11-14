@@ -15,6 +15,8 @@ export function useMagic(opts: {
   value: string
   onApply: (text: string) => void
   request?: () => Omit<MagicRequest, 'mode' | 'text' | 'field'>
+  /** Runs before the API call (e.g. flushing unsaved edits so main reads them); a throw aborts the run. */
+  before?: () => Promise<void>
 }): { field: MagicField; busy: boolean; run: (mode: MagicMode) => Promise<void> } {
   const { field } = opts
   const toast = useApp((s) => s.toast)
@@ -39,6 +41,7 @@ export function useMagic(opts: {
     setBusy(true)
     const before = latest.current.value
     try {
+      await latest.current.before?.()
       const result = await window.api.magic.run({ ...latest.current.request?.(), field, mode, text: before })
       // The screen may be gone (or another project open) by now; a result for it must not land anywhere.
       if (!mounted.current) return

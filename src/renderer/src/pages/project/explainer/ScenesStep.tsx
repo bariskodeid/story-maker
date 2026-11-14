@@ -19,6 +19,7 @@ import type { Clip } from '@shared/types'
 import { AutoTextarea } from '../../../components/AutoTextarea'
 import { ExplainerStill, settledFrame, useExplainerInput } from '../../../components/ExplainerPreview'
 import { ImageStylePicker } from '../../../components/ImageStylePicker'
+import { MagicButton, useMagic } from '../../../components/Magic'
 import { Select } from '../../../components/Select'
 import { Badge, Button, Field, IconButton, Menu, Progress, Segmented, confirmDialog, cx, inputCls } from '../../../components/ui'
 import { errorText } from '../../../lib/format'
@@ -132,6 +133,13 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
   const image = clip.imageAssetId ? assets[clip.imageAssetId] : null
   const job = jobFor(jobs, 'image', { clipId: clip.id })
   const running = isRunning(job)
+  const magic = useMagic({
+    field: 'sceneImagePrompt',
+    value: scene.imagePrompt,
+    onApply: (text) => onScene({ imagePrompt: text }),
+    request: () => ({ clipId: clip.id }),
+    before: flush
+  })
 
   const upload = async (): Promise<void> => {
     try {
@@ -194,10 +202,18 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
       {scene.imageMode === 'ai' && (
         <>
           {image && <img src={image.url} alt="" className="w-full rounded-lg border border-line-2" />}
-          <Field label="Gambar yang diinginkan" hint="Ditulis dalam bahasa Inggris lebih akurat. Gambar AI tidak memuat teks.">
+          <Field
+            label={
+              <span className="flex items-center justify-between gap-2">
+                Gambar yang diinginkan
+                <MagicButton magic={magic} value={scene.imagePrompt} size="sm" />
+              </span>
+            }
+            hint="Ditulis dalam bahasa Inggris lebih akurat. Gambar AI tidak memuat teks.">
             <AutoTextarea
               minRows={2}
               value={scene.imagePrompt}
+              readOnly={magic.busy}
               onChange={(e) => onScene({ imagePrompt: e.target.value })}
               placeholder="A cozy desk by a sunny window with a small plant…"
               className={cx(inputCls, 'py-2.5 text-sm')}
@@ -491,7 +507,7 @@ export function ScenesStep() {
                 <ExplainerStill input={input} frame={settledFrame(input, index)} />
               </div>
               {scene && sceneShowsImage(project.templateId, scene.type) && (
-                <ImagePanel clip={clip} scene={scene} onScene={(p) => updateClip(clip.id, { scene: { ...scene, ...p } })} />
+                <ImagePanel key={clip.id} clip={clip} scene={scene} onScene={(p) => updateClip(clip.id, { scene: { ...scene, ...p } })} />
               )}
             </>
           ) : (

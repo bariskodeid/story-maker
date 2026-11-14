@@ -25,6 +25,7 @@ const server = http.createServer((req, res) => {
         /* an unreadable body just echoes nothing */
       }
       console.log('SYSTEM: ' + system.slice(0, 200).replace(/\s+/g, ' '))
+      console.log('USER: ' + user.slice(0, 300).replace(/\s+/g, ' '))
       const content = JSON.stringify({ text: 'MAGIC: ' + user.slice(0, 300) })
       setTimeout(() => json({ choices: [{ message: { content }, finish_reason: 'stop' }] }), delay)
     })

@@ -29,6 +29,7 @@ import { defaultTtsVoice, nineRouterVoiceName } from '@shared/voices'
 import { AutoTextarea } from '../../components/AutoTextarea'
 import { CharacterAvatar } from '../../components/CharacterAvatar'
 import { ClipVisual } from '../../components/ClipVisual'
+import { MagicButton, useMagic } from '../../components/Magic'
 import { Badge, Button, Chip, IconButton, Menu, Progress, Segmented, confirmDialog, cx, inputCls } from '../../components/ui'
 import { clipNumber, errorText, mmss, secLabel } from '../../lib/format'
 import { useNarration } from '../../lib/useNarration'
@@ -110,6 +111,22 @@ function ClipPanel({ clip, index, total }: { clip: Clip; index: number; total: n
   const { toast } = useApp()
   const audio = useAudio()
   const [editPrompt, setEditPrompt] = useState(false)
+  // ClipPanel is keyed by clip id where it is rendered, so a result can only ever land in the clip it was asked for.
+  // flush() first: main reads the scene context (narration, cast) from the database.
+  const visualMagic = useMagic({
+    field: 'visualPrompt',
+    value: clip.visualPrompt,
+    onApply: (text) => updateClip(clip.id, { visualPrompt: text }),
+    request: () => ({ clipId: clip.id }),
+    before: flush
+  })
+  const videoMagic = useMagic({
+    field: 'videoPrompt',
+    value: clip.videoPrompt,
+    onApply: (text) => updateClip(clip.id, { videoPrompt: text }),
+    request: () => ({ clipId: clip.id }),
+    before: flush
+  })
   if (!project) return null
 
   const image = clip.imageAssetId ? assets[clip.imageAssetId] : null
@@ -241,6 +258,7 @@ function ClipPanel({ clip, index, total }: { clip: Clip; index: number; total: n
           <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => setEditPrompt(!editPrompt)}>
             {editPrompt ? 'Tutup prompt' : 'Edit prompt visual'}
           </Button>
+          {editPrompt && <MagicButton magic={visualMagic} value={clip.visualPrompt} size="sm" />}
         </div>
 
         {editPrompt && (
@@ -248,6 +266,7 @@ function ClipPanel({ clip, index, total }: { clip: Clip; index: number; total: n
             minRows={5}
             autoFocus
             value={clip.visualPrompt}
+            readOnly={visualMagic.busy}
             onChange={(e) => updateClip(clip.id, { visualPrompt: e.target.value })}
             aria-label="Prompt visual"
             placeholder={[
@@ -415,9 +434,14 @@ function ClipPanel({ clip, index, total }: { clip: Clip; index: number; total: n
                   </button>
                 </div>
               )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-ink-2">Arahan gerak</span>
+                <MagicButton magic={videoMagic} value={clip.videoPrompt} size="sm" />
+              </div>
               <AutoTextarea
                 minRows={2}
                 value={clip.videoPrompt}
+                readOnly={videoMagic.busy}
                 onChange={(e) => updateClip(clip.id, { videoPrompt: e.target.value })}
                 placeholder="Arahan gerak, misalnya: Gajah Mada mengangkat kepalan tangan, kamera mendekat pelan"
                 aria-label="Arahan gerak video"
