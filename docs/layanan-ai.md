@@ -65,6 +65,54 @@ Pengguna memasukkan kuncinya sendiri di **Pengaturan › Layanan AI dan kunci**.
   kredit habis, 529 server penuh (setelah SDK mencoba ulang 2 kali), koneksi dan timeout. Pembatalan
   (`APIUserAbortError`) diteruskan apa adanya.
 
+## Magic: bantuan menulis prompt (`main/magic.ts`, `shared/magic.ts`, `components/Magic.tsx`)
+
+Tombol **Magic** di kolom prompt memakai LLM aktif (`settings.llmProvider` + `llmModels[provider]`, lewat
+`generateJson`, jadi semua penyedia di atas didukung) untuk menulis ulang atau menciptakan teks kolom itu. IPC-nya
+`magic:run` (`window.api.magic.run`).
+
+**Dua aksi** (`MagicMode`):
+
+- **Perkaya teks ini** (`improve`): detail ditambah, fakta, nama, dan keputusan yang kamu tulis tetap. Hanya muncul
+  kalau kolom ada isinya.
+- **Buat ide baru** (`generate`): LLM menulis ide segar; teks yang ada dipakai sebagai tema longgar. Kalau kolom
+  kosong, tombol langsung menjalankan aksi ini tanpa menu (`magicModes`).
+
+**Kolom yang punya Magic** (`MagicField`, batas panjang hasil di `MAGIC_LIMITS`):
+
+| Kolom | Lokasi | Batas | Bahasa hasil |
+|---|---|---|---|
+| `storyIdea`, `explainerTopic`, `seriesPremise`, `explainerSeriesTopic` | kotak ide Beranda (sesuai mode: cerita, video penjelasan, seri cerita, seri penjelasan); `storyIdea` juga di langkah Ide, `explainerTopic` di langkah Topik | 4000 | bahasa proyek |
+| `seriesPremise`, `explainerSeriesTopic` | Bible seri › Premis (kolom yang dipakai mengikuti jenis seri) | 4000 | bahasa seri |
+| `episodeSynopsis` | sinopsis episode | 1200 | bahasa proyek/seri |
+| `characterLook` | Penampilan pemeran (pemeran baru dan edit) | 600 | selalu Inggris |
+| `visualPrompt` | Prompt visual adegan (format `Setting:/Action:/Wardrobe:/Framing:/Avoid:`) | 1500 | selalu Inggris |
+| `videoPrompt` | Arahan gerak video | 400 | selalu Inggris |
+| `sceneImagePrompt` | Gambar yang diinginkan (adegan penjelasan AI) | 600 | selalu Inggris |
+
+Kolom yang memberi masukan ke model gambar dan video selalu berbahasa Inggris; kolom lain mengikuti bahasa proyek
+atau seri (cadangan: Indonesia). Instruksi dan format tiap kolom ada di `FIELD_BRIEFS` (`main/magic.ts`).
+
+**Konteks yang dikirim.** Renderer hanya mengirim id (`projectId`, `clipId`, `seriesId`) dan beberapa kolom longgar
+untuk Beranda yang belum menyimpan apa pun (`language`, `durationSec`, `templateId`, `styleId`, `episodeCount`,
+`characterName`). `context()` di main membaca sisanya dari database: judul dan sinopsis proyek, pemeran, judul,
+cerita, narasi, dan heading adegan, premis, dunia, nada, dan aturan seri, pemeran seri, ringkasan episode
+sebelumnya, durasi, gaya visual, dan panduan template. Hasil dibersihkan `cleanMagicText` (kutip dan code fence
+dibuang, dipotong ke batas kolom).
+
+**Perilaku UI** (`useMagic`, `MagicButton`):
+
+- Selama berjalan, tombol berputar dan kolomnya dikunci (read-only) supaya ketikan tidak bertabrakan dengan hasil.
+- Hasil langsung dipasang ke kolom, toast sukses punya tombol **Urungkan**. Urungkan hanya berlaku selama kolom
+  masih berisi teks Magic; kalau kamu sudah mengetik sesuatu, ketikanmu menang.
+- Kalau layar ditutup (atau proyek lain dibuka) sebelum LLM selesai, hasilnya dibuang dan tidak dipasang ke mana pun.
+- Kolom yang konteksnya dibaca dari database bisa memakai `before` untuk menyimpan perubahan dulu, supaya main
+  membaca versi terbaru.
+
+**Privasi.** Teks kolom dan konteks di atas dikirim ke penyedia LLM yang kamu pilih, sama seperti pembuatan naskah.
+Kunci API tetap hanya di `secrets.ts` (terenkripsi), dikirim ke layanannya sendiri, dan tidak pernah masuk log.
+Magic memakai kuota atau kredit penyedia itu; belum ada pilihan model khusus Magic.
+
 ## TTS
 
 | Penyedia | File | Catatan |

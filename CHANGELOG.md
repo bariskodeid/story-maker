@@ -9,6 +9,10 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- **Tombol Magic di kolom prompt**: bantuan LLM aktif untuk menulis ide cerita, topik video penjelasan, premis seri,
+  sinopsis episode, penampilan pemeran, prompt visual, arahan gerak video, dan gambar adegan penjelasan. Pilih
+  **Perkaya teks ini** (isi tulisanmu tetap, detail ditambah) atau **Buat ide baru** (teks sekarang jadi tema), dan
+  **Urungkan** dari toast kalau hasilnya kurang pas. Teks kolom dan konteks proyek dikirim ke penyedia LLM pilihanmu.
 - **Gambar lewat Gemini API**: kartu Gambar klip di langkah Ide sekarang punya pilihan `Higgsfield | 9Router | Gemini`.
   Model gambar Gemini (Nano Banana) dipanggil langsung dengan kunci Google AI Studio milikmu, lembar karakter ikut
   dikirim sebagai referensi, dan daftar modelnya diambil langsung dari Google. Kunci Gemini bisa disimpan di kartu

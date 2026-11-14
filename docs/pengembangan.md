@@ -111,6 +111,34 @@ Tips:
 - Untuk menguji dengan data proyek asli, salin `studio.db` lewat backup SQLite ke folder uji, **kosongkan tabel
   `secrets`** di salinan, lalu salin folder proyeknya.
 
+### Menguji Magic dengan LLM tiruan
+
+`scripts/fake-llm.mjs` adalah server tiruan kompatibel OpenAI (`/v1/models`, `/v1/chat/completions`) tanpa kunci dan
+tanpa biaya. Ia membalas `MAGIC: ` diikuti awal pesan user, sehingga konteks yang sampai ke model kelihatan, dan
+mencetak baris `SYSTEM:` dan `USER:` ke konsolnya. Variabel lingkungan: `PORT` (bawaan 8787) dan `DELAY_MS` (bawaan
+1500, supaya status sibuk sempat diamati).
+
+```powershell
+npm run build                     # harness menjalankan folder out/, jadi build dulu setiap habis mengubah kode
+$env:PORT = "8787"; $env:DELAY_MS = "1500"
+Start-Process node scriptsake-llm.mjs
+```
+
+Lalu arahkan aplikasi ke server itu di langkah pertama plan harness (folder data sementara, jangan data asli):
+
+```json
+[
+  { "js": "(async () => { await window.api.settings.set({ llmProvider: 'custom', customBaseUrl: 'http://127.0.0.1:8787/v1', llmModels: { custom: 'fake' } }) })()", "wait": 500 },
+  { "js": "location.reload()", "wait": 2500 },
+  { "js": "document.querySelector('[data-magic=\"storyIdea\"]')?.click()", "wait": 300 },
+  { "js": "document.querySelector('[data-magic-mode=\"generate\"]')?.click()", "wait": 3000, "shot": "C:/temp/magic.png" },
+  { "wait": 100, "quit": true }
+]
+```
+
+Tombol punya `data-magic="<kolom>"` dan item menunya `data-magic-mode="improve|generate"`. Cek hasilnya lewat
+`console.log` nilai kolom dan baris `USER:` di konsol server tiruan.
+
 ## Menguji modul bersama tanpa aplikasi
 
 Modul `src/shared/*` murni TypeScript dan bisa dijalankan di Node:

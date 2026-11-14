@@ -33,6 +33,7 @@ src/
     db/index.ts    skema + migrasi (PRAGMA user_version)
     story.ts       naskah, rencana visual, prompt musik, rencana seri dan episode (LLM)
     series.ts      seri: bible, pemeran bersama, episode (proyek biasa), salin pemeran masuk/keluar
+    magic.ts       tombol Magic: perkaya atau buat ulang teks kolom prompt dengan LLM aktif (konteks dibaca dari DB)
     generation.ts  gambar/video Higgsfield, lembar karakter, TTS per klip, estimasi kredit
     narration.ts   narasi satu rekaman utuh lalu dipotong per adegan; sinkron caption
     whisper.ts     whisper.cpp lokal (unduh model, kenali kata)
