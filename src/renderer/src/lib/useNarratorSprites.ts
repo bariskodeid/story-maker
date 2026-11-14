@@ -6,6 +6,14 @@ import type { Narrator, NarratorSettings } from '@shared/types'
 export function useNarratorSprites(settings: NarratorSettings): { urls: Record<string, string>; aspect: number } | null {
   const [found, setFound] = useState<{ id: string; urls: Record<string, string>; aspect: number } | null>(null)
   const id = settings.enabled ? settings.id : null
+  // Bumped when this narrator's sheet is redrawn: the hook would otherwise keep the old sprites and aspect ratio.
+  const [version, setVersion] = useState(0)
+  useEffect(() => {
+    if (!id) return
+    return window.api.on.job((j) => {
+      if (j.kind === 'sheet' && j.characterId === id && j.status === 'done') setVersion((v) => v + 1)
+    })
+  }, [id])
   useEffect(() => {
     if (!id) return
     let live = true
@@ -23,6 +31,6 @@ export function useNarratorSprites(settings: NarratorSettings): { urls: Record<s
     return () => {
       live = false
     }
-  }, [id])
+  }, [id, version])
   return id && found?.id === id ? found : null
 }

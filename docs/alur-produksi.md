@@ -294,3 +294,55 @@ Hasilnya disimpan di `editor.musicPrompt`. File musik hasil AI itu lalu dipilih 
   tetap bisa dipakai Gemini.
 - Uji dengan beberapa ide nyata. Kalau model gambar salah tafsir, perbaiki aturan di system prompt (umum),
   jangan menambal satu kasus.
+
+## Narator animasi
+
+Narator adalah tokoh yang muncul di pojok video (kiri atau kanan bawah, tiga ukuran) dan berganti sprite saat bicara. Satu
+koleksi dipakai bersama oleh semua proyek dan seri; proyek atau seri hanya menyimpan pilihan (`NarratorSettings`, lihat
+[data-model.md](data-model.md#narator-animasi-narrator-narratorsettings)). Bagian **Narator animasi** ada di langkah Ide dan di
+pengaturan seri (`NarratorPicker`), dan narator dibuat atau diubah di `NarratorDialog`.
+
+**Lembar sprite** (`src/main/narratorSprites.ts`). Satu gambar menghasilkan 12 sprite: enam ekspresi (`neutral`, `happy`,
+`sad`, `surprised`, `serious`, `thinking`) kali dua mulut (`closed`, `open`).
+
+1. `buildSheetPrompt` meminta satu lembar 16:9 berisi grid **4 kolom x 3 baris**, urutan baca = `NARRATOR_GRID` (pemotong dan
+   prompt tidak bisa berbeda soal sel mana berisi apa), setengah badan, latar satu warna rata (**green screen**, hijau
+   `#00FF00` atau magenta `#FF00FF`; warnanya dipilih agar tidak dipakai tokoh). Mulut terbuka diminta "open, relaxed, as if
+   speaking (the picture contains no written word)"; kata "ah" dalam tanda kutip dulu membuat model menggambar teks "ah".
+2. Gambar digambar lewat antrean gambar di pengaturan (job tanpa proyek di `narrators.ts`), lalu `processSheet` memotong.
+3. Aturan `processSheet`: lembar dinormalkan ke PNG lewat FFmpeg; tiap sel dipotong dengan margin dalam 3%; warna latar
+   dibuang dengan `chromakey` dalam 4:4:4 (magenta lewat negasi karena `despill` FFmpeg hanya mengenal hijau dan biru).
+   Lembar **ditolak seluruhnya** (pesan "Lembar ekspresi tidak rapi", detail di log) bila ada sel kosong (kurang dari 5%
+   terisi), hampir penuh (lebih dari 95%), atau tokoh keluar dari selnya (menyentuh sisi atas dan minimal dua sisi lain;
+   bust yang bahunya menyentuh dua sisi tidak dihitung). Bintik kecil (kurang dari 2% bagian terbesar) tidak ikut menentukan
+   kotak tokoh. Lembar rusak tidak pernah menimpa sprite yang sudah ada: semuanya ditulis atau tidak sama sekali.
+4. **Pembersihan tepi** (`cleanEdges`): garis yang digambar di atas warna latar meninggalkan cincin tipis berwarna campuran
+   (hijau tua, merah muda) yang sebagian sepenuhnya buram, jadi aturan alfa saja tidak cukup. Silhuet dikikis `ERODE_PX` (1)
+   piksel, piksel tepi diberi warna piksel padat terdekat di dalamnya (hanya alfanya dipertahankan), lalu `neutralizeRing`
+   membuang kecenderungan ke warna latar pada `RING_PX` (4) piksel terluar. Pengurangannya hanya sebesar kelebihan di atas
+   rata-rata kecenderungan piksel dalam di dekatnya, jadi rambut yang memang ungu atau daun yang memang hijau tidak ikut
+   menghitam.
+5. Semua sprite berbagi satu kanvas: titik tengah dirata-rata dan tepi bawah disamakan, supaya pergantian ekspresi tidak
+   membuat tokoh melompat. Tanpa padding bawah (potongan bust rata di dasar). `thumb.png` adalah ekspresi pertama dalam kotak
+   persegi.
+6. Narator baru `ready` hanya setelah semua file tertulis. Di dialog, narator yang baru dibuat baru dipilih otomatis setelah
+   sprite-nya jadi.
+
+**Memilih ekspresi** (`src/main/narratorCues.ts`). Satu permintaan LLM per proyek (bukan per klip, supaya model melihat alur
+emosi seluruh video) memberi satu ekspresi per kalimat bernomor (`splitSentences`), skema `narrator_cues`. Berjalan setelah
+narasi dibuat (hanya klip yang baru disuarakan, agar ekspresi yang diedit tangan tidak tertimpa) dan lewat tombol di
+`NarratorCues`. Balasan gagal atau rusak: cue yang masih sejajar dengan kalimatnya dipertahankan, sisanya netral, dan galat
+ramah dilempar. Cue tersimpan di `clips.narrator_cues` dan bisa diubah per kalimat. Waktu kalimat diambil dari kata caption
+(`sentenceSpans`); suara tanpa waktu kata memakai waktu perkiraan.
+
+**Dipakai di dua jenis video.** Pratinjau dan ekspor memakai track yang sama (`src/shared/narrator.ts`): `narratorSpriteAt`
+memilih sprite dari ekspresi kalimat yang sedang diucapkan dan mulut yang membuka-menutup selama kata berbunyi. Keputusan R3:
+napas dan pantulan **tidak** ada (FFmpeg tidak bisa menerapkan transformasi per frame dengan murah, dan pratinjau harus sama
+dengan ekspor). Video cerita: lihat [editor-dan-ekspor.md](editor-dan-ekspor.md#narator-animasi-video-cerita). Video
+penjelasan: [remotion.md](remotion.md#narator), termasuk keputusan R4 (caption landscape menyempit ke sisi bebas, tidak naik).
+
+**Preset.** Empat narator bawaan dikirim bersama aplikasi di `resources/narrators/<id>/` (sprite, `sheet.png`, `thumb.png`):
+`ilmuwan-muda`, `maskot-kancil`, `host-modern`, `tiramisu`. Definisinya di `src/shared/narratorPresets.ts`. **Pemandu sejarah**
+(`pemandu-sejarah`) sudah didefinisikan tetapi belum punya aset, jadi tersembunyi sampai foldernya ditambahkan. Preset hanya
+baca: tombol Duplikat membuat salinan milik pengguna (sprite ikut disalin) yang bisa diubah. Cara membuat ulang sprite preset
+ada di [pengembangan.md](pengembangan.md#membuat-ulang-sprite-preset-narator).

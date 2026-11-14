@@ -40,6 +40,9 @@ src/
     align.ts, cuts.ts  cocokkan kata naskah ke hasil Whisper; pilih titik potong antar-adegan
     editing.ts     potong (split) klip, lepas suara klip
     exporter.ts    render MP4 dengan FFmpeg (proyek cerita)
+    narrators.ts   koleksi narator animasi: CRUD, preset bawaan, job lembar sprite (di memori), file sprite
+    narratorSprites.ts  prompt lembar 4x3, potong + chroma key + pembersihan tepi (processSheet), sprite satu kanvas
+    narratorCues.ts     satu permintaan LLM per proyek: ekspresi narator per kalimat
     explainer.ts   video penjelasan: LLM adegan + narasi, gambar unggahan, ekspor Remotion + loudnorm
     remotion.ts    mesin render Remotion: Chrome Headless Shell, server aset sementara, renderVideo
     fontMetrics.ts lebar teks dari file TTF (untuk kotak caption di ekspor)
@@ -49,9 +52,10 @@ src/
                    penyedia + OpenAI-compatible), images, audio, http
     devharness.ts  otomatisasi uji (hanya mode pengembangan)
   preload/         jembatan aman: window.api (lihat src/shared/api.ts)
-  shared/          kode yang dipakai main DAN renderer (tipe, aturan gerak, caption, timeline, explainer.ts)
+  shared/          kode yang dipakai main DAN renderer (tipe, aturan gerak, caption, timeline, explainer.ts,
+                   narrator.ts = pilih sprite, kotak, geser caption narator; narratorPresets.ts)
   remotion/        komposisi Remotion (video penjelasan), dibundel terpisah ke out/remotion; renderer memakainya
-                   lewat alias @video untuk Player
+                   lewat alias @video untuk Player; explainer/narrator.tsx = lapisan narator animasi (NarratorLayer)
   renderer/src/    tampilan React + Tailwind v4 + Zustand
     pages/project/  langkah Ide, Naskah, Storyboard, Editor; explainer/ = langkah Video penjelasan
     pages/series/   halaman seri: bible, pemeran, daftar episode, Sekali klik seri
@@ -75,7 +79,8 @@ docs/              dokumentasi pengembang
    migrasi lama; `PRAGMA user_version` menghitung berapa yang sudah dijalankan.
 4. **Kolom klip baru** harus ditambahkan di semua tempat: tipe `Clip` (`shared/types.ts`), migrasi, `toClip`,
    upsert di `saveSnapshot`, `duplicateProject`, `insertClipAfter`, `CLIP_COLS` (kalau di-patch dari main), dan
-   nilai bawaan `addClip` di `renderer/src/store/project.ts`. Detail: [docs/data-model.md](docs/data-model.md).
+   nilai bawaan `addClip` di `renderer/src/store/project.ts`. Contoh terbaru: `narrator_cues` (ekspresi narator per
+   kalimat). Detail: [docs/data-model.md](docs/data-model.md).
 5. **IPC baru** butuh tiga tempat: `handle(...)` di `main/ipc.ts`, tipe di `shared/api.ts`, dan `call(...)` di
    `preload/index.ts`.
 6. **Teks antarmuka berbahasa Indonesia** (santai, pakai "kamu"); **komentar dan nama di kode berbahasa Inggris**.

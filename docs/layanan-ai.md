@@ -116,6 +116,14 @@ code fence dibuang, dipotong ke batas kolom; kutip dialog di dalam teks dibiarka
 Kunci API tetap hanya di `secrets.ts` (terenkripsi), dikirim ke layanannya sendiri, dan tidak pernah masuk log.
 Magic memakai kuota atau kredit penyedia itu; belum ada pilihan model khusus Magic.
 
+## Narator animasi (`main/narrators.ts`, `main/narratorCues.ts`)
+
+Dua pemakaian layanan AI: (1) **lembar sprite** digambar dengan sumber dan model gambar di pengaturan (`drawImage`: Higgsfield,
+9Router, atau Gemini, sama dengan gambar klip; rasio 16:9, tanpa referensi), lalu dipotong lokal oleh FFmpeg; (2) **ekspresi per
+kalimat** memakai LLM aktif lewat `generateJson` dengan skema `narrator_cues`. Teks narasi dikirim sebagai isi, bukan perintah.
+Biaya: satu gambar per narator baru atau "Buat ulang", dan satu permintaan teks per proyek. Detail alur di
+[alur-produksi.md](alur-produksi.md#narator-animasi).
+
 ## TTS
 
 | Penyedia | File | Catatan |

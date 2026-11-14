@@ -278,14 +278,19 @@ export function clearClipImage(clipId: string): void {
 
 /** The project's narrator as sprite URLs on the render's asset server, or null when it is off, gone or has no sprites. */
 function narratorForRender(project: { narrator?: { enabled: boolean; id: string | null } }, server: { narratorBase: string; narratorPresetBase: string }): { sprites: Record<string, string>; aspect: number } | null {
-  const narrator = project.narrator?.enabled ? findNarrator(project.narrator.id) : null
-  const files = narrator ? narratorSpriteFiles(narrator) : null
-  if (!narrator || !files) return null
-  const base = (narrator.preset ? server.narratorPresetBase : server.narratorBase) + encodeURIComponent(narrator.id) + '/'
-  const sprites: Record<string, string> = {}
-  for (const key of Object.keys(files)) sprites[key] = `${base}${encodeURIComponent(key)}.png`
-  const dim = pngSize(files[pickSprite('neutral-closed', new Set(Object.keys(files))) ?? Object.keys(files)[0]])
-  return dim.w && dim.h ? { sprites, aspect: dim.w / dim.h } : null
+  // A broken or half-deleted narrator must never cost the user their export: any failure here means no narrator.
+  try {
+    const narrator = project.narrator?.enabled ? findNarrator(project.narrator.id) : null
+    const files = narrator ? narratorSpriteFiles(narrator) : null
+    if (!narrator || !files) return null
+    const base = (narrator.preset ? server.narratorPresetBase : server.narratorBase) + encodeURIComponent(narrator.id) + '/'
+    const sprites: Record<string, string> = {}
+    for (const key of Object.keys(files)) sprites[key] = `${base}${encodeURIComponent(key)}.png`
+    const dim = pngSize(files[pickSprite('neutral-closed', new Set(Object.keys(files))) ?? Object.keys(files)[0]])
+    return dim.w && dim.h ? { sprites, aspect: dim.w / dim.h } : null
+  } catch {
+    return null
+  }
 }
 
 const SCALE: Record<ExportOptions['resolution'], number> = { 720: 2 / 3, 1080: 1, 2160: 2 }

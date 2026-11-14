@@ -46,6 +46,7 @@ Jendela dibuat dengan `sandbox: true`, `contextIsolation: true`, `nodeIntegratio
 | `projects:*` | list, create, get, save, remove, duplicate | proyek dan snapshot (`list` tanpa episode seri) |
 | `series:*` | list, create, get, update, updateSettings, remove, plan, addEpisode, updateEpisode, removeEpisode, updateCharacter, removeCharacter, syncCastIn, syncCastOut | seri (cerita atau video penjelasan), bible, pengaturan episode baru, pemeran bersama, episode |
 | `story:*` | script, visuals, musicPrompt | LLM: naskah, rencana visual, prompt musik |
+| `narrators:*` | list, get, create, update, remove, duplicate, generate, activeJob, assignCues | koleksi narator animasi, pembuatan lembar sprite (job tanpa proyek), pemilihan ekspresi per kalimat |
 | `explainer:*` | scenes | LLM: adegan video penjelasan + narasi |
 | `generate:*` | clipImage, clipVideo, clipTts, characterSheet, missingImages, missingVideos, missingTts, narration, syncCaptions, cancel, estimate | job AI dan estimasi kredit |
 | `clips:*` | split, detachVoice, clearImage | edit timeline yang menyentuh file; lepas gambar adegan |
@@ -61,6 +62,14 @@ Event dari main ke renderer (`src/main/events.ts`): `event:job`, `event:clip` (p
 `event:character`, `event:asset`, `event:whisper`, `event:renderEngine`. `App.tsx` meneruskannya ke store.
 Status unduhan Whisper dan mesin render didengarkan langsung oleh bagian Pengaturan-nya.
 
+## Modul narator animasi
+
+`shared/narrator.ts` (aturan track, sprite, kotak, geser caption; dipakai pratinjau dan ekspor), `shared/narratorPresets.ts`,
+`main/narrators.ts` (koleksi, preset, job lembar), `main/narratorSprites.ts` (prompt dan pemotongan lembar),
+`main/narratorCues.ts` (ekspresi per kalimat), `remotion/explainer/narrator.tsx` (lapisan di video penjelasan), dan di renderer
+`components/NarratorPicker.tsx`, `NarratorDialog.tsx`, `lib/useNarratorSprites.ts`. Alur lengkap:
+[alur-produksi.md](alur-produksi.md#narator-animasi).
+
 ## Antrean job
 
 `src/main/jobs.ts` menjalankan pekerjaan panjang sebagai **job** yang tersimpan di tabel `jobs` dan dikirim ke
@@ -73,6 +82,10 @@ renderer lewat `event:job` (progres, pesan, error).
 | `tts` | 2 | narasi, TTS per klip |
 | `whisper` | 1 | sinkron caption (Whisper memakai banyak core CPU) |
 | `export` | 1 | ekspor MP4 (FFmpeg atau Remotion) |
+
+Job lembar narator (`narrators:generate`) pengecualian: ia tidak punya proyek, jadi tidak ditulis ke tabel `jobs` dan hanya hidup di memori
+(`jobStore` di `narrators.ts`); `narrators:activeJob` mengembalikannya supaya dialog yang dibuka lagi bisa menampilkan progresnya. Ia memakai
+antrean gambar yang dipilih di pengaturan.
 
 Setiap job punya `AbortController` sehingga bisa dibatalkan (`generate:cancel`). Saat aplikasi dibuka lagi,
 `resumeJobs()` melanjutkan permintaan Higgsfield yang sudah terkirim; job lain yang terputus ditandai gagal.
@@ -88,6 +101,7 @@ Semua data pengguna ada di folder data aplikasi (`app.getPath('userData')`). Di 
   projects\<id-proyek>\
     images\  videos\  audio\  music\  overlays\     file hasil generate dan unggahan
   series\<id-seri>\sheets\                         lembar karakter pemeran bersama seri
+  narrators\<id-narator>\                           lembar + 12 sprite + thumbnail narator animasi milik pengguna
   models\whisper\ggml-small.bin                     model Whisper (diunduh dari Pengaturan)
   render-browser\                                    Chrome Headless Shell untuk Remotion (± 250 MB, diunduh sekali)
   tmp\                                              file sementara render/Whisper (dihapus setelah selesai)
@@ -107,11 +121,12 @@ dengan dukungan HTTP Range (supaya audio dan video bisa di-seek):
 - `studio://asset/<id-proyek>/<path-relatif>`, dibuat oleh `assetUrl()` di `paths.ts`
 - `studio://fonts/<file>.ttf`, font caption untuk `@font-face` di `styles.css` (juga font video penjelasan)
 - `studio://series/<id-seri>/<path-relatif>`, lembar karakter seri, dibuat oleh `seriesFileUrl()` di `paths.ts`
+- `studio://narrator/<id>/<file>.png` (narator milik pengguna) dan `studio://narratorpreset/<id>/<file>.png` (preset bawaan di `resources/narrators`)
 
 Setiap host punya folder akarnya sendiri (`ROOTS` di `protocol.ts`), dan path yang keluar dari folder itu ditolak.
 
 Saat render video penjelasan, browser Remotion tidak bisa membuka `studio://`; proses utama membuka server HTTP
-sementara di `127.0.0.1` (port dan prefix acak) yang hanya menyajikan folder proyek dan font, lalu menutupnya
+sementara di `127.0.0.1` (port dan prefix acak) yang hanya menyajikan folder proyek, font, dan sprite narator (hanya file `.png`), lalu menutupnya
 setelah render. Lihat [remotion.md](remotion.md#server-aset-sementara).
 
 ## Halaman (route renderer)

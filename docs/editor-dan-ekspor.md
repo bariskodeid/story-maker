@@ -94,11 +94,13 @@ Satu aturan untuk dua sisi, semuanya di `src/shared/narrator.ts`:
   waktu perkiraan. Track dibuat sebagai array baru setiap klip atau aset berubah (cache `narratorSpriteAt` per identitas array).
 - Pratinjau: semua sprite tetap terpasang dan hanya yang aktif terlihat (tanpa kedip decode).
 - Ekspor: `narratorSegments` jadi daftar `ffconcat` PNG berdurasi (satu input alfa), lalu `scale` + `overlay` di `narratorBox`.
-- Napas dan pantulan (`scale`, `offsetY`) **tidak** digambar, baik di pratinjau maupun ekspor: FFmpeg tidak tahu kapan
+- Napas dan pantulan (`scale`, `offsetY`) **tidak** digambar (keputusan R3, berlaku juga di video penjelasan), baik di pratinjau maupun ekspor: FFmpeg tidak tahu kapan
   narator sedang bicara tanpa ekspresi per frame, dan kedua sisi harus sama.
 - Caption bawah yang menutupi kotak narator naik di atasnya (`captionShiftAbove`): per caption, di pratinjau lewat `bottom`,
   di ekspor lewat margin vertikal baris Dialogue ASS dan kotak CapBox. Hanya posisi caption bawah yang bergeser.
-- Narator mati, hilang, atau belum punya sprite: ekspor persis seperti dulu (tanpa input atau filter tambahan).
+- Narator mati, hilang, atau belum punya sprite: ekspor persis seperti dulu (tanpa input atau filter tambahan). Sprite yang
+  gagal dibaca juga diperlakukan begitu; ekspor tidak pernah gagal gara-gara narator.
+- Video penjelasan memakai aturan track yang sama lewat `NarratorLayer` Remotion ([remotion.md](remotion.md#narator)).
 
 ## Video penjelasan
 

@@ -114,6 +114,27 @@ Tips:
 - Untuk menguji dengan data proyek asli, salin `studio.db` lewat backup SQLite ke folder uji, **kosongkan tabel
   `secrets`** di salinan, lalu salin folder proyeknya.
 
+### Menguji narator dan membuat ulang sprite preset narator
+
+Langkah `main: "narratorSheet"` + `sheet` (path gambar), `keyColor` memotong sebuah lembar menjadi narator baru di folder
+data uji lewat `applySheet` yang sama dengan aplikasi, lalu mencatat hasil, ukuran sprite, dan jumlah piksel tepi yang masih
+condong ke warna latar. Tidak ada panggilan AI. Lembar sintetis (12 tokoh di atas hijau atau magenta) cukup untuk menguji aturan
+tolak dan pembersihan tepi tanpa biaya; `narratorOn` memasang narator itu ke proyek demo.
+
+#### Membuat ulang sprite preset narator
+
+Selalu di folder data sementara (`STUDIO_USER_DATA`), jangan data asli.
+
+- **Memproses ulang tanpa gambar baru** (misalnya setelah aturan pembersihan tepi berubah): jalankan `narratorSheet` dengan
+  `sheet` = `resources/narrators/<id>/sheet.png` dan `keyColor` sama dengan di `narratorPresets.ts`. Sprite hasilnya ada di
+  `<STUDIO_USER_DATA>/narrators/<id-baru>/`; salin 12 file `<ekspresi>-<mulut>.png` dan `thumb.png` ke
+  `resources/narrators/<id>/` (jangan menimpa `sheet.png`). Lihat montase di atas latar gelap dan terang; commit hanya bila
+  memang lebih baik dan kedua belas sprite tetap seragam.
+- **Preset baru atau gambar baru**: tambahkan entri di `NARRATOR_PRESETS`, buat narator dengan deskripsi yang sama di dialog
+  (butuh kunci gambar dan membayar satu gambar; pakai folder data sementara yang berisi kunci uji, jangan commit kunci), periksa
+  lembar dan sprite, lalu salin `sheet.png`, 12 sprite, dan `thumb.png` ke `resources/narrators/<id>/`. Folder itu masuk
+  installer lewat `extraResources` di `electron-builder.yml`. Preset tanpa folder otomatis tersembunyi.
+
 ### Menguji Magic dengan LLM tiruan
 
 `scripts/fake-llm.mjs` adalah server tiruan kompatibel OpenAI (`/v1/models`, `/v1/chat/completions`) tanpa kunci dan

@@ -25,7 +25,7 @@ export function NarratorPicker({
   const [dialog, setDialog] = useState<{ narrator: Narrator | null } | null>(null)
   const picked = list?.find((n) => n.id === settings.id) ?? null
   const gone = !!list && !!settings.id && !picked
-  const on = settings.enabled && !!picked
+  const on = settings.enabled && !!picked && picked.status === 'ready'
   // Two quick changes in one tick must both land, so each builds on the latest value, not the rendered one.
   const latest = useRef(settings)
   latest.current = settings
