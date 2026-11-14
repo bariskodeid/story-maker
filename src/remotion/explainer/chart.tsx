@@ -6,7 +6,7 @@ import { FitBox, Rise, Words } from './parts'
 import type { SceneProps } from './scenes'
 
 /**
- * "Grafik": a bar or line chart on its own surface card. The science backdrop draws a millimetre grid, which
+ * "Grafik": a bar, line, donut or bubble chart on its own surface card. The science backdrop draws a millimetre grid, which
  * would run through thin strokes and axis labels, so the chart sits on an opaque card and the grid never
  * reaches it. Everything animates from the frame number only, so the Player and the MP4 show the same thing.
  */
@@ -18,6 +18,8 @@ const ease = Easing.out(Easing.cubic)
 const progress = (frame: number, from: number, len: number) => ease(clamp01((frame - from) / len))
 /** Monospace glyphs are 0.6em wide, which keeps every text-width estimate here honest. */
 const textW = (text: string, size: number) => text.length * size * 0.6
+/** Counting values change width every frame; fixed-width digits keep them from wobbling. */
+const TABULAR = { fontVariantNumeric: 'tabular-nums' } as const
 
 /** Round tick values (1, 2, 5 × 10^k) inside [lo, hi], about four of them. */
 function niceTicks(lo: number, hi: number): number[] {
@@ -89,6 +91,7 @@ function BarChart({ chart, input, u, w, h, portrait, frames }: PanelProps & { po
                   textAlign: 'center',
                   top: it.value < 0 ? top + bh + 8 * u : top - valueFont * 1.3 - 6 * u,
                   fontFamily: MONO_FONT,
+                  ...TABULAR,
                   fontWeight: 700,
                   fontSize: valueFont,
                   lineHeight: 1.3,
@@ -140,6 +143,7 @@ function BarChart({ chart, input, u, w, h, portrait, frames }: PanelProps & { po
                 top: cy - valueFont * 0.65,
                 left: inside ? (neg ? left + 14 * u : left + bw - tw - 14 * u) : neg ? left - tw - 12 * u : left + bw + 12 * u,
                 fontFamily: MONO_FONT,
+                ...TABULAR,
                 fontWeight: 700,
                 fontSize: valueFont,
                 lineHeight: 1.3,
@@ -203,7 +207,7 @@ function LineChart({ chart, input, u, w, h, frames }: PanelProps) {
   const pillY = Math.max(2 * u, ly - 22 * u - pillH)
   const pillA = clamp01((prog - 0.85) / 0.15)
   const lineColor = p.accent
-  const mono = { fontFamily: MONO_FONT } as const
+  const mono = { fontFamily: MONO_FONT, style: TABULAR } as const
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block', overflow: 'visible' }}>
       {ticks.map((t) => (
@@ -249,6 +253,143 @@ function LineChart({ chart, input, u, w, h, frames }: PanelProps) {
   )
 }
 
+/**
+ * Up to six slice colours that stay apart on light and dark palettes: the two accents, then shades pulled toward
+ * ink (dark on light themes, light on dark themes) and tints pulled toward the background, so lightness differs, not only hue.
+ */
+function seriesColors(p: ExplainerInput['look']['palette']): string[] {
+  return [p.accent, p.accent2, mix(p.accent, p.ink, 0.6), mix(p.accent2, p.ink, 0.6), mix(p.accent, p.bg, 0.4), mix(p.accent2, p.bg, 0.4)]
+}
+
+function DonutChart({ chart, input, u, w, h, portrait, frames }: PanelProps & { portrait: boolean }) {
+  const frame = useCurrentFrame()
+  const p = input.look.palette
+  const items = chart.items
+  const n = items.length
+  const colors = seriesColors(p)
+  const total = items.reduce((a, it) => a + it.value, 0)
+  const gap = Math.max(5, Math.min(14, (frames * 0.4) / Math.max(1, n)))
+  const grow = (i: number) => progress(frame, 8 + i * gap, 26)
+  const legendGap = 40 * u
+  const d = Math.max(1, portrait ? Math.min(w, h * 0.56) : Math.min(h, w * 0.46))
+  const sw = d * 0.2
+  const r = (d - sw) / 2
+  const cx = d / 2
+  // The seam between slices is a fixed share of the ring, so every seam looks the same width.
+  const seam = Math.min(0.012, 0.25 / Math.max(1, n))
+  let acc = 0
+  const arcs = items.map((it, i) => {
+    const frac = total > 0 ? it.value / total : 0
+    const start = acc
+    acc += frac
+    return { frac, start, i }
+  })
+  const top = items.reduce((b, it, i) => (it.value > items[b].value ? i : b), 0)
+  const topFrac = total > 0 ? items[top].value / total : 0
+  const centerFont = d * 0.17
+  const legendW = portrait ? w : Math.max(1, w - d - legendGap)
+  const legendH = portrait ? Math.max(1, h - d - 24 * u) : h
+  const rowH = Math.min(portrait ? 80 * u : 72 * u, legendH / Math.max(1, n))
+  const font = Math.max(16 * u, Math.min(40 * u, rowH * 0.5))
+  const pct = (v: number) => {
+    const rounded = total > 0 ? Math.round((v / total) * 100) : 0
+    return v > 0 && rounded === 0 ? '<1%' : `${rounded}%`
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: portrait ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: portrait ? 24 * u : legendGap, width: w, height: h }}>
+      <svg width={d} height={d} viewBox={`0 0 ${d} ${d}`} style={{ display: 'block', flex: 'none' }}>
+        {/* Rotated so the first slice opens at 12 o'clock and runs clockwise. */}
+        <g transform={`rotate(-90 ${cx} ${cx})`}>
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke={alpha(p.ink, total > 0 ? 0.07 : 0.16)} strokeWidth={total > 0 ? sw : sw * 0.35} />
+          {arcs.map(({ frac, start, i }) => {
+            const seamed = frac > seam * 2
+            const len = Math.max(0, frac * grow(i) - (seamed ? seam : 0))
+            if (len <= 0) return null
+            return <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={colors[i % colors.length]} strokeWidth={sw} pathLength={1} strokeDasharray={`${len} 2`} strokeDashoffset={-(start + (seamed ? seam / 2 : 0))} />
+          })}
+        </g>
+        {total > 0 && (
+          <>
+            <text x={cx} y={cx + centerFont * 0.15} textAnchor="middle" fontSize={centerFont} fontWeight={700} fill={p.ink} fontFamily={MONO_FONT} style={TABULAR}>
+              {Math.round(topFrac * 100 * grow(top))}%
+            </text>
+            <text x={cx} y={cx + centerFont * 0.15 + centerFont * 0.62} textAnchor="middle" fontSize={centerFont * 0.36} fontWeight={600} fill={p.muted} fontFamily={BODY_FONT}>
+              {items[top].label.length > 14 ? items[top].label.slice(0, 13) + '…' : items[top].label}
+            </text>
+          </>
+        )}
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', width: legendW, minWidth: 0 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16 * u, height: rowH, opacity: clamp01(grow(i) * 3) }}>
+            <span style={{ flex: 'none', width: font * 0.8, height: font * 0.8, borderRadius: font * 0.2, background: colors[i % colors.length] }} />
+            <span style={{ flex: 1, minWidth: 0, fontFamily: BODY_FONT, fontWeight: 600, fontSize: font, lineHeight: 1.2, color: p.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
+            <span style={{ flex: 'none', fontFamily: MONO_FONT, ...TABULAR, fontWeight: 700, fontSize: font, color: p.ink }}>{pct(it.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BubbleChart({ chart, input, u, w, h, portrait, frames }: PanelProps & { portrait: boolean }) {
+  const frame = useCurrentFrame()
+  const p = input.look.palette
+  const fmt = (v: number) => formatChartValue(v, input.language)
+  const colors = seriesColors(p)
+  // Small to large, so the growth ends on the biggest one; the original index keeps each item's colour.
+  const items = chart.items.map((it, k) => ({ ...it, k })).sort((a, b) => a.value - b.value)
+  const n = items.length
+  const vMax = Math.max(...items.map((it) => it.value))
+  const gap = Math.max(5, Math.min(14, (frames * 0.4) / Math.max(1, n)))
+  const grow = (i: number) => progress(frame, 8 + i * gap, 26)
+  const labelFont = (portrait ? 28 : 26) * u
+  const valueFont = (portrait ? 30 : 28) * u
+  const textBlock = labelFont * 1.3 + valueFont * 1.3 + 16 * u
+  const rows = portrait && n > 3 ? 2 : 1
+  const perRow = Math.ceil(n / rows)
+  const rowSets = Array.from({ length: rows }, (_, k) => items.slice(k * perRow, (k + 1) * perRow))
+  const rMin = 12 * u
+  // Area ∝ value means radius ∝ √value; a floor keeps a 1:10,000 item visible instead of a sub-pixel dot.
+  const radiusAt = (v: number, rMax: number) => (vMax > 0 ? Math.max(rMin, rMax * Math.sqrt(v / vMax)) : rMin)
+  const shortLabel = (t: string) => (t.length > 12 ? t.slice(0, 11) + '…' : t)
+  const slotW = (it: { label: string; value: number }, rMax: number) => Math.max(2 * radiusAt(it.value, rMax), textW(shortLabel(it.label), labelFont) * 0.95 + 12 * u)
+  const fits = (rMax: number) => rowSets.every((row) => row.reduce((a, it) => a + slotW(it, rMax), 0) + (row.length - 1) * 12 * u <= w)
+  // Widest radius whose rows still fit the card: slot widths grow monotonically, so bisection is enough.
+  let lo = rMin
+  let hi = Math.max(rMin, (h / rows - textBlock - (rows - 1) * 10 * u) / 2)
+  if (fits(hi)) lo = hi
+  else
+    for (let k = 0; k < 24; k++) {
+      const mid = (lo + hi) / 2
+      if (fits(mid)) lo = mid
+      else hi = mid
+    }
+  const rMax = lo
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20 * u, width: w, height: h }}>
+      {rowSets.map((row, ri) => (
+        <div key={ri} style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 12 * u }}>
+          {row.map((it, ci) => {
+            const i = ri * perRow + ci
+            const g = grow(i)
+            const rad = radiusAt(it.value, rMax)
+            return (
+              <div key={it.k} style={{ width: slotW(it, rMax), display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ height: 2 * rMax, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <div style={{ width: 2 * rad * g, height: 2 * rad * g, borderRadius: '50%', background: colors[it.k % colors.length] }} />
+                </div>
+                <div style={{ marginTop: 14 * u, fontFamily: BODY_FONT, fontWeight: 600, fontSize: labelFont, lineHeight: 1.3, color: p.ink, whiteSpace: 'nowrap', opacity: clamp01(g * 3) }}>{shortLabel(it.label)}</div>
+                <div style={{ fontFamily: MONO_FONT, ...TABULAR, fontWeight: 700, fontSize: valueFont, lineHeight: 1.3, color: p.muted, whiteSpace: 'nowrap', opacity: clamp01(g * 3) }}>{fmt(it.value * g)}</div>
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ChartScene({ item, input, f }: SceneProps) {
   const s = item.scene
   const { u, portrait } = f
@@ -258,7 +399,7 @@ export function ChartScene({ item, input, f }: SceneProps) {
   const ok = !!chart && chart.items.length > 0
   const pad = 30 * u
   const cardW = f.contentWidth
-  const cardH = f.contentHeight * (portrait ? 0.6 : 0.6)
+  const cardH = f.contentHeight * (portrait ? 0.7 : 0.6)
   const unitH = chart?.unit ? 36 * u : 0
   const innerW = cardW - pad * 2
   const innerH = cardH - pad * 2 - unitH
@@ -287,7 +428,7 @@ export function ChartScene({ item, input, f }: SceneProps) {
               }}
             >
               {unitH > 0 && <div style={{ height: unitH, fontFamily: MONO_FONT, fontWeight: 700, fontSize: 22 * u, letterSpacing: '0.08em', textTransform: 'uppercase', color: p.muted }}>{chart!.unit}</div>}
-              {panel.chart.kind === 'line' ? <LineChart {...panel} /> : <BarChart {...panel} portrait={portrait} />}
+              {panel.chart.kind === 'line' ? <LineChart {...panel} /> : panel.chart.kind === 'donut' ? <DonutChart {...panel} portrait={portrait} /> : panel.chart.kind === 'bubble' ? <BubbleChart {...panel} portrait={portrait} /> : <BarChart {...panel} portrait={portrait} />}
             </div>
           </Rise>
         )}
