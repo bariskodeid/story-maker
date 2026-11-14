@@ -9,6 +9,10 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 ## [Belum dirilis]
 
 ### Ditambahkan
+- **Template Sejarah dan Sains untuk video penjelasan**, lengkap dengan **adegan linimasa** (titik tahun dan peristiwa,
+  paling banyak 6) dan **grafik batang, garis, donut, dan lingkaran proporsional** (besaran yang selisihnya jauh tetap
+  terbaca). Angka diketik dengan format bahasa proyek ("12.500", "3,5") dan tampil sama di pratinjau dan ekspor.
+  Editor data ada di langkah Adegan, dengan pengingat untuk mengecek ulang tahun dan angka sebelum ekspor.
 - **Delapan gaya gambar AI baru untuk video penjelasan** (peta kuno, ukiran ensiklopedia, lukisan sejarah, relief candi,
   diagram buku pelajaran, mikroskopis, luar angkasa, sketsa penemu), **palet Perkamen dan Laboratorium/Kosmos** di tiap template,
   dan **thumbnail contoh** di pemilih gaya gambar AI supaya kamu bisa melihat hasil tiap gaya sebelum memilih.

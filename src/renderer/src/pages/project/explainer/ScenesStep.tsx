@@ -1,17 +1,25 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { ArrowDown, ArrowRight, ArrowUp, Image as ImageIcon, ImagePlus, Mic, MoreHorizontal, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, BarChart3, ChartPie, CircleDot, Image as ImageIcon, ImagePlus, Mic, LineChart, MoreHorizontal, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react'
 import {
+  CHART_LIMITS,
+  TIMELINE_MAX,
+  chartNumber,
+  formatChartValue,
   getTemplate,
   sceneHas,
   sceneShowsImage,
   sceneTypeName,
+  type ChartItem,
+  type ChartKind,
   type CodeKind,
+  type ExplainerChart,
   type ExplainerScene,
   type ExplainerTemplateId,
   type SceneHighlight,
   type SceneImageMode,
   type SceneSide,
   type SceneType,
+  type TimelinePoint,
   wantsAiImage
 } from '@shared/explainer'
 import { wordCount } from '@shared/script'
@@ -264,8 +272,149 @@ function ImagePanel({ clip, scene, onScene }: { clip: Clip; scene: ExplainerScen
   )
 }
 
+const CHECK_NOTE = 'Cek ulang tahun dan angka sebelum ekspor.'
+
+function moveItem<T>(list: T[], i: number, dir: -1 | 1): T[] {
+  const j = i + dir
+  if (j < 0 || j >= list.length) return list
+  const next = [...list]
+  ;[next[i], next[j]] = [next[j], next[i]]
+  return next
+}
+
+function RowTools({ i, count, noun, onMove, onDelete }: { i: number; count: number; noun: string; onMove: (d: -1 | 1) => void; onDelete: () => void }) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <IconButton size={32} label={`Geser ${noun} ${i + 1} ke atas`} disabled={i === 0} onClick={() => onMove(-1)}>
+        <ArrowUp size={14} />
+      </IconButton>
+      <IconButton size={32} label={`Geser ${noun} ${i + 1} ke bawah`} disabled={i === count - 1} onClick={() => onMove(1)}>
+        <ArrowDown size={14} />
+      </IconButton>
+      <IconButton size={32} label={`Hapus ${noun} ${i + 1}`} onClick={onDelete}>
+        <Trash2 size={14} />
+      </IconButton>
+    </div>
+  )
+}
+
+function TimelineEditor({ points, onChange }: { points: TimelinePoint[]; onChange: (p: TimelinePoint[]) => void }) {
+  const edit = (i: number, patch: Partial<TimelinePoint>): void => onChange(points.map((p, k) => (k === i ? { ...p, ...patch } : p)))
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-semibold">Titik linimasa</span>
+      {points.map((p, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <input value={p.date} onChange={(e) => edit(i, { date: e.target.value })} placeholder="1945" aria-label={`Tanggal titik ${i + 1}`} className={cx(inputCls, 'h-9 w-20! shrink-0 text-sm')} />
+          <input value={p.title} onChange={(e) => edit(i, { title: e.target.value })} placeholder="Peristiwa" aria-label={`Peristiwa titik ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
+          <RowTools i={i} count={points.length} noun="titik" onMove={(d) => onChange(moveItem(points, i, d))} onDelete={() => onChange(points.filter((_, k) => k !== i))} />
+        </div>
+      ))}
+      <div className="flex items-center justify-between gap-2">
+        <Button size="sm" disabled={points.length >= TIMELINE_MAX} onClick={() => onChange([...points, { date: '', title: '' }])}>
+          <Plus size={14} /> Tambah titik
+        </Button>
+        <span className="text-[12.5px] text-muted">{points.length}/{TIMELINE_MAX}</span>
+      </div>
+      <p className="text-[12.5px] text-muted">{CHECK_NOTE}</p>
+    </div>
+  )
+}
+
+const CHART_KINDS: { id: ChartKind; label: string; icon: ReactNode }[] = [
+  { id: 'bar', label: 'Batang', icon: <BarChart3 size={14} /> },
+  { id: 'line', label: 'Garis', icon: <LineChart size={14} /> },
+  { id: 'donut', label: 'Donut', icon: <ChartPie size={14} /> },
+  { id: 'bubble', label: 'Lingkaran', icon: <CircleDot size={14} /> }
+]
+
+/** Numbers stay as typed text in the row ("12.500", "3,5"); only text that parses is saved. */
+function ChartEditor({ chart, language, onChange }: { chart: ExplainerChart; language: string; onChange: (c: ExplainerChart) => void }) {
+  const { kind, items } = chart
+  const [typed, setTyped] = useState<string[]>(() => items.map((it) => formatChartValue(it.value, language)))
+  const texts = typed.length === items.length ? typed : items.map((it) => formatChartValue(it.value, language))
+  const nonNegative = kind === 'donut' || kind === 'bubble'
+  const limit = CHART_LIMITS[kind].max
+  const commit = (nextItems: ChartItem[], nextTexts: string[], nextKind: ChartKind = kind): void => {
+    setTyped(nextTexts)
+    onChange({ ...chart, kind: nextKind, items: nextItems })
+  }
+  const setKind = (k: ChartKind): void => {
+    if (k === kind) return
+    const negativeOut = k === 'donut' || k === 'bubble'
+    const keep = items.map((it, i) => ({ it, text: texts[i] })).filter((r) => !(negativeOut && r.it.value < 0)).slice(0, CHART_LIMITS[k].max)
+    commit(keep.map((r) => r.it), keep.map((r) => r.text), k)
+  }
+  const editLabel = (i: number, label: string): void => commit(items.map((it, k) => (k === i ? { ...it, label } : it)), texts)
+  const editValue = (i: number, text: string): void => {
+    const n = chartNumber(text, language)
+    const ok = n !== null && !(nonNegative && n < 0)
+    commit(ok ? items.map((it, k) => (k === i ? { ...it, value: n } : it)) : items, texts.map((x, k) => (k === i ? text : x)))
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-semibold">Grafik</span>
+      <div className="flex gap-1" role="group" aria-label="Jenis grafik">
+        {CHART_KINDS.map((k) => (
+          <button
+            key={k.id}
+            type="button"
+            title={k.label}
+            aria-label={k.label}
+            aria-pressed={kind === k.id}
+            onClick={() => setKind(k.id)}
+            className={cx(
+              'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[10px] border text-xs font-semibold',
+              kind === k.id ? 'border-ink bg-sun-soft' : 'border-line-2 bg-surface hover:bg-paper'
+            )}
+          >
+            {k.icon}
+            {k.label}
+          </button>
+        ))}
+      </div>
+      <Field label="Satuan">
+        <input value={chart.unit} onChange={(e) => onChange({ ...chart, unit: e.target.value.slice(0, 24) })} placeholder="%, ppm, juta km" className={cx(inputCls, 'h-9 text-sm')} />
+      </Field>
+      {items.map((it, i) => {
+        const n = chartNumber(texts[i], language)
+        const bad = n === null || (nonNegative && n < 0)
+        return (
+          <div key={i} className="flex items-center gap-1.5">
+            <input value={it.label} onChange={(e) => editLabel(i, e.target.value)} placeholder="Label" aria-label={`Label data ${i + 1}`} className={cx(inputCls, 'h-9 w-auto! min-w-0 flex-1 text-sm')} />
+            <input
+              value={texts[i]}
+              onChange={(e) => editValue(i, e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              aria-label={`Angka data ${i + 1}`}
+              aria-invalid={bad}
+              title={bad ? (n !== null ? 'Donut dan lingkaran tidak bisa negatif' : 'Angka tidak valid, belum disimpan') : undefined}
+              className={cx(inputCls, 'h-9 w-24! shrink-0 text-right text-sm tabular-nums', bad && 'border-bad-ink text-bad-ink')}
+            />
+            <RowTools
+              i={i}
+              count={items.length}
+              noun="data"
+              onMove={(d) => commit(moveItem(items, i, d), moveItem(texts, i, d))}
+              onDelete={() => commit(items.filter((_, k) => k !== i), texts.filter((_, k) => k !== i))}
+            />
+          </div>
+        )
+      })}
+      <div className="flex items-center justify-between gap-2">
+        <Button size="sm" disabled={items.length >= limit} onClick={() => commit([...items, { label: '', value: 0 }], [...texts, ''])}>
+          <Plus size={14} /> Tambah data
+        </Button>
+        <span className="text-[12.5px] text-muted">{items.length}/{limit}</span>
+      </div>
+      <p className="text-[12.5px] text-muted">{CHECK_NOTE}</p>
+    </div>
+  )
+}
+
 function SceneForm({ clip, scene, allowed, templateId }: { clip: Clip; scene: ExplainerScene; allowed: SceneType[]; templateId: ExplainerTemplateId }) {
-  const { updateClip, assets, clips } = useProject()
+  const { updateClip, assets, clips, project } = useProject()
   const set = (p: Partial<ExplainerScene>): void => {
     const next = { ...scene, ...p }
     updateClip(clip.id, { scene: next, ...(p.heading !== undefined ? { title: p.heading.slice(0, 80) } : {}) })
@@ -347,6 +496,8 @@ function SceneForm({ clip, scene, allowed, templateId }: { clip: Clip; scene: Ex
           <AutoTextarea minRows={3} value={scene.left.join('\n')} onChange={(e) => set({ left: e.target.value.split('\n') })} className={cx(inputCls, 'py-2 text-sm')} />
         </Field>
       )}
+      {sceneHas(t, 'timeline') && <TimelineEditor points={scene.timeline} onChange={(timeline) => set({ timeline })} />}
+      {sceneHas(t, 'chart') && <ChartEditor key={clip.id} chart={scene.chart} language={project?.language ?? 'id'} onChange={(chart) => set({ chart })} />}
       {sceneHas(t, 'code') && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
