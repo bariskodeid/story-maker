@@ -1,13 +1,17 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, extname } from 'node:path'
-import { app, type BrowserWindow } from 'electron'
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
+import { app, nativeImage, type BrowserWindow } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { estimateWordTimings } from '@shared/captions'
 import { SAMPLE_SCENES, type ExplainerTemplateId } from '@shared/explainer'
 import { anchorPoint } from '@shared/overlays'
+import { VISUAL_STYLES } from '@shared/styles'
+import { getDb } from './db'
 import { addSceneImage, exportProject } from './explainer'
-import { assetAbsPath, binPath } from './paths'
+import { applySheet, createNarrator, getNarrator } from './narrators'
+import { buildSheetPrompt, fringeCount } from './narratorSprites'
+import { assetAbsPath, binPath, narratorDir } from './paths'
 import { probeDurationMs } from './services/audio'
 import { clipsOf, createProject, getAsset, getBundle, insertAsset, listProjects, patchClip, replaceScenes, replaceStory, saveSnapshot, touchProject } from './repo'
 import { recordCheck, setSecret } from './secrets'
@@ -229,7 +233,10 @@ export function attachDevHarness(win: BrowserWindow): void {
   const planPath = process.env.STUDIO_CAPTURE_PLAN
   if (!planPath) return
   let plan: {
-    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos' | 'copyClipImage'
+    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos' | 'copyClipImage' | 'narratorSheet'
+    /** For main "narratorSheet": cut this sheet image into the sprites of a new narrator and log the result (with the sheet prompt and an edge-fringe count per sprite). */
+    sheet?: string
+    keyColor?: '#00FF00' | '#FF00FF'
     /** For main "seedEpisode": the series that gets a new episode (default: the most recently changed one). */
     seriesId?: string
     /** For main "copyClipImage": copy the image of scene 1 of the latest project to this path (extension added). */
@@ -296,6 +303,28 @@ export function attachDevHarness(win: BrowserWindow): void {
             copyFileSync(assetAbsPath(p.id, asset.localPath), step.to + extname(asset.localPath))
             lastCopiedAsset = asset.id
           }
+        }
+        if (step.main === 'narratorSheet' && step.sheet) {
+          const n = createNarrator({ name: 'Uji lembar', description: 'a friendly test presenter', style: { kind: 'story', id: VISUAL_STYLES[0].id } })
+          if (step.keyColor) getDb().prepare('UPDATE narrators SET key_color = ? WHERE id = ?').run(step.keyColor, n.id)
+          const key = step.keyColor ?? '#00FF00'
+          if (log && !step.keyColor) appendFileSync(log, `[narratorSheet] prompt:
+${buildSheetPrompt(getNarrator(n.id))}
+`)
+          const r = await applySheet(n.id, step.sheet)
+          if (log) appendFileSync(log, `[narratorSheet] result=${JSON.stringify(r)}
+`)
+          const after = getNarrator(n.id)
+          const dir = narratorDir(n.id)
+          const sizes = Object.entries(after.spriteUrls ?? {}).map(([k]) => {
+            const img = nativeImage.createFromPath(join(dir, `${k}.png`)).getSize()
+            return `${k}=${img.width}x${img.height}`
+          })
+          const fringe = Object.keys(after.spriteUrls ?? {}).map((k) => `${k}:${JSON.stringify(fringeCount(readFileSync(join(dir, `${k}.png`)), key))}`)
+          if (log) appendFileSync(log, `[narratorSheet] status=${after.status} files=${existsSync(dir) ? readdirSync(dir).join(',') : '(folder not created)'}
+[narratorSheet] sizes ${sizes.join(' ')}
+[narratorSheet] fringe ${fringe.join(' ')}
+`)
         }
         if (step.main === 'overlays' && demoId) addDemoOverlays(demoId)
         if (step.main === 'videos' && demoId) addDemoVideos(demoId)

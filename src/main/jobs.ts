@@ -41,7 +41,13 @@ function release(q: QueueName): void {
   waiting[q].shift()?.()
 }
 
-export function runJob(job: Job, queue: QueueName, task: Task): Job {
+type JobUpdater = typeof updateJob
+
+/**
+ * `update` defaults to the jobs table. Work that belongs to no project (narrator sprite sheets) passes its own
+ * in-memory updater, because jobs.project_id is NOT NULL and cannot be relaxed without rewriting the table.
+ */
+export function runJob(job: Job, queue: QueueName, task: Task, update: JobUpdater = updateJob): Job {
   const ctrl = new AbortController()
   controllers.set(job.id, ctrl)
   let lastEmit = 0
@@ -50,14 +56,14 @@ export function runJob(job: Job, queue: QueueName, task: Task): Job {
     signal: ctrl.signal,
     progress: (p, message) => {
       const now = Date.now()
-      const j = updateJob(job.id, { progress: Math.min(0.99, Math.max(0, p)), ...(message !== undefined ? { message } : {}) })
+      const j = update(job.id, { progress: Math.min(0.99, Math.max(0, p)), ...(message !== undefined ? { message } : {}) })
       if (now - lastEmit > 250 || p >= 0.99) {
         lastEmit = now
         emit.job(j)
       }
     },
     setRemote: (id) => {
-      updateJob(job.id, { remoteId: id })
+      update(job.id, { remoteId: id })
     }
   }
   void (async () => {
@@ -65,19 +71,19 @@ export function runJob(job: Job, queue: QueueName, task: Task): Job {
     if (ctrl.signal.aborted) {
       release(queue)
       controllers.delete(job.id)
-      emit.job(updateJob(job.id, { status: 'canceled', message: null }))
+      emit.job(update(job.id, { status: 'canceled', message: null }))
       return
     }
     try {
-      emit.job(updateJob(job.id, { status: 'running', progress: 0.02 }))
+      emit.job(update(job.id, { status: 'running', progress: 0.02 }))
       const result = await task(ctx)
       const extra =
         typeof result === 'string' ? { resultAssetId: result, message: null } : { message: result?.message ?? null }
-      emit.job(updateJob(job.id, { status: 'done', progress: 1, ...extra }))
+      emit.job(update(job.id, { status: 'done', progress: 1, ...extra }))
     } catch (e) {
       const canceled = ctrl.signal.aborted
       emit.job(
-        updateJob(job.id, {
+        update(job.id, {
           status: canceled ? 'canceled' : 'failed',
           error: canceled ? null : ((e as Error)?.message ?? String(e)),
           message: null
@@ -94,7 +100,11 @@ export function runJob(job: Job, queue: QueueName, task: Task): Job {
 
 export async function cancelJob(id: string): Promise<void> {
   const raw = getJobRaw(id)
-  if (!raw) return
+  if (!raw) {
+    // In-memory jobs have no row, but they still run under a controller.
+    controllers.get(id)?.abort()
+    return
+  }
   if (raw.remote_id && raw.provider === 'higgsfield') await cancelRequest(raw.remote_id)
   const ctrl = controllers.get(id)
   if (ctrl) ctrl.abort()

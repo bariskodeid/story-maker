@@ -29,7 +29,8 @@ const api: StudioApi = {
     create: call('narrators:create'),
     update: call('narrators:update'),
     remove: call('narrators:remove'),
-    duplicate: call('narrators:duplicate')
+    duplicate: call('narrators:duplicate'),
+    generate: call('narrators:generate')
   },
   series: {
     list: call('series:list'),

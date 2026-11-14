@@ -1,11 +1,19 @@
 import { randomUUID } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { EXPLAINER_IMAGE_STYLES } from '@shared/explainer'
 import { NARRATOR_GRID } from '@shared/narrator'
 import { NARRATOR_PRESETS, type NarratorPreset } from '@shared/narratorPresets'
-import type { Narrator } from '@shared/types'
+import { VISUAL_STYLES } from '@shared/styles'
+import type { Job, Narrator } from '@shared/types'
+import { nativeImage } from 'electron'
 import { getDb } from './db'
+import { emit } from './events'
+import { drawImage, imageQueue } from './generation'
+import { runJob } from './jobs'
+import type { updateJob } from './repo'
 import { narratorDir, narratorFileUrl, narratorPresetDir, narratorPresetFileUrl } from './paths'
+import { buildSheetPrompt, processSheet, type SheetResult } from './narratorSprites'
 
 type Row = Record<string, any>
 
@@ -28,10 +36,20 @@ function filesOf(dir: string, url: (file: string) => string): Pick<Narrator, 'sp
   }
 }
 
+/** Same cap as Magic's description box, so a generated description always fits. */
+const MAX_DESCRIPTION = 600
+
+/** A style the generator cannot resolve would silently fall back to the first one, so unknown ids are refused. */
 function cleanStyle(s: unknown): Narrator['style'] {
   const o = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>
-  return { kind: o.kind === 'explainer' ? 'explainer' : 'story', id: typeof o.id === 'string' ? o.id : '' }
+  const kind = o.kind === 'explainer' ? 'explainer' : 'story'
+  const id = typeof o.id === 'string' ? o.id : ''
+  const known = kind === 'explainer' ? EXPLAINER_IMAGE_STYLES.some((x) => x.id === id) : VISUAL_STYLES.some((x) => x.id === id)
+  if (!known) throw new Error('Gaya gambar narator tidak dikenal.')
+  return { kind, id }
 }
+
+const cleanDescription = (s: unknown): string => String(s ?? '').trim().slice(0, MAX_DESCRIPTION)
 
 function toNarrator(r: Row): Narrator {
   const ready = r.status === 'ready'
@@ -101,7 +119,7 @@ export function createNarrator(input: { name: string; description: string; style
   const style = cleanStyle(input?.style)
   getDb()
     .prepare('INSERT INTO narrators (id, name, description, style_kind, style_id, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, cleanName(input?.name, 'Narator baru'), String(input?.description ?? '').trim(), style.kind, style.id, Date.now())
+    .run(id, cleanName(input?.name, 'Narator baru'), cleanDescription(input?.description), style.kind, style.id, Date.now())
   return getNarrator(id)
 }
 
@@ -111,7 +129,7 @@ export function updateNarrator(id: string, patch: NarratorPatch): Narrator {
   const style = patch?.style ? cleanStyle(patch.style) : cur.style
   getDb()
     .prepare('UPDATE narrators SET name = ?, description = ?, style_kind = ?, style_id = ? WHERE id = ?')
-    .run(cleanName(patch?.name, cur.name), patch?.description !== undefined ? String(patch.description).trim() : cur.description, style.kind, style.id, id)
+    .run(cleanName(patch?.name, cur.name), patch?.description !== undefined ? cleanDescription(patch.description) : cur.description, style.kind, style.id, id)
   return getNarrator(id)
 }
 
@@ -133,10 +151,100 @@ export function duplicateNarrator(id: string): Narrator {
   const src = getNarrator(id)
   const newId = randomUUID()
   const from = src.preset ? narratorPresetDir(src.id) : narratorDir(src.id)
-  mkdirSync(narratorDir(newId), { recursive: true })
-  if (existsSync(from)) cpSync(from, narratorDir(newId), { recursive: true })
+  // The row goes in first: if the insert fails there is no folder to orphan, and if the copy fails the row is undone.
   getDb()
     .prepare('INSERT INTO narrators (id, name, description, style_kind, style_id, key_color, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     .run(newId, `${src.name} (salinan)`.slice(0, 60), src.description, src.style.kind, src.style.id, src.keyColor, src.status, Date.now())
+  try {
+    mkdirSync(narratorDir(newId), { recursive: true })
+    if (existsSync(from)) cpSync(from, narratorDir(newId), { recursive: true })
+  } catch (e) {
+    getDb().prepare('DELETE FROM narrators WHERE id = ?').run(newId)
+    rmSync(narratorDir(newId), { recursive: true, force: true })
+    throw e
+  }
   return getNarrator(newId)
+}
+
+/**
+ * Cuts a finished sheet into the narrator's sprites. The sheet is kept as `sheet.png` only when it was good, so a
+ * failed regenerate leaves the previous sprites and sheet untouched.
+ */
+export async function applySheet(id: string, sheetPath: string): Promise<SheetResult> {
+  const cur = getNarrator(id)
+  if (cur.preset) throw new Error('Narator bawaan tidak bisa dibuat ulang. Duplikat dulu.')
+  const dir = narratorDir(id)
+  const r = await processSheet(sheetPath, dir, cur.keyColor)
+  if (!r.ok) return r
+  // Always PNG: the image model may hand back a jpeg or webp.
+  writeFileSync(join(dir, 'sheet.png'), nativeImage.createFromPath(sheetPath).toPNG())
+  setNarratorStatus(id, 'ready')
+  return r
+}
+
+// Generation jobs belong to no project, so they live in memory (see runJob) and are told apart by `characterId`,
+// which carries the narrator id.
+const jobStore = new Map<string, Job>()
+const activeByNarrator = new Map<string, string>()
+
+function updateLoose(jobId: string, patch: Parameters<typeof updateJob>[1]): Job {
+  const cur = jobStore.get(jobId)!
+  // The remote id only matters to resume and cancel of Higgsfield jobs in the table; these are never resumed.
+  const { remoteId: _remote, ...rest } = patch
+  const next: Job = { ...cur, ...rest, updatedAt: Date.now() }
+  jobStore.set(jobId, next)
+  return next
+}
+
+/** Draws a new sprite sheet with the image model in settings and cuts it. One run per narrator at a time. */
+export function generateNarrator(id: string): Job {
+  const cur = getNarrator(id)
+  if (cur.preset) throw new Error('Narator bawaan tidak bisa dibuat ulang. Duplikat dulu.')
+  const running = activeByNarrator.get(id)
+  if (running) return jobStore.get(running)!
+  const now = Date.now()
+  const job: Job = {
+    id: randomUUID(),
+    projectId: '',
+    clipId: null,
+    characterId: id,
+    kind: 'sheet',
+    provider: imageQueue(),
+    status: 'queued',
+    progress: 0,
+    message: null,
+    error: null,
+    resultAssetId: null,
+    createdAt: now,
+    updatedAt: now
+  }
+  jobStore.set(job.id, job)
+  activeByNarrator.set(id, job.id)
+  emit.job(job)
+  const done = (): void => {
+    activeByNarrator.delete(id)
+  }
+  return runJob(
+    job,
+    imageQueue(),
+    async (ctx) => {
+      ctx.progress(0.04, 'Menyiapkan prompt')
+      const image = await drawImage(ctx, buildSheetPrompt(getNarrator(id)), '16:9', 'Membuat lembar ekspresi')
+      ctx.progress(0.95, 'Memotong sprite')
+      mkdirSync(narratorDir(id), { recursive: true })
+      const tmp = join(narratorDir(id), `sheet-new${image.ext || '.png'}`)
+      writeFileSync(tmp, image.bytes)
+      try {
+        const r = await applySheet(id, tmp)
+        if (!r.ok) throw new Error(r.reason)
+      } finally {
+        rmSync(tmp, { force: true })
+      }
+    },
+    (jobId, patch) => {
+      const j = updateLoose(jobId, patch)
+      if (j.status !== 'queued' && j.status !== 'running') done()
+      return j
+    }
+  )
 }

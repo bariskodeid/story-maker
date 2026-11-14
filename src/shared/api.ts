@@ -56,6 +56,12 @@ export interface StudioApi {
     /** Presets cannot be removed. A project or series that still points at the id simply shows no narrator. */
     remove(id: string): Promise<void>
     duplicate(id: string): Promise<Narrator>
+    /**
+     * Draws the 4x3 expression sheet with the image model in settings and cuts it into sprites. The job belongs to
+     * no project: its `characterId` is the narrator id, `projectId` is empty. A broken sheet fails the job with a
+     * friendly message and leaves the existing sprites alone.
+     */
+    generate(id: string): Promise<Job>
   }
   series: {
     list(): Promise<SeriesSummary[]>

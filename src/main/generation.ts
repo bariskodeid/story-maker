@@ -295,37 +295,70 @@ const DIRECT: Record<
   gemini: { name: 'Gemini', model: geminiImageModel, generate: gi.generateImage, noImage: (e) => e instanceof gi.NoImageError }
 }
 
-function startDirect(job: Job, source: DirectSource, build: (ctx: TaskCtx) => Promise<DirectRequest>): Job {
+/** One blocking image request with a time-based progress bar and retries for empty answers. */
+async function drawDirect(
+  ctx: TaskCtx,
+  source: DirectSource,
+  req: { model: string; prompt: string; aspect: AspectRatio; refs: string[] },
+  what: string
+): Promise<{ bytes: Buffer; ext: string; url?: string | null }> {
   const service = DIRECT[source]
+  ctx.progress(0.1, `Mengirim ke ${service.name}`)
+  // Neither service reports progress, so the bar is a time estimate that slows down the longer it waits.
+  const started = Date.now()
+  let label = `${what} lewat ${service.name}`
+  const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), label), 1000)
+  try {
+    // Gemini image models (directly or over 9Router) return no picture for about half of long scene prompts at
+    // random (same prompt, same references), so an empty answer is retried before the job fails.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await service.generate(req.model, req.prompt, req.aspect, req.refs, ctx.signal)
+      } catch (e) {
+        if (!service.noImage(e) || attempt >= DIRECT_IMAGE_ATTEMPTS || ctx.signal.aborted) throw e
+        label = `Model tidak mengirim gambar, mencoba lagi (${attempt + 1}/${DIRECT_IMAGE_ATTEMPTS})`
+      }
+    }
+  } finally {
+    clearInterval(tick)
+  }
+}
+
+function startDirect(job: Job, source: DirectSource, build: (ctx: TaskCtx) => Promise<DirectRequest>): Job {
   emit.job(job)
   return runJob(job, source, async (ctx) => {
     ctx.progress(0.04, 'Menyiapkan prompt')
     const { payload, aspect, refs } = await build(ctx)
     updateJobPayload(job.id, payload)
-    const what = payload.target === 'sheet' ? 'Membuat lembar karakter' : 'Membuat gambar'
-    ctx.progress(0.1, `Mengirim ke ${service.name}`)
-    // Neither service reports progress, so the bar is a time estimate that slows down the longer it waits.
-    const started = Date.now()
-    let label = `${what} lewat ${service.name}`
-    const tick = setInterval(() => ctx.progress(0.12 + 0.78 * (1 - Math.exp(-(Date.now() - started) / 40_000)), label), 1000)
-    let image: { bytes: Buffer; ext: string; url?: string | null } | null = null
-    try {
-      // Gemini image models (directly or over 9Router) return no picture for about half of long scene prompts at
-      // random (same prompt, same references), so an empty answer is retried before the job fails.
-      for (let attempt = 1; !image; attempt++) {
-        try {
-          image = await service.generate(payload.model, payload.prompt, aspect, refs, ctx.signal)
-        } catch (e) {
-          if (!service.noImage(e) || attempt >= DIRECT_IMAGE_ATTEMPTS || ctx.signal.aborted) throw e
-          label = `Model tidak mengirim gambar, mencoba lagi (${attempt + 1}/${DIRECT_IMAGE_ATTEMPTS})`
-        }
-      }
-    } finally {
-      clearInterval(tick)
-    }
+    const image = await drawDirect(ctx, source, { model: payload.model, prompt: payload.prompt, aspect, refs }, payload.target === 'sheet' ? 'Membuat lembar karakter' : 'Membuat gambar')
     ctx.progress(0.95, 'Menyimpan gambar')
     return saveResult(job, payload, source, { bytes: image.bytes, ext: image.ext, remoteId: null, remoteUrl: image.url ?? null })
   })
+}
+
+/** Which job queue a picture drawn with the settings' image model runs on. */
+export function imageQueue(): 'higgsfield' | 'ninerouter' | 'gemini' {
+  return imageSource(getSettings().imageModel)
+}
+
+/**
+ * One reference-free picture from the image model in settings, for work that belongs to no project (narrator
+ * sprite sheets). The caller owns the job and its queue (`imageQueue()`).
+ */
+export async function drawImage(ctx: TaskCtx, prompt: string, aspect: AspectRatio, what: string): Promise<{ bytes: Buffer; ext: string }> {
+  const imageModel = getSettings().imageModel
+  const source = imageSource(imageModel)
+  if (source !== 'higgsfield') return drawDirect(ctx, source, { model: DIRECT[source].model(imageModel), prompt, aspect, refs: [] }, what)
+  const model = getImageModel(imageModel)
+  ctx.progress(0.08, 'Mengirim ke Higgsfield')
+  const requestId = await hf.submit(model.id, imageBody(model, prompt, aspect, []), ctx.signal)
+  ctx.setRemote(requestId)
+  const result = await hf.waitForResult(requestId, imageProgress(ctx, what), ctx.signal, 15 * 60 * 1000)
+  const url = result.images?.[0]?.url
+  if (!url) throw new Error('Higgsfield selesai tanpa file hasil')
+  ctx.progress(0.93, 'Mengunduh hasil')
+  const { bytes, contentType } = await downloadTo(url, ctx.signal)
+  return { bytes, ext: extFromType(contentType, url, '.png') }
 }
 
 function directClipImage(clipId: string, projectId: string, imageModel: string, source: DirectSource): Job {
