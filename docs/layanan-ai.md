@@ -146,6 +146,15 @@ Sumber: [`src/app/api/v1/audio/speech/route.js`](https://github.com/decolua/9rou
   dashboard-nya sendiri, jadi sering gagal (401/502) kalau dashboard butuh login. Kalau gagal, aplikasi memakai
   30 suara Edge bawaan (`NINEROUTER_VOICES`). Hasil dicache per base URL (24 jam, cadangan 1 jam). Di langkah
   Ide cerita pengguna juga bisa mengetik ID suara apa pun.
+- **Google TTS**: penyedia `google-tts` di 9Router memakai suara Google Translate tanpa akun. ID modelnya adalah kode
+  bahasa (`google-tts/id`, `google-tts/en`, ...), dan registry 9Router tidak mendaftarkan modelnya, jadi
+  `/models/tts` tidak pernah memuatnya. Aplikasi menambahkan satu entri per bahasa di `LANGUAGES` (`googleVoices` di
+  `services/ninerouterTts.ts`, tag `Google`), di luar cache supaya daftar lama ikut mendapatkannya. Adapter 9Router
+  membuang tanda baca seperti tanda kutip dan tanda hubung sebelum membaca, dan hanya ada satu suara per bahasa.
+  Google hanya menjawab teks pendek: 200 karakter menghasilkan audio, 500 karakter tidak (diukur 2026-11-14). Karena
+  itu `speak` memecah teks untuk suara `google-tts/` menjadi potongan ≤190 karakter (`GOOGLE_TTS_CHARS`, dipotong di
+  akhir kalimat, lalu koma, lalu spasi; `splitSpeech` di `services/speechChunks.ts`), membuat suara tiap potongan
+  berurutan, lalu menyambung MP3-nya begitu saja (frame MP3 bisa diputar bersambung).
 - **Teks**: tag suara `<...>` dibuang (`stripVoiceTags`). Untuk suara `edge-tts/`, `&`, `<`, `>` di-escape karena
   9Router menaruh teks langsung ke dalam SSML tanpa escape.
 
@@ -218,10 +227,14 @@ Codex/ChatGPT untuk GPT Image, Antigravity/Gemini untuk Nano Banana). Video teta
   opsional). Kartu *9Router* di Pengaturan › Gambar dan video menyimpannya juga kalau LLM memakai penyedia lain.
   Semua permintaan mengirim `User-Agent: Story Maker/<versi>`, karena 9Router yang dipasang di server sering berada
   di belakang Cloudflare yang menantang agent bawaan Node (`node`).
-- **Daftar model**: `GET /v1/models/image` → `{ data: [{ id, owned_by }] }` (model gambar dari penyedia yang
-  terhubung, plus combo gambar). `GET /v1/models` hanya berisi model chat. Daftar dicache 24 jam dengan kunci
-  `models:ninerouter-image:<url>` (ikut terhapus saat koneksi 9Router disimpan ulang). Pengguna juga bisa mengetik ID
-  model sendiri. IPC: `generate.nineRouterModels(refresh)`.
+- **Daftar model**: gabungan dua daftar. `GET /v1/models/image` → `{ data: [{ id, owned_by }] }` hanya berisi model
+  gambar yang dikenali katalog 9Router (plus combo gambar); model ini tampil paling atas dengan tag `Gambar`. Di
+  bawahnya semua model lain dari `GET /v1/models`, karena akun yang terhubung di 9Router (penyedia custom, node
+  OpenAI-compatible, combo) sering bisa membuat gambar walau tidak ada di katalog itu. Model yang ternyata tidak bisa
+  menggambar dijawab dengan error yang sudah dijelaskan aplikasi. Chip `Gambar` di pemilih menyaring ke daftar
+  katalog. Satu daftar boleh gagal (`/models/image` 404 di 9Router lama); keduanya gagal → error. Daftar dicache 24 jam
+  dengan kunci `models:ninerouter-image-all:<url>` (ikut terhapus saat koneksi 9Router disimpan ulang). Pengguna juga
+  bisa mengetik ID model sendiri. IPC: `generate.nineRouterModels(refresh)`.
 - **Membuat gambar**: `POST /v1/images/generations` dengan
   `{ model, prompt, n: 1, size, aspect_ratio, images? }`. `size` = `1536x1024` / `1024x1536` (satu-satunya ukuran
   non-persegi yang diterima GPT Image; 9Router mengubahnya ke rasio 3:2 untuk penyedia lain) dan `aspect_ratio` =

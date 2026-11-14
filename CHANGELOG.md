@@ -22,6 +22,12 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
   dan permintaan yang ditolak filter keamanan otomatis diulang di model lain yang cocok.
 
 ### Diubah
+- **Model gambar 9Router tidak lagi terbatas pada katalog gambar 9Router.** Pemilih model sekarang juga menampilkan
+  semua model lain yang kamu hubungkan di 9Router. Model yang dikenali 9Router sebagai model gambar tetap di atas
+  dengan tag `Gambar`, dan chip `Gambar` menyaring ke model itu saja.
+- **Google TTS lewat 9Router** sekarang muncul di pilihan suara narator 9Router, satu suara per bahasa
+  (`google-tts/id`, `google-tts/en`, ...), dengan chip `Google` untuk menyaringnya. Suara ini gratis dan tidak
+  butuh akun.
 - Pesan dialog Sekali klik dan Lanjutkan otomatis menyebut sumber gambar yang sebenarnya (Higgsfield, 9Router, atau
   Gemini).
 

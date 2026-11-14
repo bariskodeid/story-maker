@@ -6,6 +6,7 @@ import { getSecret } from '../secrets'
 import { getSettings, readCache, writeCache } from '../settings'
 import { isWav, pcmToWav } from './audio'
 import { readError } from './http'
+import { splitSpeech } from './speechChunks'
 
 /**
  * Narration through 9Router's OpenAI-style POST /v1/audio/speech. The `model` field is the voice
@@ -19,6 +20,9 @@ const SPEECH_TIMEOUT_MS = 180_000
 const LIST_TIMEOUT_MS = 8_000
 const LIVE_TTL_MS = 24 * 60 * 60 * 1000
 const FALLBACK_TTL_MS = 60 * 60 * 1000
+// Google Translate's voice (9Router `google-tts/`) answers 200 characters with audio and 500 with none (measured
+// 2026-11-14), so its takes are read in short phrases and the MP3s joined.
+const GOOGLE_TTS_CHARS = 190
 
 interface Conn {
   base: string
@@ -88,6 +92,20 @@ function audioFile(bytes: Buffer, contentType: string, format?: string): { audio
 /** Speaks text with a 9Router voice and returns the audio file (MP3, WAV or OGG). */
 export async function speak(text: string, voice: string, languageCode: string, signal?: AbortSignal): Promise<{ audio: Buffer; ext: string }> {
   if (!voice.trim()) throw new Error('Pilih suara 9Router dulu di langkah Ide cerita.')
+  if (voice.trim().startsWith('google-tts/') && text.length > GOOGLE_TTS_CHARS) {
+    // Google always answers MP3, and MP3 frames play back to back, so the pieces join by plain concatenation.
+    const parts: Buffer[] = []
+    for (const piece of splitSpeech(text, GOOGLE_TTS_CHARS)) {
+      const part = await speakOnce(piece, voice, languageCode, signal)
+      if (part.ext !== '.mp3') throw new Error('Google TTS di 9Router mengirim audio yang bukan MP3, jadi potongannya tidak bisa disambung.')
+      parts.push(part.audio)
+    }
+    return { audio: Buffer.concat(parts), ext: '.mp3' }
+  }
+  return speakOnce(text, voice, languageCode, signal)
+}
+
+async function speakOnce(text: string, voice: string, languageCode: string, signal?: AbortSignal): Promise<{ audio: Buffer; ext: string }> {
   const c = conn()
   // Gemini voices in 9Router read the language as "Say in <language>: ...", so it is sent as an English name.
   const language = LANGUAGES.find((l) => l.code === languageCode)?.english
@@ -169,8 +187,29 @@ async function otherVoices(c: Conn): Promise<VoiceOption[]> {
 }
 
 /**
+ * 9Router's Google TTS (Google Translate's voice, no account needed) takes the language code as its model,
+ * `google-tts/<code>`, and its registry lists no models, so `/models/tts` never shows it. One entry per app
+ * language makes it pickable without typing the id.
+ */
+function googleVoices(): VoiceOption[] {
+  return LANGUAGES.map((l) => ({
+    id: `google-tts/${l.code}`,
+    name: `Google TTS · ${l.label}`,
+    description: `${l.label} · suara Google Translate, gratis tanpa akun`,
+    language: l.code,
+    tags: [l.label, 'Google']
+  }))
+}
+
+/** Added outside the cache, so lists cached before Google TTS was offered pick it up too. */
+function withGoogle(voices: VoiceOption[]): VoiceOption[] {
+  const ids = new Set(voices.map((v) => v.id))
+  return [...voices, ...googleVoices().filter((v) => !ids.has(v.id))]
+}
+
+/**
  * Voices to pick from: Edge TTS voices listed live by 9Router (or the bundled list when it cannot list them),
- * plus other TTS models connected there. Any other `provider/voice` id can still be typed in the picker.
+ * other TTS models connected there, and Google TTS. Any other `provider/voice` id can still be typed in the picker.
  */
 export async function listVoices(refresh = false): Promise<VoiceOption[]> {
   const curated = (): VoiceOption[] => NINEROUTER_VOICES.map(toOption)
@@ -178,12 +217,12 @@ export async function listVoices(refresh = false): Promise<VoiceOption[]> {
   try {
     c = conn()
   } catch {
-    return curated()
+    return withGoogle(curated())
   }
   const key = `voices:ninerouter:${c.base}`
   const cached = readCache<{ voices: VoiceOption[]; live: boolean }>(key)
   if (!refresh && cached?.value.voices?.length && Date.now() - cached.updatedAt < (cached.value.live ? LIVE_TTL_MS : FALLBACK_TTL_MS))
-    return cached.value.voices
+    return withGoogle(cached.value.voices)
   const warn = (what: string) => (e: unknown) => {
     console.warn(`[9router] ${what}:`, (e as Error).message)
     return null
@@ -191,5 +230,5 @@ export async function listVoices(refresh = false): Promise<VoiceOption[]> {
   const [edge, others] = await Promise.all([liveEdgeVoices(c).catch(warn('voice list')), otherVoices(c).catch(warn('tts models'))])
   const voices = [...(edge ?? curated()), ...(others ?? [])]
   writeCache(key, { voices, live: !!edge })
-  return voices
+  return withGoogle(voices)
 }

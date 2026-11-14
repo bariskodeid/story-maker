@@ -68,7 +68,7 @@ function NineRouterVoicePicker({
         allowCustom
         noun="suara"
         placeholder="Pilih suara"
-        tagFilters={[...(languageTag ? [languageTag] : []), 'Pria', 'Wanita']}
+        tagFilters={[...(languageTag ? [languageTag] : []), 'Pria', 'Wanita', 'Google']}
         footerNote="ketik ID lain, misalnya openai/tts-1"
       />
     </div>
