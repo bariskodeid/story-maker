@@ -448,7 +448,7 @@ export function NewsCut({ input, d, next }: { input: ExplainerInput; d: number; 
         }}
       >
         {next && (
-          <span style={{ ...numberStyle(input.look, 150 * u), lineHeight: 1, letterSpacing: '0.02em', textTransform: 'uppercase', color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+          <span style={{ ...numberStyle(input.look, 150 * u), lineHeight: 1, letterSpacing: '0.02em', textTransform: 'uppercase', color: onColor(p.accent), whiteSpace: 'nowrap' }}>
             {next}
           </span>
         )}

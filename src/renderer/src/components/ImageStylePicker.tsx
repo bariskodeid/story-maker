@@ -55,6 +55,15 @@ const ICON: Record<string, LucideIcon> = {
  */
 const THUMBS = import.meta.glob('../assets/explainer-styles/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 
+/**
+ * Horizontal crop focus for thumbnails whose subject is off-centre. Sources are 640x358 shown in square tiles, so the
+ * default centred crop cut the cup off lineart and the gear off icon3d; the originals are gone, so we shift the crop.
+ */
+const THUMB_FOCUS: Record<string, string> = {
+  lineart: '20% 50%',
+  icon3d: '82% 50%'
+}
+
 export function explainerStyleThumb(id: string): string | null {
   return THUMBS[`../assets/explainer-styles/${id}.webp`] ?? null
 }
@@ -79,7 +88,7 @@ export function ImageStylePicker({ value, onChange, columns = 3 }: { value: stri
           >
             {thumb ? (
               <span className="block aspect-square w-full overflow-hidden rounded-lg border border-line">
-                <img src={thumb} alt="" draggable={false} data-style-thumb={s.id} className="size-full object-cover" />
+                <img src={thumb} alt="" draggable={false} data-style-thumb={s.id} className="size-full object-cover" style={{ objectPosition: THUMB_FOCUS[s.id] }} />
               </span>
             ) : (
               <span className="flex aspect-square w-full items-center justify-center rounded-lg border border-line" style={{ background: s.swatch, color: s.ink }}>

@@ -10,7 +10,7 @@ Cara menaikkan versi ada di [docs/pengembangan.md](docs/pengembangan.md#versi-da
 
 ### Ditambahkan
 - **Delapan gaya gambar AI baru untuk video penjelasan** (peta kuno, ukiran ensiklopedia, lukisan sejarah, relief candi,
-  diagram buku teks, mikroskop, kosmos, sketsa penemu), **palet Perkamen dan Laboratorium/Kosmos** di tiap template,
+  diagram buku pelajaran, mikroskopis, luar angkasa, sketsa penemu), **palet Perkamen dan Laboratorium/Kosmos** di tiap template,
   dan **thumbnail contoh** di pemilih gaya gambar AI supaya kamu bisa melihat hasil tiap gaya sebelum memilih.
 - **Tombol Magic di kolom prompt**: bantuan LLM aktif untuk menulis ide cerita, topik video penjelasan, premis seri,
   sinopsis episode, penampilan pemeran, prompt visual, arahan gerak video, dan gambar adegan penjelasan. Pilih
