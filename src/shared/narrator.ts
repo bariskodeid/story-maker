@@ -49,15 +49,22 @@ const ABBREVIATIONS = new Set([
   'hlm', 'jl', 'tn', 'ny', 'sdr', 'kec', 'kab', 'dkk', 'tsb', 'cth', 'e.g', 'i.e'
 ])
 
-const CLOSERS = '"\'”’)\\]'
+// Closing quotes and brackets may trail the punctuation: Dia bilang "ya."
+const TERMINATOR = /[.!?…]["'”’)\]]*$/
+const STRONG_TERMINATOR = /[!?…]["'”’)\]]*$/
+const TRAILING_CLOSERS = /["'”’)\]]*$/
+const LEADING_OPENERS = /^[("“‘']+/
+const LINE_BREAK = /\r?\n/
+const WHITESPACE = /\s+/
+const ELLIPSIS_DOTS = /\.\.[^.]*$/
+const LONE_LETTER = /^\p{L}$/u
 
 function endsSentence(token: string): boolean {
-  const tail = new RegExp(`[.!?…][${CLOSERS}]*$`)
-  if (!tail.test(token)) return false
-  if (new RegExp(`[!?…][${CLOSERS}]*$`).test(token) || /\.\.[^.]*$/.test(token)) return true
-  const bare = token.replace(new RegExp(`[${CLOSERS}]*$`), '').replace(/\.$/, '').replace(/^[("“‘']+/, '').toLowerCase()
+  if (!TERMINATOR.test(token)) return false
+  if (STRONG_TERMINATOR.test(token) || ELLIPSIS_DOTS.test(token)) return true
+  const bare = token.replace(TRAILING_CLOSERS, '').replace(/\.$/, '').replace(LEADING_OPENERS, '').toLowerCase()
   // A lone letter is an initial ("A. Rahman"), not the end of a thought.
-  return !(ABBREVIATIONS.has(bare) || /^\p{L}$/u.test(bare))
+  return !(ABBREVIATIONS.has(bare) || LONE_LETTER.test(bare))
 }
 
 /**
@@ -66,9 +73,9 @@ function endsSentence(token: string): boolean {
  */
 export function splitSentences(text: string): string[] {
   const out: string[] = []
-  for (const line of text.split(/\r?\n/)) {
+  for (const line of text.split(LINE_BREAK)) {
     let cur: string[] = []
-    for (const token of stripVoiceTags(line).split(/\s+/).filter(Boolean)) {
+    for (const token of stripVoiceTags(line).split(WHITESPACE).filter(Boolean)) {
       cur.push(token)
       if (endsSentence(token)) {
         out.push(cur.join(' '))
@@ -89,7 +96,7 @@ export function sentenceSpans(text: string, words: WordTiming[]): { start: numbe
   let at = 0
   return splitSentences(text).map((s) => {
     const start = Math.min(at, words.length)
-    at += s.split(/\s+/).filter(Boolean).length
+    at += s.split(WHITESPACE).filter(Boolean).length
     return { start, end: Math.min(at, words.length) }
   })
 }
@@ -118,31 +125,64 @@ const BOUNCE_PERIOD_SEC = 0.3
 const BREATH = 0.01
 const BREATH_PERIOD_SEC = 3.5
 
-/** Expression and mouth inside one clip at absolute time t, or null when t is outside its speech. */
-function clipState(c: NarratorTrackClip, t: number): { expression: NarratorExpression; open: boolean } | null {
-  if (c.words.length === 0) return null
-  const rel = t - c.startSec
-  const last = c.words[c.words.length - 1]
-  if (rel < c.words[0].start || rel >= last.end) return null
-  // The latest word that has started decides the sentence, so the expression holds through pauses between words.
-  let idx = 0
-  for (let i = 0; i < c.words.length; i++) {
-    if (c.words[i].start <= rel) idx = i
-    else break
+/** A track with the per-clip work done once: sentence spans are what made per-frame lookups slow. */
+export interface PreparedNarratorTrack {
+  clips: { clip: NarratorTrackClip; spans: { start: number; end: number }[] }[]
+}
+
+export function prepareNarratorTrack(track: NarratorTrackClip[]): PreparedNarratorTrack {
+  return { clips: track.map((clip) => ({ clip, spans: sentenceSpans(clip.text, clip.words) })) }
+}
+
+// Callers pass the same track array every frame, so the prepared form is cached per array identity.
+const prepared = new WeakMap<NarratorTrackClip[], PreparedNarratorTrack>()
+
+function resolve(track: NarratorTrackClip[] | PreparedNarratorTrack): PreparedNarratorTrack {
+  if (!Array.isArray(track)) return track
+  let p = prepared.get(track)
+  if (!p) {
+    p = prepareNarratorTrack(track)
+    prepared.set(track, p)
   }
-  const sentence = sentenceSpans(c.text, c.words).findIndex((s) => idx >= s.start && idx < s.end)
-  const w = c.words[idx]
+  return p
+}
+
+/** Index of the last word that has started by `rel`, or 0 when none has. Words are sorted by start. */
+function latestStartedWord(words: WordTiming[], rel: number): number {
+  let lo = 0
+  let hi = words.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (words[mid].start <= rel) lo = mid
+    else hi = mid - 1
+  }
+  return lo
+}
+
+/** State inside one clip at absolute time t, or null when t is outside its speech. */
+function clipState(
+  c: PreparedNarratorTrack['clips'][number],
+  t: number
+): { expression: NarratorExpression; open: boolean; speaking: boolean } | null {
+  const words = c.clip.words
+  if (words.length === 0) return null
+  const rel = t - c.clip.startSec
+  if (rel < words[0].start || rel >= words[words.length - 1].end) return null
+  // The latest word that has started decides the sentence, so the expression holds through pauses between words.
+  const idx = latestStartedWord(words, rel)
+  const sentence = c.spans.findIndex((s) => idx >= s.start && idx < s.end)
+  const w = words[idx]
   const speaking = rel < w.end
   const open = speaking && (w.end - w.start > FLAP_MIN_SEC ? Math.floor((rel - w.start) / FLAP_PERIOD_SEC) % 2 === 0 : true)
-  return { expression: (sentence >= 0 ? c.cues[sentence] : undefined) ?? 'neutral', open }
+  return { expression: (sentence >= 0 ? c.clip.cues[sentence] : undefined) ?? 'neutral', open, speaking }
 }
 
 /** Which sprite shows at time t. Stateless: the same t always gives the same frame, in preview and in export. */
-export function narratorSpriteAt(track: NarratorTrackClip[], t: number): NarratorFrame {
+export function narratorSpriteAt(track: NarratorTrackClip[] | PreparedNarratorTrack, t: number): NarratorFrame {
   // Breathing runs even when silent so the narrator never looks frozen.
   const scale = 1 + BREATH * Math.sin((2 * Math.PI * t) / BREATH_PERIOD_SEC)
-  let state: { expression: NarratorExpression; open: boolean } | null = null
-  for (const c of track) {
+  let state: ReturnType<typeof clipState> = null
+  for (const c of resolve(track).clips) {
     state = clipState(c, t)
     if (state) break
   }
@@ -151,8 +191,8 @@ export function narratorSpriteAt(track: NarratorTrackClip[], t: number): Narrato
     expression: state.expression,
     mouth: state.open ? 'open' : 'closed',
     scale,
-    // Only bounce while a word is being said; a still narrator during pauses reads as listening.
-    offsetY: state.open ? -BOUNCE * Math.abs(Math.sin((Math.PI * t) / BOUNCE_PERIOD_SEC)) : 0
+    // Bounce follows speech, not the mouth flap, so it stays smooth while the mouth alternates inside a long word.
+    offsetY: state.speaking ? -BOUNCE * Math.abs(Math.sin((Math.PI * t) / BOUNCE_PERIOD_SEC)) : 0
   }
 }
 
@@ -181,14 +221,16 @@ export function narratorBox(
  * gaps; the last one ends exactly at totalSec.
  */
 export function narratorSegments(
-  track: NarratorTrackClip[],
+  track: NarratorTrackClip[] | PreparedNarratorTrack,
   totalSec: number,
   fps: number
 ): { sprite: string; startSec: number; endSec: number }[] {
+  if (!(totalSec > 0) || !(fps > 0)) return []
   const frames = Math.max(1, Math.ceil(totalSec * fps - 1e-9))
+  const prep = resolve(track)
   const out: { sprite: string; startSec: number; endSec: number }[] = []
   for (let i = 0; i < frames; i++) {
-    const f = narratorSpriteAt(track, i / fps)
+    const f = narratorSpriteAt(prep, i / fps)
     const sprite = `${f.expression}-${f.mouth}`
     const prev = out[out.length - 1]
     if (prev && prev.sprite === sprite) prev.endSec = (i + 1) / fps
