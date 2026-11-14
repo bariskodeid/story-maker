@@ -240,7 +240,8 @@ cincin bergaris yang melintasi huruf.
 Setiap template punya lima sampai enam palet (`palettes`, yang pertama bawaan; Tutorial, Perbandingan, dan Berita juga
 punya palet Korporat). Gaya gambar AI dipilih per proyek di
 `theme.imageStyleId` dari `EXPLAINER_IMAGE_STYLES` (flat, isometrik 3D, ikon 3D, line art, doodle, papercut, cat air,
-claymation, neon, blueprint teknik, foto realistis, foto sinematik); `auto` memakai gaya bawaan template di `explainerImagePrompt`.
+claymation, neon, blueprint teknik, foto realistis, foto sinematik, peta kuno, ukiran ensiklopedia, lukisan sejarah,
+relief candi, diagram buku teks, mikroskop, kosmos, sketsa penemu); `auto` memakai gaya bawaan template di `explainerImagePrompt`.
 Pemilihnya `components/ImageStylePicker.tsx`, dipasang di editor (Tampilan video) dan di panel gambar AI langkah
 Adegan. Gaya baru: tambahkan entri dengan `prompt` bahasa Inggris tanpa teks, lalu ikon di `ImageStylePicker`.
 

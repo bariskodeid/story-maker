@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, extname } from 'node:path'
 import { app, type BrowserWindow } from 'electron'
 import ffmpegStatic from 'ffmpeg-static'
 import { estimateWordTimings } from '@shared/captions'
@@ -9,7 +9,7 @@ import { anchorPoint } from '@shared/overlays'
 import { addSceneImage, exportProject } from './explainer'
 import { assetAbsPath, binPath } from './paths'
 import { probeDurationMs } from './services/audio'
-import { clipsOf, createProject, getBundle, insertAsset, listProjects, patchClip, replaceScenes, replaceStory, saveSnapshot, touchProject } from './repo'
+import { clipsOf, createProject, getAsset, getBundle, insertAsset, listProjects, patchClip, replaceScenes, replaceStory, saveSnapshot, touchProject } from './repo'
 import { recordCheck, setSecret } from './secrets'
 import { createEpisode, episodesOf, listSeries } from './series'
 import type { ApiProvider } from '@shared/types'
@@ -229,9 +229,11 @@ export function attachDevHarness(win: BrowserWindow): void {
   const planPath = process.env.STUDIO_CAPTURE_PLAN
   if (!planPath) return
   let plan: {
-    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos'
+    main?: 'seed' | 'seedExplainer' | 'seedEpisode' | 'sceneImage' | 'export' | 'key' | 'overlays' | 'speech' | 'videos' | 'copyClipImage'
     /** For main "seedEpisode": the series that gets a new episode (default: the most recently changed one). */
     seriesId?: string
+    /** For main "copyClipImage": copy the image of scene 1 of the latest project to this path (extension added). */
+    to?: string
     /** For main "sceneImage": put this image file on scene `clipIndex` of `projectId` (default: the latest project). */
     file?: string
     clipIndex?: number
@@ -263,6 +265,7 @@ export function attachDevHarness(win: BrowserWindow): void {
     return
   }
   let demoId: string | null = null
+  let lastCopiedAsset: string | null = null
   win.webContents.once('did-finish-load', async () => {
     const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
     await sleep(2000)
@@ -283,6 +286,16 @@ export function attachDevHarness(win: BrowserWindow): void {
           // A file dialog cannot be driven from the harness, so the picked file is handed over directly.
           const clip = clipsOf(step.projectId ?? listProjects()[0].id)[step.clipIndex ?? 0]
           if (clip) await addSceneImage(clip.id, step.file)
+        }
+        if (step.main === 'copyClipImage' && step.to) {
+          // Skips an image that was already copied, so a failed generation never saves the previous style's picture.
+          const p = listProjects()[0]
+          const asset = p ? getAsset(clipsOf(p.id)[0]?.imageAssetId ?? null) : null
+          if (p && asset && asset.id !== lastCopiedAsset) {
+            mkdirSync(dirname(step.to), { recursive: true })
+            copyFileSync(assetAbsPath(p.id, asset.localPath), step.to + extname(asset.localPath))
+            lastCopiedAsset = asset.id
+          }
         }
         if (step.main === 'overlays' && demoId) addDemoOverlays(demoId)
         if (step.main === 'videos' && demoId) addDemoVideos(demoId)
