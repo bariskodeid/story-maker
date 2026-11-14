@@ -156,6 +156,5 @@ pemilih bergaya grid thumbnail seperti pemilih gaya visual video cerita.
 10. **Area aman penjelasan:** saat narator aktif, lebar area konten (`Frame`) dikurangi di sisi narator di bagian bawah
     (atau seluruh tinggi di 16:9, dipilih pembangun setelah melihat frame), sehingga semua adegan — termasuk timeline
     dan grafik bagian 2 — otomatis menghindarinya. Caption digeser ke atas bila bertabrakan dengan kotak narator.
-11. **9:16:** didukung untuk kedua tipe; narator di sudut bawah, caption naik di atas kotak narator; ukuran dari lebar
-    × 0,8 (Kecil/Sedang/Besar = 0,26/0,34/0,42 dari lebar × 0,8... dihitung ulang pembangun agar tinggi narator di 9:16
-    tidak melebihi 30% tinggi video).
+11. **9:16:** didukung untuk kedua tipe; narator di sudut bawah, caption naik di atas kotak narator. Tinggi narator
+    di 9:16 = Kecil 18% / Sedang 23% / Besar 28% dari tinggi video (tidak lebih dari 30%), di 16:9 tetap 26/34/42%.
