@@ -115,6 +115,7 @@ function ServicePicker({
   placeholder,
   billing,
   sheets,
+  tagFilters,
   onOpenSettings,
   onPick
 }: {
@@ -128,6 +129,8 @@ function ServicePicker({
   billing: string
   /** How character sheets are used, or null when sheets are not shown (explainer pictures). */
   sheets: string | null
+  /** Tag chips above the list, e.g. to narrow 9Router's mixed list to the models it marks as image models. */
+  tagFilters?: string[]
   onOpenSettings?: () => void
   onPick: (id: string) => void
 }) {
@@ -141,6 +144,7 @@ function ServicePicker({
         fetchedAt={list.fetchedAt}
         onRefresh={ready ? list.refresh : undefined}
         allowCustom
+        tagFilters={tagFilters}
         placeholder={placeholder}
         footerNote="ketik ID lain kalau modelnya tidak ada di daftar"
         renderIcon={() => <ProviderLogo id={logo} size={30} />}
@@ -311,6 +315,7 @@ export function ModelSection({
               ready={nineRouterReady}
               notReady="9Router belum terhubung. Simpan alamat 9Router di Pengaturan › Layanan AI dan kunci dulu."
               placeholder="Pilih model gambar 9Router"
+              tagFilters={['Gambar']}
               billing="Tanpa kredit Higgsfield. Biayanya mengikuti akun yang kamu hubungkan di 9Router."
               sheets={
                 imageOnly

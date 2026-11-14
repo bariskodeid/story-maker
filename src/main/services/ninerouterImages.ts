@@ -115,32 +115,55 @@ export async function generateImage(model: string, prompt: string, aspect: Aspec
   return { bytes, ext: type.ext, url }
 }
 
+type ListedModel = { id?: string; owned_by?: string }
+
+async function listModels(path: string): Promise<ListedModel[]> {
+  const res = await request(path, { method: 'GET' }, LIST_TIMEOUT_MS)
+  return ((await res.json()) as { data?: ListedModel[] }).data ?? []
+}
+
+const byId = (a: ModelOption, b: ModelOption): number => a.id.localeCompare(b.id, 'en', { numeric: true })
+
 /**
- * Image models of the providers connected in 9Router (`GET /models/image`; `/models` lists chat models only).
- * The cache key starts with `models:ninerouter`, so saving or removing the 9Router connection clears it too.
+ * Models for the 9Router image picker. `GET /models/image` only knows the image models 9Router has catalogued, while
+ * accounts connected to it often draw with other models too (custom providers, OpenAI-compatible nodes, combos). So
+ * the picker shows the image list first, tagged "Gambar", followed by every other model from `GET /models`; a model
+ * that cannot draw answers with an error the app already explains. The cache key starts with `models:ninerouter`,
+ * so saving or removing the 9Router connection clears it too.
  */
 export async function listImageModels(refresh = false): Promise<ModelList> {
   const { base } = connection()
-  const key = `models:ninerouter-image:${base}`
+  const key = `models:ninerouter-image-all:${base}`
   const cached = readCache<ModelOption[]>(key)
   if (cached && !refresh && Date.now() - cached.updatedAt < STALE_MS) return { models: cached.value, fetchedAt: cached.updatedAt }
-  let data: { id?: string; owned_by?: string }[] = []
-  try {
-    const res = await request('/models/image', { method: 'GET' }, LIST_TIMEOUT_MS)
-    data = ((await res.json()) as { data?: typeof data }).data ?? []
-  } catch (e) {
-    // Older 9Router builds have no image list; the picker still takes a typed model id.
-    if (e instanceof ApiError && e.status === 404) return { models: [], fetchedAt: Date.now() }
-    throw e
-  }
-  const models: ModelOption[] = data
-    .filter((m): m is { id: string; owned_by?: string } => !!m?.id)
-    .map((m) => ({
-      id: m.id,
-      name: m.id,
-      description: m.owned_by === 'combo' ? 'Combo 9Router (fallback antar model)' : m.owned_by ? `Lewat penyedia ${m.owned_by} di 9Router` : undefined,
-      tags: m.owned_by === 'combo' ? ['Combo'] : []
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))
+  const [image, all] = await Promise.allSettled([listModels('/models/image'), listModels('/models')])
+  // Older 9Router builds have no image list (404); the full list still works there.
+  if (image.status === 'rejected' && !(image.reason instanceof ApiError && image.reason.status === 404)) throw image.reason
+  if (all.status === 'rejected' && image.status === 'rejected') throw all.reason
+  const imageData = image.status === 'fulfilled' ? image.value : []
+  const allData = all.status === 'fulfilled' ? all.value : []
+  const imageIds = new Set(imageData.map((m) => m?.id).filter(Boolean))
+  const option = (m: ListedModel & { id: string }, drawsImages: boolean): ModelOption => ({
+    id: m.id,
+    name: m.id,
+    description:
+      m.owned_by === 'combo'
+        ? 'Combo 9Router (fallback antar model)'
+        : drawsImages
+          ? m.owned_by
+            ? `Model gambar lewat penyedia ${m.owned_by} di 9Router`
+            : 'Model gambar di 9Router'
+          : `Model lain${m.owned_by ? ` lewat ${m.owned_by}` : ''} di 9Router, pastikan modelnya bisa membuat gambar`,
+    tags: [...(drawsImages ? ['Gambar'] : []), ...(m.owned_by === 'combo' ? ['Combo'] : [])]
+  })
+  const valid = (m: ListedModel): m is ListedModel & { id: string } => !!m?.id
+  const models: ModelOption[] = [
+    ...imageData.filter(valid).map((m) => option(m, true)).sort(byId),
+    ...allData
+      .filter(valid)
+      .filter((m) => !imageIds.has(m.id))
+      .map((m) => option(m, false))
+      .sort(byId)
+  ]
   return { models, fetchedAt: writeCache(key, models) }
 }
