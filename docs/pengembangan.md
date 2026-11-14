@@ -121,7 +121,7 @@ mencetak baris `SYSTEM:` dan `USER:` ke konsolnya. Variabel lingkungan: `PORT` (
 ```powershell
 npm run build                     # harness menjalankan folder out/, jadi build dulu setiap habis mengubah kode
 $env:PORT = "8787"; $env:DELAY_MS = "1500"
-Start-Process node scriptsake-llm.mjs
+Start-Process node scripts/fake-llm.mjs
 ```
 
 Lalu arahkan aplikasi ke server itu di langkah pertama plan harness (folder data sementara, jangan data asli):

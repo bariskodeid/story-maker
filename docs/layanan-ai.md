@@ -106,8 +106,8 @@ dibuang, dipotong ke batas kolom).
 - Hasil langsung dipasang ke kolom, toast sukses punya tombol **Urungkan**. Urungkan hanya berlaku selama kolom
   masih berisi teks Magic; kalau kamu sudah mengetik sesuatu, ketikanmu menang.
 - Kalau layar ditutup (atau proyek lain dibuka) sebelum LLM selesai, hasilnya dibuang dan tidak dipasang ke mana pun.
-- Kolom yang konteksnya dibaca dari database bisa memakai `before` untuk menyimpan perubahan dulu, supaya main
-  membaca versi terbaru.
+- Kolom yang konteksnya dibaca dari database (edit pemeran `characterLook`, `visualPrompt`, `videoPrompt`,
+  `sceneImagePrompt`) memakai `before` untuk menyimpan perubahan dulu, supaya main membaca versi terbaru.
 
 **Privasi.** Teks kolom dan konteks di atas dikirim ke penyedia LLM yang kamu pilih, sama seperti pembuatan naskah.
 Kunci API tetap hanya di `secrets.ts` (terenkripsi), dikirim ke layanannya sendiri, dan tidak pernah masuk log.
