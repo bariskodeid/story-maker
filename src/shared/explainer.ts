@@ -212,7 +212,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'anggur', name: 'Anggur', bg: '#160F29', surface: '#221A3F', ink: '#F5F0FF', muted: '#A79CC8', accent: '#FFC93C', accent2: '#FF6B9A', dark: true },
       { id: 'laut', name: 'Laut', bg: '#EEF4FB', surface: '#FFFFFF', ink: '#0F1B2D', muted: '#5A6B82', accent: '#0A84FF', accent2: '#00A47A', dark: false },
       { id: 'terminal', name: 'Terminal', bg: '#0F0B05', surface: '#1C150B', ink: '#FFE8C2', muted: '#B29B76', accent: '#FFB000', accent2: '#FF5F56', dark: true },
-      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false },
+      { id: 'perkamen', name: 'Perkamen', bg: '#F1E6CF', surface: '#FBF5E6', ink: '#2B1D12', muted: '#6B5337', accent: '#A8321E', accent2: '#1F6B73', dark: false },
+      { id: 'lab', name: 'Laboratorium', bg: '#EFF7FA', surface: '#FFFFFF', ink: '#0B2530', muted: '#4A6672', accent: '#007C89', accent2: '#3B5BDB', dark: false }
     ],
     fonts: ['poppins', 'archivo', 'bebas'],
     numberFont: 'mono',
@@ -238,7 +240,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'mint', name: 'Mint', bg: '#BDF0D3', surface: '#FFFFFF', ink: '#0F2419', muted: '#3C5A4A', accent: '#FF5C39', accent2: '#6B4BFF', dark: false },
       { id: 'arang', name: 'Arang', bg: '#171717', surface: '#262626', ink: '#FFF6E5', muted: '#B3AA99', accent: '#FFD23F', accent2: '#FF4D2E', dark: true },
       { id: 'persik', name: 'Persik', bg: '#FFD9C2', surface: '#FFFFFF', ink: '#2A1408', muted: '#6E4A35', accent: '#E63946', accent2: '#1D63F5', dark: false },
-      { id: 'lavender', name: 'Lavender', bg: '#D9CCFF', surface: '#FFFFFF', ink: '#1A1036', muted: '#4F4475', accent: '#FF4F87', accent2: '#00A884', dark: false }
+      { id: 'lavender', name: 'Lavender', bg: '#D9CCFF', surface: '#FFFFFF', ink: '#1A1036', muted: '#4F4475', accent: '#FF4F87', accent2: '#00A884', dark: false },
+      { id: 'perkamen', name: 'Perkamen', bg: '#EBCB8E', surface: '#FFF8E8', ink: '#2A1608', muted: '#5E4222', accent: '#B3261E', accent2: '#1F5F8B', dark: false },
+      { id: 'lab', name: 'Laboratorium', bg: '#A6E4E8', surface: '#FFFFFF', ink: '#062A33', muted: '#2F5560', accent: '#C2255C', accent2: '#3B4FD6', dark: false }
     ],
     fonts: ['archivo', 'poppins', 'lilita'],
     numberFont: 'anton',
@@ -263,7 +267,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'samudra', name: 'Samudra', bg: '#04182B', surface: '#0B2742', ink: '#E8F4FF', muted: '#86A8C7', accent: '#00D1FF', accent2: '#FFD166', dark: true },
       { id: 'arsip', name: 'Arsip', bg: '#EFE7DA', surface: '#FFFBF4', ink: '#1A1714', muted: '#6E6458', accent: '#D7261E', accent2: '#1F6FEB', dark: false },
       { id: 'magma', name: 'Magma', bg: '#140805', surface: '#24100A', ink: '#FFF1E8', muted: '#C2A08F', accent: '#FF6A2B', accent2: '#FFD166', dark: true },
-      { id: 'es', name: 'Es', bg: '#E9F1F5', surface: '#FFFFFF', ink: '#0B1D26', muted: '#557080', accent: '#0077B6', accent2: '#E63946', dark: false }
+      { id: 'es', name: 'Es', bg: '#E9F1F5', surface: '#FFFFFF', ink: '#0B1D26', muted: '#557080', accent: '#0077B6', accent2: '#E63946', dark: false },
+      { id: 'perkamen', name: 'Perkamen', bg: '#1C130C', surface: '#2B1D12', ink: '#F3E6CC', muted: '#B79F7C', accent: '#E0793A', accent2: '#E8C170', dark: true },
+      { id: 'kosmos', name: 'Kosmos', bg: '#060818', surface: '#101434', ink: '#E9ECFF', muted: '#8F98C9', accent: '#22D3EE', accent2: '#A78BFA', dark: true }
     ],
     fonts: ['bebas', 'anton', 'archivo'],
     numberFont: 'bebas',
@@ -288,7 +294,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'senja', name: 'Senja', bg: '#2A1B3D', surface: '#3A2652', ink: '#FCE9DA', muted: '#C9B2C9', accent: '#FF8C61', accent2: '#F4C95D', dark: true },
       { id: 'linen', name: 'Linen', bg: '#F3EDE2', surface: '#FFFFFF', ink: '#2B2522', muted: '#76695F', accent: '#B5452F', accent2: '#3F6E5A', dark: false },
       { id: 'fajar', name: 'Fajar', bg: '#FFF3E4', surface: '#FFFFFF', ink: '#2D1E14', muted: '#8A6E5A', accent: '#D9692A', accent2: '#B5466B', dark: false },
-      { id: 'tinta', name: 'Tinta', bg: '#0D0D0D', surface: '#1A1A1A', ink: '#F2F2F2', muted: '#9B9B9B', accent: '#E8E1D2', accent2: '#C9A86A', dark: true }
+      { id: 'tinta', name: 'Tinta', bg: '#0D0D0D', surface: '#1A1A1A', ink: '#F2F2F2', muted: '#9B9B9B', accent: '#E8E1D2', accent2: '#C9A86A', dark: true },
+      { id: 'perkamen', name: 'Perkamen', bg: '#2B1E14', surface: '#3B2A1C', ink: '#F4E8D0', muted: '#BCA580', accent: '#D9A24A', accent2: '#C2623F', dark: true },
+      { id: 'lab', name: 'Laboratorium', bg: '#EEF5F6', surface: '#FFFFFF', ink: '#14292F', muted: '#546B72', accent: '#0B7A83', accent2: '#4F6BD8', dark: false }
     ],
     fonts: ['dmserif', 'poppins', 'bebas'],
     numberFont: 'dmserif',
@@ -315,7 +323,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'neon', name: 'Neon', bg: '#0C110D', surface: '#162018', ink: '#EEF6EA', muted: '#91A38F', accent: '#B8F23A', accent2: '#B06CFF', dark: true },
       { id: 'kontras', name: 'Kontras', bg: '#FFFFFF', surface: '#F2F2F5', ink: '#111111', muted: '#5E5E66', accent: '#FF2E63', accent2: '#0BB8B5', dark: false },
       { id: 'retro', name: 'Retro', bg: '#1E1B2E', surface: '#2A2640', ink: '#FFF8E7', muted: '#B8B0CF', accent: '#FF9F1C', accent2: '#2EC4B6', dark: true },
-      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false },
+      { id: 'perkamen', name: 'Perkamen', bg: '#EFE2C6', surface: '#FBF3E0', ink: '#241710', muted: '#6A5238', accent: '#A3301F', accent2: '#1F6B73', dark: false },
+      { id: 'kosmos', name: 'Kosmos', bg: '#070B1C', surface: '#111733', ink: '#EEF0FF', muted: '#959DCB', accent: '#2DD4F0', accent2: '#B38CFF', dark: true }
     ],
     fonts: ['anton', 'bebas', 'archivo'],
     numberFont: 'anton',
@@ -343,7 +353,9 @@ export const EXPLAINER_TEMPLATES: ExplainerTemplate[] = [
       { id: 'malam', name: 'Malam', bg: '#101010', surface: '#1B1B1B', ink: '#FAFAFA', muted: '#A1A1A1', accent: '#FF5A1F', accent2: '#2CC5B4', dark: true },
       { id: 'pagi', name: 'Pagi', bg: '#F5F7FA', surface: '#FFFFFF', ink: '#0B1220', muted: '#5B6475', accent: '#0057FF', accent2: '#FFB800', dark: false },
       { id: 'pasar', name: 'Pasar', bg: '#071A12', surface: '#0E2A1E', ink: '#EAF7F0', muted: '#8FB3A2', accent: '#00C46A', accent2: '#F4C430', dark: true },
-      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false }
+      { id: 'korporat', name: 'Korporat', bg: '#F4F6FA', surface: '#FFFFFF', ink: '#0E1A2B', muted: '#5B6779', accent: '#1F4FD8', accent2: '#0EA5A4', dark: false },
+      { id: 'perkamen', name: 'Perkamen', bg: '#EADBBE', surface: '#FAF3E2', ink: '#231710', muted: '#67513A', accent: '#A62B1F', accent2: '#1E5A8C', dark: false },
+      { id: 'kosmos', name: 'Kosmos', bg: '#07111F', surface: '#0F1E36', ink: '#EAF2FF', muted: '#8FA3C4', accent: '#22D3EE', accent2: '#A78BFA', dark: true }
     ],
     fonts: ['archivo', 'anton', 'poppins'],
     numberFont: 'bebas',
