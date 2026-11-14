@@ -244,6 +244,11 @@ claymation, neon, blueprint teknik, foto realistis, foto sinematik); `auto` mema
 Pemilihnya `components/ImageStylePicker.tsx`, dipasang di editor (Tampilan video) dan di panel gambar AI langkah
 Adegan. Gaya baru: tambahkan entri dengan `prompt` bahasa Inggris tanpa teks, lalu ikon di `ImageStylePicker`.
 
+Tile pemilih menampilkan thumbnail persegi dari `src/renderer/src/assets/explainer-styles/<id>.webp`
+(`explainerStyleThumb`, dimuat lewat `import.meta.glob`, pola sama dengan `styleThumb` gaya cerita). Kalau filenya belum
+ada (mis. `auto`, atau gaya baru yang thumbnail-nya belum dibuat), tile kembali ke swatch warna + ikon, jadi tidak ada
+gambar pecah. Thumbnail dibuat dengan prompt gaya itu sendiri (`prompt` di `EXPLAINER_IMAGE_STYLES`) lewat 9Router.
+
 ### Menambah template
 
 1. Tambahkan entri di `EXPLAINER_TEMPLATES` (`src/shared/explainer.ts`): `id`, nama dan deskripsi, `sceneTypes`,

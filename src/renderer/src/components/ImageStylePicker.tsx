@@ -49,6 +49,16 @@ const ICON: Record<string, LucideIcon> = {
   inventor: Cog
 }
 
+/**
+ * Sample picture per style (assets/explainer-styles/<id>.webp). Missing files are normal, e.g. `auto` or a style added
+ * before its thumbnail was generated, so the tile falls back to its swatch and icon instead of showing a broken image.
+ */
+const THUMBS = import.meta.glob('../assets/explainer-styles/*.webp', { eager: true, import: 'default' }) as Record<string, string>
+
+export function explainerStyleThumb(id: string): string | null {
+  return THUMBS[`../assets/explainer-styles/${id}.webp`] ?? null
+}
+
 /** Square tiles for the look of an explainer's AI pictures; it applies to pictures made after the change. */
 export function ImageStylePicker({ value, onChange, columns = 3 }: { value: string | undefined; onChange: (id: string) => void; columns?: 3 | 4 | 6 }) {
   const current = getExplainerImageStyle(value).id
@@ -57,6 +67,7 @@ export function ImageStylePicker({ value, onChange, columns = 3 }: { value: stri
       {EXPLAINER_IMAGE_STYLES.map((s) => {
         const on = s.id === current
         const Icon = ICON[s.id] ?? Sparkles
+        const thumb = explainerStyleThumb(s.id)
         return (
           <button
             key={s.id}
@@ -66,9 +77,15 @@ export function ImageStylePicker({ value, onChange, columns = 3 }: { value: stri
             onClick={() => onChange(s.id)}
             className={cx('flex min-w-0 flex-col gap-1.5 rounded-xl border p-1.5 text-left', on ? 'border-line-3 bg-sun-soft' : 'border-line hover:border-line-3')}
           >
-            <span className="flex aspect-square w-full items-center justify-center rounded-lg border border-line" style={{ background: s.swatch, color: s.ink }}>
-              <Icon className="size-[38%]" strokeWidth={1.6} />
-            </span>
+            {thumb ? (
+              <span className="block aspect-square w-full overflow-hidden rounded-lg border border-line">
+                <img src={thumb} alt="" draggable={false} data-style-thumb={s.id} className="size-full object-cover" />
+              </span>
+            ) : (
+              <span className="flex aspect-square w-full items-center justify-center rounded-lg border border-line" style={{ background: s.swatch, color: s.ink }}>
+                <Icon className="size-[38%]" strokeWidth={1.6} />
+              </span>
+            )}
             <span className="truncate px-0.5 text-[12px] font-semibold leading-tight">{s.name}</span>
           </button>
         )
