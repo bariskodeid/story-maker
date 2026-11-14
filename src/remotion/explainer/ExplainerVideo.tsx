@@ -191,7 +191,10 @@ const SCENES: Record<SceneType, (p: SceneProps) => ReactNode> = {
   proscons: ProsConsScene,
   verdict: VerdictScene,
   headline: HeadlineScene,
-  points: PointsScene
+  points: PointsScene,
+  // Placeholder layouts: the real timeline and chart scenes replace these in a later step.
+  timeline: StepScene,
+  chart: StepScene
 }
 
 /** A scene's layout; the A-vs-B and news templates open with their own title layouts. */

@@ -21,6 +21,8 @@ export type SceneType =
   | 'verdict'
   | 'headline'
   | 'points'
+  | 'timeline'
+  | 'chart'
 /** Where a scene's picture comes from: none, a file the user adds (screenshots), or the AI image pipeline. */
 export type SceneImageMode = 'none' | 'upload' | 'ai'
 export type CodeKind = 'none' | 'code' | 'terminal'
@@ -33,6 +35,27 @@ export interface SceneHighlight {
   y: number
   w: number
   h: number
+}
+
+export type ChartKind = 'bar' | 'line' | 'donut' | 'bubble'
+
+export interface TimelinePoint {
+  /** Free short text ("1945", "abad ke-14", "65 jt SM"), never parsed as a date. */
+  date: string
+  title: string
+}
+
+export interface ChartItem {
+  label: string
+  value: number
+}
+
+/** "No chart" is an empty `items`, not a special kind. */
+export interface ExplainerChart {
+  kind: ChartKind
+  /** Short unit shown next to values ("°C", "juta km", "%"). */
+  unit: string
+  items: ChartItem[]
 }
 
 /**
@@ -70,9 +93,13 @@ export interface ExplainerScene {
   /** What the AI image shows (English), when imageMode is "ai". */
   imagePrompt: string
   highlight: SceneHighlight | null
+  /** Timeline scenes: the points, oldest first. */
+  timeline: TimelinePoint[]
+  /** Chart scenes: the data. */
+  chart: ExplainerChart
 }
 
-export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image' | 'values' | 'side' | 'list'
+export type SceneField = 'label' | 'heading' | 'body' | 'value' | 'icon' | 'code' | 'author' | 'compare' | 'image' | 'values' | 'side' | 'list' | 'timeline' | 'chart'
 
 export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[] = [
   { id: 'title', name: 'Judul', fields: ['label', 'heading', 'body', 'image'] },
@@ -86,7 +113,10 @@ export const SCENE_TYPES: { id: SceneType; name: string; fields: SceneField[] }[
   { id: 'proscons', name: 'Plus minus', fields: ['heading', 'side', 'compare'] },
   { id: 'verdict', name: 'Putusan', fields: ['label', 'heading', 'body', 'side', 'compare'] },
   { id: 'headline', name: 'Berita', fields: ['label', 'heading', 'body', 'value', 'author', 'image'] },
-  { id: 'points', name: 'Poin penting', fields: ['label', 'heading', 'list'] }
+  { id: 'points', name: 'Poin penting', fields: ['label', 'heading', 'list'] },
+  // No 'image' on these two: data stays readable and no AI image credit is spent on them.
+  { id: 'timeline', name: 'Linimasa', fields: ['label', 'heading', 'body', 'author', 'timeline'] },
+  { id: 'chart', name: 'Grafik', fields: ['label', 'heading', 'body', 'author', 'chart'] }
 ]
 
 export const sceneTypeName = (t: SceneType): string => SCENE_TYPES.find((s) => s.id === t)?.name ?? t
@@ -454,7 +484,53 @@ export function emptyScene(type: SceneType = 'step'): ExplainerScene {
     side: 'none',
     imageMode: 'none',
     imagePrompt: '',
-    highlight: null
+    highlight: null,
+    timeline: [],
+    chart: { kind: 'bar', unit: '', items: [] }
+  }
+}
+
+/** Items a chart kind can show; fewer than `min` is still drawn as is, more than `max` is cut. */
+export const CHART_LIMITS: Record<ChartKind, { min: number; max: number }> = {
+  bar: { min: 2, max: 8 },
+  line: { min: 3, max: 12 },
+  donut: { min: 2, max: 6 },
+  bubble: { min: 2, max: 6 }
+}
+export const TIMELINE_MAX = 6
+
+/**
+ * A chart value from a number or from typed text. With both separators the last one is the decimal mark
+ * ("1.234,5", "1,234.5"); a single separator that repeats is a thousands mark ("1,234,567"), one that appears
+ * once is a decimal mark ("3,5"), since people type decimals far more often than thousands here.
+ */
+export function chartNumber(raw: unknown): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw !== 'string') return null
+  let t = raw.replace(/[\s ]/g, '')
+  if (!/^[+-]?[\d.,]*\d[\d.,]*$/.test(t)) return null
+  const dot = t.lastIndexOf('.')
+  const comma = t.lastIndexOf(',')
+  if (dot >= 0 && comma >= 0) {
+    const dec = dot > comma ? '.' : ','
+    const grp = dec === '.' ? ',' : '.'
+    t = t.split(grp).join('').replace(dec, '.')
+  } else if (dot >= 0 || comma >= 0) {
+    const sep = dot >= 0 ? '.' : ','
+    t = t.split(sep).length > 2 ? t.split(sep).join('') : t.replace(sep, '.')
+  }
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+/** A chart value written for the project's language (thousands and decimal marks), at most 2 decimals. */
+export function formatChartValue(value: number, language: string): string {
+  const opts = { maximumFractionDigits: 2 }
+  try {
+    return new Intl.NumberFormat(language === 'id' ? 'id-ID' : language, opts).format(value)
+  } catch {
+    // An unknown language code must not break a render.
+    return new Intl.NumberFormat('en-US', opts).format(value)
   }
 }
 
@@ -466,6 +542,33 @@ const list = (v: unknown): string[] =>
     .filter(Boolean)
     .slice(0, 5)
 const clamp01 = (n: unknown): number => Math.min(1, Math.max(0, Number(n) || 0))
+
+function normalizeTimeline(v: unknown): TimelinePoint[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((p) => {
+      const o = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>
+      return { date: str(o.date, 24), title: str(o.title, 80) }
+    })
+    .filter((p) => p.date || p.title)
+    .slice(0, TIMELINE_MAX)
+}
+
+function normalizeChart(v: unknown): ExplainerChart {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  // The LLM schema says 'none' for scenes without a chart; the type only has the four real kinds.
+  const kind = oneOf(o.kind, ['bar', 'line', 'donut', 'bubble'] as const, 'bar')
+  // Slices and areas cannot be negative; bars and lines can (temperatures).
+  const nonNegative = kind === 'donut' || kind === 'bubble'
+  const items = (Array.isArray(o.items) ? o.items : [])
+    .map((it) => {
+      const r = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>
+      return { label: str(r.label, 40), value: chartNumber(r.value) }
+    })
+    .filter((it): it is ChartItem => !!it.label && it.value !== null && !(nonNegative && it.value < 0))
+    .slice(0, CHART_LIMITS[kind].max)
+  return { kind, unit: str(o.unit, 24), items }
+}
 
 /**
  * Brings a scene from the LLM, the database or an old build to the current shape. `allowed` limits the
@@ -500,9 +603,11 @@ export function normalizeScene(raw: unknown, allowed?: SceneType[], fallback?: S
     leftValue: str(r.leftValue, 24),
     rightValue: str(r.rightValue, 24),
     side: oneOf(r.side, ['none', 'left', 'right', 'both'] as const, 'none'),
-    imageMode: oneOf(r.imageMode, ['none', 'upload', 'ai'] as const, 'none'),
+    imageMode: type === 'timeline' || type === 'chart' ? 'none' : oneOf(r.imageMode, ['none', 'upload', 'ai'] as const, 'none'),
     imagePrompt: str(r.imagePrompt, 600),
-    highlight
+    highlight,
+    timeline: normalizeTimeline(r.timeline),
+    chart: normalizeChart(r.chart)
   }
 }
 
@@ -787,6 +892,8 @@ export type ExplainerInput = {
   captions: boolean
   caption: ExplainerCaption
   fontBase: string
+  /** Project language code, so chart numbers read the same in the Player and the export. */
+  language: string
   logo: string | null
   scenes: ExplainerSceneInput[]
   music: { src: string; volume: number; duck: boolean; trimBeforeFrames: number } | null
@@ -800,7 +907,7 @@ function fileUrl(base: string, localPath: string): string {
 }
 
 export function buildExplainerInput(args: {
-  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor'>
+  project: Pick<Project, 'title' | 'templateId' | 'theme' | 'aspectRatio' | 'editor' | 'language'>
   clips: Clip[]
   assets: AssetLookup
   assetBase: string
@@ -861,6 +968,7 @@ export function buildExplainerInput(args: {
     captions: args.captions ?? project.theme?.captions !== false,
     caption: resolveCaption(project.templateId, project.theme),
     fontBase: args.fontBase,
+    language: project.language,
     logo: logoAsset ? fileUrl(args.assetBase, logoAsset.localPath) : null,
     scenes,
     music: musicAsset
@@ -975,6 +1083,7 @@ export function sampleExplainerInput(templateId: ExplainerTemplateId, aspect: As
     captions: false,
     caption: resolveCaption(templateId, theme),
     fontBase,
+    language: 'id',
     logo: null,
     scenes,
     music: null
